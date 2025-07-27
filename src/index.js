@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 // In a real project, you would also import your main CSS file here, e.g.:
-// import './index.css'; 
+import './index.css'; 
 import App from './App'; // Assuming App.js is in the same directory
 
 /**
