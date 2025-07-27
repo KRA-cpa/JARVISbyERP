@@ -1,8 +1,3 @@
-//App.js 
-// consolidated the necessary components (App.js, Header.js, AdminPage.js, etc.)
-// into a single file for this fix,
-// as it seems the multi-file structure was causing some of these reference errors
-
 // src/App.js
 import React, { useState, useEffect } from 'react';
 
@@ -145,13 +140,53 @@ function LoginScreen() {
     setError(null);
     
     try {
+      // Configure Google Auth Provider with additional settings
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      
+      // Add required scopes
+      provider.addScope('email');
+      provider.addScope('profile');
+      
+      // Set custom parameters
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+
+      console.log('Attempting Google sign-in...');
+      const result = await signInWithPopup(auth, provider);
+      
+      console.log('Google sign-in successful:', result.user.email);
       // Auth state change will be handled by onAuthStateChanged listener
+      
     } catch (error) {
-      console.error('Google sign-in error:', error);
-      if (error.code !== 'auth/popup-closed-by-user') {
-        setError('Google sign-in failed. Please try again.');
+      console.error('Google sign-in error details:', {
+        code: error.code,
+        message: error.message,
+        details: error
+      });
+      
+      // Handle specific error cases
+      switch (error.code) {
+        case 'auth/popup-closed-by-user':
+          // User closed the popup - don't show error
+          break;
+        case 'auth/popup-blocked':
+          setError('Popup was blocked by your browser. Please enable popups and try again.');
+          break;
+        case 'auth/cancelled-popup-request':
+          // User cancelled - don't show error
+          break;
+        case 'auth/unauthorized-domain':
+          setError('This domain is not authorized for Google sign-in. Please contact support.');
+          break;
+        case 'auth/operation-not-allowed':
+          setError('Google sign-in is not enabled. Please contact support.');
+          break;
+        case 'auth/account-exists-with-different-credential':
+          setError('An account already exists with the same email address but different sign-in credentials.');
+          break;
+        default:
+          setError(`Google sign-in failed: ${error.message}. Please try again or use email sign-in.`);
       }
     } finally {
       setLoading(false);
