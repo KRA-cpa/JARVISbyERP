@@ -1,7 +1,7 @@
-// src/App.js
+// src/App.js - MVP Phase 1 Integration
 import React, { useState, useEffect } from 'react';
 
-// Firebase imports - using proper v9 modular SDK
+// Firebase imports
 import { 
   signInWithEmailAndPassword, 
   signInWithPopup, 
@@ -10,35 +10,34 @@ import {
   onAuthStateChanged,
   createUserWithEmailAndPassword 
 } from 'firebase/auth';
-
-// Import your Firebase configuration
 import { auth } from './config/firebase';
 
-// Debug: Log Firebase initialization
-console.log('Firebase Auth initialized:', auth);
-console.log('Auth config:', auth.app.options);
+// ============================================================================
+// PHASE 1: IMPORT SHARED COMPONENTS
+// ============================================================================
 
-// Import your API layer (when ready)
-// import api from './api/googleSheet';
+// Import Icons (replaces all inline SVGs)
+import {
+  Settings2,
+  PlusCircle,
+  LogOutIcon,
+  FilePlusIcon,
+  ArrowLeftIcon,
+  UserIcon,
+  CheckCircle2,
+  Trash2
+} from './components/shared/Icons';
 
-// Icons
-const Settings2 = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
-);
-const PlusCircle = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="16"/><line x1="8" x2="16" y1="12" y2="12"/></svg>
-);
-const LogOutIcon = (props) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
-);
-const FilePlusIcon = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="12" x2="12" y1="18" y2="12"/><line x1="9" x2="15" y1="15" y2="15"/></svg>
-);
-const ArrowLeftIcon = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
-);
+// Import ActionCommentModal for professional workflow
+import ActionCommentModal from './components/shared/ActionCommentModal';
 
-// Mock user roles mapping (in production, this would come from your Google Sheets backend)
+// Import CompanyEditor for admin functionality
+import CompanyEditor from './components/admin/CompanyEditor';
+
+// ============================================================================
+// MOCK DATA & CONFIGURATION
+// ============================================================================
+
 const USER_ROLES = {
   'ken.advento@gmail.com': { name: 'Ken Advento', role: 'admin', department: 'IT' },
   'admin@test.com': { name: 'Demo Admin', role: 'admin', department: 'Management' },
@@ -46,14 +45,12 @@ const USER_ROLES = {
   'user@test.com': { name: 'Demo User', role: 'user', department: 'Engineering' }
 };
 
-// Demo accounts configuration
 const DEMO_ACCOUNTS = [
   { email: 'admin@test.com', password: 'demo123', name: 'Demo Admin', role: 'admin', department: 'Management' },
   { email: 'manager@test.com', password: 'demo123', name: 'Demo Manager', role: 'manager', department: 'Operations' },
   { email: 'user@test.com', password: 'demo123', name: 'Demo User', role: 'user', department: 'Engineering' }
 ];
 
-// Mock data (replace with API calls to your Google Sheets backend)
 const MOCK_TICKETS = [
   { 
     id: 1, 
@@ -87,22 +84,65 @@ const MOCK_TICKETS = [
   }
 ];
 
-const MOCK_TICKET_TYPES = [
-  { id: 'tt_1', name: 'Purchase Request', description: 'Used for requesting new items.', isActive: true },
-  { id: 'tt_2', name: 'Leave Application', description: 'Standard employee leave requests.', isActive: false },
+const MOCK_COMPANIES = [
+  { id: 'comp_1', name: 'Main Corporation', code: 'MYCO' },
+  { id: 'comp_2', name: 'Subsidiary Inc.', code: 'SUB' },
 ];
 
 // ============================================================================
-// COMPONENTS
+// PHASE 1 ENHANCED COMPONENTS
 // ============================================================================
 
-// Demo Account Initialization
+// Enhanced TicketListItem (using imported component concept)
+function EnhancedTicketListItem({ ticket, onSelectTicket }) {
+  const getStatusInfo = (status) => {
+    const statusClasses = {
+      'Pending Manager Approval': 'bg-purple-100 text-purple-800',
+      'Pending Finance Review': 'bg-yellow-100 text-yellow-800',
+      'Closed': 'bg-green-100 text-green-800',
+      'Approved': 'bg-green-100 text-green-800',
+      'Rejected': 'bg-red-100 text-red-800',
+    };
+    return statusClasses[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  return (
+    <div 
+      onClick={() => onSelectTicket(ticket)}
+      className="p-4 hover:bg-gray-50 cursor-pointer transition-colors border-l-4 border-l-blue-500"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <UserIcon className="h-4 w-4 text-gray-400" />
+            <span className="text-sm font-medium text-blue-600 truncate">
+              {ticket.ticket_number}
+            </span>
+            <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusInfo(ticket.status)}`}>
+              {ticket.status}
+            </span>
+          </div>
+          <h3 className="font-semibold text-gray-900 mb-1">{ticket.title}</h3>
+          <p className="text-sm text-gray-500">
+            {ticket.type} • Created by {ticket.requester} • {new Date(ticket.created_at).toLocaleDateString()}
+          </p>
+        </div>
+        <div className="text-right ml-4">
+          <CheckCircle2 className="h-5 w-5 text-green-500" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// EXISTING COMPONENTS (Minor updates to use Icons)
+// ============================================================================
+
 const initializeDemoAccounts = async () => {
   console.log('🎯 Initializing demo accounts...');
-  
   for (const demo of DEMO_ACCOUNTS) {
     try {
-      // Try to create each demo account
       await createUserWithEmailAndPassword(auth, demo.email, demo.password);
       console.log(`✅ Created demo account: ${demo.email}`);
     } catch (error) {
@@ -113,9 +153,9 @@ const initializeDemoAccounts = async () => {
       }
     }
   }
-  
   console.log('🎯 Demo accounts initialization complete');
 };
+
 function DebugPanel() {
   const [debugInfo, setDebugInfo] = useState({});
   
@@ -148,6 +188,7 @@ function DebugPanel() {
     </div>
   );
 }
+
 function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -156,11 +197,6 @@ function LoginScreen() {
   const [isSignUp, setIsSignUp] = useState(false);
 
   const handleEmailLogin = async () => {
-    console.log('=== EMAIL LOGIN ATTEMPT ===');
-    console.log('Email:', email);
-    console.log('Password length:', password.length);
-    console.log('Auth object:', auth);
-    
     if (!email || !password) {
       setError('Please enter both email and password');
       return;
@@ -168,7 +204,6 @@ function LoginScreen() {
 
     if (!auth) {
       setError('Firebase Auth not initialized. Check console for errors.');
-      console.error('AUTH OBJECT IS NULL/UNDEFINED');
       return;
     }
 
@@ -176,26 +211,15 @@ function LoginScreen() {
     setError(null);
 
     try {
-      console.log('Attempting Firebase auth...');
       let userCredential;
-      
       if (isSignUp) {
-        console.log('Creating new user...');
         userCredential = await createUserWithEmailAndPassword(auth, email, password);
       } else {
-        console.log('Signing in existing user...');
         userCredential = await signInWithEmailAndPassword(auth, email, password);
       }
-      
       console.log('Auth SUCCESS:', userCredential.user.email);
-      // Auth state change will be handled by onAuthStateChanged listener
-      
     } catch (error) {
-      console.error('=== AUTHENTICATION ERROR ===');
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
-      console.error('Full error:', error);
-      
+      console.error('Authentication error:', error);
       switch (error.code) {
         case 'auth/user-not-found':
           setError('No account found with this email. Try signing up instead.');
@@ -212,9 +236,6 @@ function LoginScreen() {
         case 'auth/invalid-email':
           setError('Please enter a valid email address.');
           break;
-        case 'auth/too-many-requests':
-          setError('Too many failed attempts. Please try again later.');
-          break;
         default:
           setError(`Authentication failed: ${error.message}`);
       }
@@ -228,55 +249,20 @@ function LoginScreen() {
     setError(null);
     
     try {
-      // Configure Google Auth Provider with additional settings
       const provider = new GoogleAuthProvider();
-      
-      // Add required scopes
       provider.addScope('email');
       provider.addScope('profile');
-      
-      // Set custom parameters
-      provider.setCustomParameters({
-        prompt: 'select_account'
-      });
+      provider.setCustomParameters({ prompt: 'select_account' });
 
-      console.log('Attempting Google sign-in...');
       const result = await signInWithPopup(auth, provider);
-      
       console.log('Google sign-in successful:', result.user.email);
-      // Auth state change will be handled by onAuthStateChanged listener
-      
     } catch (error) {
-      console.error('Google sign-in error details:', {
-        code: error.code,
-        message: error.message,
-        details: error
-      });
-      
-      // Handle specific error cases
+      console.error('Google sign-in error:', error);
       switch (error.code) {
         case 'auth/popup-closed-by-user':
-          // User closed the popup - don't show error
-          break;
-        case 'auth/popup-blocked':
-          setError('Popup was blocked by your browser. Please enable popups and try again.');
-          break;
-        case 'auth/cancelled-popup-request':
-          // User cancelled - don't show error
           break;
         case 'auth/unauthorized-domain':
-          setError('🚨 Domain Authorization Required: Please add jarvis-by-erp.vercel.app to Firebase authorized domains. Check console for detailed instructions.');
-          console.error('🚨 DOMAIN NOT AUTHORIZED');
-          console.error('Current domain:', window.location.hostname);
-          console.error('Full URL:', window.location.href);
-          console.error('👉 SOLUTION: Go to Firebase Console → Authentication → Settings → Authorized domains');
-          console.error('👉 ADD: jarvis-by-erp.vercel.app');
-          break;
-        case 'auth/operation-not-allowed':
-          setError('Google sign-in is not enabled. Please contact support.');
-          break;
-        case 'auth/account-exists-with-different-credential':
-          setError('An account already exists with the same email address but different sign-in credentials.');
+          setError('🚨 Domain Authorization Required: Please add your domain to Firebase authorized domains.');
           break;
         default:
           setError(`Google sign-in failed: ${error.message}. Please try again or use email sign-in.`);
@@ -284,11 +270,6 @@ function LoginScreen() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDemoLogin = () => {
-    setEmail('admin@test.com');
-    setPassword('demo123');
   };
 
   return (
@@ -308,9 +289,7 @@ function LoginScreen() {
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
               type="email"
               value={email}
@@ -321,9 +300,7 @@ function LoginScreen() {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
               type="password"
               value={password}
@@ -337,7 +314,7 @@ function LoginScreen() {
           <button
             onClick={handleEmailLogin}
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
           >
             {loading ? 'Please wait...' : (isSignUp ? 'Sign Up' : 'Sign In')}
           </button>
@@ -363,7 +340,7 @@ function LoginScreen() {
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-50 disabled:bg-gray-100 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -375,7 +352,7 @@ function LoginScreen() {
           </button>
 
           <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-800 mb-3 font-medium">🎯 Demo Accounts (Auto-created if needed):</p>
+            <p className="text-sm text-blue-800 mb-3 font-medium">🎯 Demo Accounts:</p>
             <div className="space-y-2">
               {DEMO_ACCOUNTS.map((demo, index) => (
                 <button
@@ -385,26 +362,12 @@ function LoginScreen() {
                     setPassword(demo.password);
                     setError(null);
                   }}
-                  className="w-full text-left text-sm bg-white border border-blue-200 rounded px-3 py-2 hover:bg-blue-50 transition-colors"
+                  className="w-full text-left text-sm bg-white border border-blue-200 rounded px-3 py-2 hover:bg-blue-50"
                 >
                   <div className="font-medium text-blue-800">{demo.email}</div>
                   <div className="text-blue-600 text-xs">{demo.role} • {demo.department}</div>
                 </button>
               ))}
-            </div>
-            <p className="text-xs text-blue-600 mt-2">
-              💡 Click any account above to auto-fill credentials. These accounts are auto-created on first use.
-            </p>
-            <div className="mt-2 pt-2 border-t border-blue-200">
-              <button
-                onClick={() => {
-                  initializeDemoAccounts();
-                  setError('Demo accounts are being initialized... Please wait a moment then try logging in.');
-                }}
-                className="text-xs text-blue-600 hover:text-blue-800 underline"
-              >
-                🔄 Reinitialize demo accounts
-              </button>
             </div>
           </div>
         </div>
@@ -413,7 +376,6 @@ function LoginScreen() {
   );
 }
 
-// Loading Component
 function LoadingScreen({ message = "Loading..." }) {
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -425,7 +387,6 @@ function LoadingScreen({ message = "Loading..." }) {
   );
 }
 
-// Live Clock Component
 function LiveClock() {
   const [time, setTime] = useState(new Date());
   
@@ -434,7 +395,7 @@ function LiveClock() {
     return () => clearInterval(timer);
   }, []);
 
-  const TIMEZONE = 'Asia/Manila'; // UTC+8
+  const TIMEZONE = 'Asia/Manila';
 
   return (
     <div className="text-right">
@@ -458,7 +419,6 @@ function LiveClock() {
   );
 }
 
-// Header Component
 function Header({ user, currentView, setCurrentView, onSignOut }) {
   return (
     <header className="bg-white shadow-sm border-b">
@@ -498,18 +458,8 @@ function Header({ user, currentView, setCurrentView, onSignOut }) {
   );
 }
 
-// Ticket List Component
+// Enhanced TicketList using the new TicketListItem
 function TicketList({ tickets, onSelectTicket, onCreateTicket }) {
-  const getStatusColor = (status) => {
-    const colors = {
-      'Pending Manager Approval': 'bg-purple-100 text-purple-800',
-      'Pending Finance Review': 'bg-yellow-100 text-yellow-800',
-      'Approved': 'bg-green-100 text-green-800',
-      'Rejected': 'bg-red-100 text-red-800',
-    };
-    return colors[status] || 'bg-gray-100 text-gray-800';
-  };
-
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -526,33 +476,17 @@ function TicketList({ tickets, onSelectTicket, onCreateTicket }) {
       <div className="bg-white rounded-lg shadow overflow-hidden">
         {tickets.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            No tickets found. Create your first ticket!
+            <FilePlusIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+            <p>No tickets found. Create your first ticket!</p>
           </div>
         ) : (
           <div className="divide-y">
             {tickets.map(ticket => (
-              <div 
+              <EnhancedTicketListItem 
                 key={ticket.id} 
-                onClick={() => onSelectTicket(ticket)}
-                className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-              >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-medium text-blue-600">
-                        {ticket.ticket_number}
-                      </span>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(ticket.status)}`}>
-                        {ticket.status}
-                      </span>
-                    </div>
-                    <h3 className="font-semibold text-gray-900 mb-1">{ticket.title}</h3>
-                    <p className="text-sm text-gray-600">
-                      {ticket.type} • Created by {ticket.requester} • {new Date(ticket.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
+                ticket={ticket} 
+                onSelectTicket={onSelectTicket}
+              />
             ))}
           </div>
         )}
@@ -561,8 +495,23 @@ function TicketList({ tickets, onSelectTicket, onCreateTicket }) {
   );
 }
 
-// Ticket Detail Component
-function TicketDetail({ ticket, onBack }) {
+// Enhanced TicketDetail with ActionCommentModal integration
+function TicketDetail({ ticket, onBack, onTicketAction }) {
+  const [showActionModal, setShowActionModal] = useState(false);
+  const [selectedAction, setSelectedAction] = useState(null);
+
+  const handleActionClick = (action) => {
+    setSelectedAction(action);
+    setShowActionModal(true);
+  };
+
+  const handleActionConfirm = (comment) => {
+    console.log(`Action: ${selectedAction}, Comment: ${comment}`);
+    onTicketAction && onTicketAction(ticket.id, selectedAction, comment);
+    setShowActionModal(false);
+    setSelectedAction(null);
+  };
+
   return (
     <div>
       <button 
@@ -583,7 +532,7 @@ function TicketDetail({ ticket, onBack }) {
                 {ticket.type} • Created by {ticket.requester} • {new Date(ticket.created_at).toLocaleDateString()}
               </p>
             </div>
-            <span className={`px-3 py-1 text-sm font-medium rounded-full bg-purple-100 text-purple-800`}>
+            <span className="px-3 py-1 text-sm font-medium rounded-full bg-purple-100 text-purple-800">
               {ticket.status}
             </span>
           </div>
@@ -610,23 +559,40 @@ function TicketDetail({ ticket, onBack }) {
         
         <div className="p-6 bg-gray-50">
           <div className="flex gap-3">
-            <button className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+            <button 
+              onClick={() => handleActionClick('Approve')}
+              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2"
+            >
+              <CheckCircle2 className="h-4 w-4" />
               Approve
             </button>
-            <button className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600">
+            <button 
+              onClick={() => handleActionClick('Return')}
+              className="px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600"
+            >
               Return
             </button>
-            <button className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+            <button 
+              onClick={() => handleActionClick('Reject')}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            >
               Reject
             </button>
           </div>
         </div>
       </div>
+
+      {/* Action Comment Modal */}
+      <ActionCommentModal
+        action={selectedAction}
+        isOpen={showActionModal}
+        onClose={() => setShowActionModal(false)}
+        onConfirm={handleActionConfirm}
+      />
     </div>
   );
 }
 
-// Create Ticket Form Component
 function CreateTicketForm({ onBack, onSave, currentUser }) {
   const [formData, setFormData] = useState({
     title: '',
@@ -659,12 +625,6 @@ function CreateTicketForm({ onBack, onSave, currentUser }) {
       }
     };
 
-    // TODO: Replace with API call to your Google Sheets backend
-    // const response = await api.createTicket(newTicket);
-    // if (response.status === 'success') {
-    //   onSave(response.data);
-    // }
-    
     onSave(newTicket);
   };
 
@@ -679,14 +639,15 @@ function CreateTicketForm({ onBack, onSave, currentUser }) {
       </button>
       
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Create New Ticket</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+          <FilePlusIcon className="h-6 w-6" />
+          Create New Ticket
+        </h2>
         
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Title *
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Title *</label>
               <input
                 type="text"
                 value={formData.title}
@@ -697,9 +658,7 @@ function CreateTicketForm({ onBack, onSave, currentUser }) {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Type
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
               <select
                 value={formData.type}
                 onChange={(e) => setFormData({...formData, type: e.target.value})}
@@ -713,9 +672,7 @@ function CreateTicketForm({ onBack, onSave, currentUser }) {
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
             <textarea
               value={formData.description}
               onChange={(e) => setFormData({...formData, description: e.target.value})}
@@ -727,9 +684,7 @@ function CreateTicketForm({ onBack, onSave, currentUser }) {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Item Name
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
               <input
                 type="text"
                 value={formData.itemName}
@@ -740,9 +695,7 @@ function CreateTicketForm({ onBack, onSave, currentUser }) {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Estimated Value
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Estimated Value</label>
               <input
                 type="text"
                 value={formData.estimatedValue}
@@ -753,9 +706,7 @@ function CreateTicketForm({ onBack, onSave, currentUser }) {
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Department
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
               <select
                 value={formData.department}
                 onChange={(e) => setFormData({...formData, department: e.target.value})}
@@ -774,8 +725,9 @@ function CreateTicketForm({ onBack, onSave, currentUser }) {
           <div className="flex gap-3">
             <button 
               onClick={handleSubmit}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
             >
+              <CheckCircle2 className="h-4 w-4" />
               Create Ticket
             </button>
             <button 
@@ -791,11 +743,11 @@ function CreateTicketForm({ onBack, onSave, currentUser }) {
   );
 }
 
-// Admin Panel Component
-function AdminPanel() {
+// Enhanced AdminPanel with CompanyEditor integration
+function AdminPanel({ onNavigateToCompanyEditor, onNavigateToCompanyList }) {
   const [view, setView] = useState('main');
   
-  if (view === 'ticket-types') {
+  if (view === 'companies') {
     return (
       <div>
         <button 
@@ -807,19 +759,37 @@ function AdminPanel() {
         </button>
         
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">Ticket Types Management</h2>
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Settings2 className="h-6 w-6" />
+              Company Management
+            </h2>
+            <button 
+              onClick={() => setView('edit-company')}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            >
+              <PlusCircle className="h-4 w-4" />
+              Add Company
+            </button>
+          </div>
+          
           <div className="space-y-3">
-            {MOCK_TICKET_TYPES.map(type => (
-              <div key={type.id} className="flex justify-between items-center p-3 border rounded-lg">
+            {MOCK_COMPANIES.map(company => (
+              <div key={company.id} className="flex justify-between items-center p-4 border rounded-lg hover:bg-gray-50">
                 <div>
-                  <h3 className="font-semibold">{type.name}</h3>
-                  <p className="text-sm text-gray-600">{type.description}</p>
+                  <h3 className="font-semibold">{company.name}</h3>
+                  <p className="text-sm text-gray-600">Code: {company.code}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`px-2 py-1 text-xs rounded-full ${type.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                    {type.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                  <button className="text-blue-600 hover:text-blue-800">Edit</button>
+                  <button 
+                    onClick={() => setView('edit-company')}
+                    className="text-blue-600 hover:text-blue-800"
+                  >
+                    Edit
+                  </button>
+                  <button className="text-red-600 hover:text-red-800">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             ))}
@@ -828,10 +798,26 @@ function AdminPanel() {
       </div>
     );
   }
+
+  if (view === 'edit-company') {
+    return (
+      <CompanyEditor
+        company={null} // Pass null for new company, or existing company for edit
+        onBack={() => setView('companies')}
+        onSave={(companyData) => {
+          console.log('Saving company:', companyData);
+          setView('companies');
+        }}
+      />
+    );
+  }
   
   return (
     <div>
-      <h2 className="text-2xl font-bold text-gray-900 mb-6">Admin Panel</h2>
+      <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-2">
+        <Settings2 className="h-6 w-6" />
+        Admin Panel
+      </h2>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow">
@@ -840,10 +826,7 @@ function AdminPanel() {
             <h3 className="text-lg font-semibold">Ticket Types</h3>
           </div>
           <p className="text-gray-600 mb-4">Manage available ticket types and their workflows</p>
-          <button 
-            onClick={() => setView('ticket-types')}
-            className="text-blue-600 hover:text-blue-800 font-medium"
-          >
+          <button className="text-blue-600 hover:text-blue-800 font-medium">
             Configure →
           </button>
         </div>
@@ -854,14 +837,17 @@ function AdminPanel() {
             <h3 className="text-lg font-semibold">Companies</h3>
           </div>
           <p className="text-gray-600 mb-4">Manage companies and organizational structure</p>
-          <button className="text-blue-600 hover:text-blue-800 font-medium">
+          <button 
+            onClick={() => setView('companies')}
+            className="text-blue-600 hover:text-blue-800 font-medium"
+          >
             Configure →
           </button>
         </div>
         
         <div className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow">
           <div className="flex items-center mb-4">
-            <Settings2 className="h-8 w-8 text-blue-600 mr-3" />
+            <UserIcon className="h-8 w-8 text-blue-600 mr-3" />
             <h3 className="text-lg font-semibold">Roles & Permissions</h3>
           </div>
           <p className="text-gray-600 mb-4">Configure user roles and access controls</p>
@@ -894,7 +880,6 @@ export default function App() {
       setLoading(false);
       
       if (firebaseUser) {
-        // Create user profile from Firebase user + role mapping
         const email = firebaseUser.email;
         const roleInfo = USER_ROLES[email] || {
           name: firebaseUser.displayName || 'User',
@@ -912,9 +897,6 @@ export default function App() {
         };
         
         setUserProfile(profile);
-        
-        // TODO: Log the login to your backend API
-        // api.recordLogin({ userId: firebaseUser.uid, email: email });
         console.log('User logged in:', profile);
       } else {
         setUserProfile(null);
@@ -924,17 +906,15 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Initialize demo accounts when app starts
+  // Initialize demo accounts
   useEffect(() => {
     const initDemo = async () => {
       if (auth) {
-        // Wait a bit for Firebase to be fully ready
         setTimeout(() => {
           initializeDemoAccounts();
         }, 2000);
       }
     };
-    
     initDemo();
   }, []);
 
@@ -954,17 +934,26 @@ export default function App() {
     setShowCreateForm(false);
   };
 
-  // Show loading screen while checking auth state
+  const handleTicketAction = (ticketId, action, comment) => {
+    console.log(`Ticket ${ticketId}: ${action} - ${comment}`);
+    // Update ticket status based on action
+    setTickets(prev => prev.map(ticket => 
+      ticket.id === ticketId 
+        ? { ...ticket, status: action === 'Approve' ? 'Approved' : action === 'Reject' ? 'Rejected' : 'Returned' }
+        : ticket
+    ));
+    // Go back to list after action
+    setSelectedTicket(null);
+  };
+
   if (loading) {
     return <LoadingScreen message="Checking authentication..." />;
   }
 
-  // Show login screen if not authenticated
   if (!user || !userProfile) {
     return <LoginScreen />;
   }
 
-  // Main app for authenticated users
   return (
     <div className="min-h-screen bg-gray-100">
       <Header 
@@ -987,6 +976,7 @@ export default function App() {
               <TicketDetail 
                 ticket={selectedTicket}
                 onBack={() => setSelectedTicket(null)}
+                onTicketAction={handleTicketAction}
               />
             ) : (
               <TicketList 

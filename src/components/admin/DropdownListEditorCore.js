@@ -14,34 +14,7 @@ const Settings2 = (props) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
 );
 
-// --- Mock Data ---
-const MOCK_DROPDOWN_LISTS = [
-    { 
-        id: 'dd_1', 
-        name: 'Company Departments',
-        options: [
-            { label: 'Engineering', value: 'eng', parentValue: '' },
-            { label: 'Marketing', value: 'mktg', parentValue: '' },
-        ]
-    },
-    { 
-        id: 'dd_2', 
-        name: 'Asset Categories',
-        options: [
-            { label: 'Hardware', value: 'hardware', parentValue: '' },
-            { label: 'Software', value: 'software', parentValue: '' },
-        ]
-    },
-    { 
-        id: 'dd_3', 
-        name: 'Asset Subcategories (Dependent)',
-        options: [
-            { label: 'Laptop', value: 'laptop', parentValue: 'hardware' },
-            { label: 'Monitor', value: 'monitor', parentValue: 'hardware' },
-            { label: 'CRM License', value: 'crm-license', parentValue: 'software' },
-        ]
-    },
-];
+
 
 /**
  * =================================================================================
@@ -122,69 +95,4 @@ function DropdownListEditor({ dropdownList, onBack, onSave }) {
         </div>
     );
 }
-
-/**
- * =================================================================================
- * DropdownAdminPage (Demonstration Wrapper)
- * ---------------------------------------------------------------------------------
- * This component demonstrates how the DropdownListEditor would be used.
- * In the final application, this logic would be part of the main AdminPage.
- * =================================================================================
- */
-export default function DropdownAdminPage() {
-    const [dropdowns, setDropdowns] = useState(MOCK_DROPDOWN_LISTS);
-    const [editingDropdown, setEditingDropdown] = useState(null);
-    const [isCreating, setIsCreating] = useState(false);
-
-    const handleEdit = (dropdown) => {
-        // Find the full mock object to pass to the editor
-        const fullDropdownData = MOCK_DROPDOWN_LISTS.find(d => d.id === dropdown.id) || dropdown;
-        setEditingDropdown(fullDropdownData);
-    };
-
-    const handleCreate = () => {
-        setIsCreating(true);
-    };
-
-    const handleBack = () => {
-        setEditingDropdown(null);
-        setIsCreating(false);
-    };
-
-    const handleSave = (dropdownData) => {
-        console.log("Saving dropdown:", dropdownData);
-        // In a real app, you would call an API here to save the data.
-        if (dropdownData.id) {
-            setDropdowns(dropdowns.map(d => d.id === dropdownData.id ? dropdownData : d));
-        } else {
-            setDropdowns([...dropdowns, { ...dropdownData, id: `dd_${Date.now()}` }]);
-        }
-        handleBack();
-    };
-
-    if (editingDropdown || isCreating) {
-        return <DropdownListEditor dropdownList={editingDropdown} onBack={handleBack} onSave={handleSave} />;
-    }
-
-    return (
-        <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-gray-800 flex items-center"><Settings2 className="mr-3" /> Dropdown List Management</h2>
-                <button onClick={handleCreate} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 flex items-center">
-                    <PlusCircle className="h-5 w-5 mr-2"/> Add New Dropdown List
-                </button>
-            </div>
-            <div className="space-y-2">
-                {dropdowns.map(list => (
-                    <div key={list.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                        <p className="font-semibold">{list.name}</p>
-                        <div className="flex items-center gap-4">
-                            <button onClick={() => alert('Deleting...')} className="text-sm font-medium text-red-600 hover:text-red-900">Delete</button>
-                            <button onClick={() => handleEdit(list)} className="text-sm font-medium text-indigo-600 hover:text-indigo-900">Edit</button>
-                        </div>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-}
+export default DropdownListEditor;
