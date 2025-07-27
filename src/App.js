@@ -14,6 +14,10 @@ import {
 // Import your Firebase configuration
 import { auth } from './config/firebase';
 
+// Debug: Log Firebase initialization
+console.log('Firebase Auth initialized:', auth);
+console.log('Auth config:', auth.app.options);
+
 // Import your API layer (when ready)
 // import api from './api/googleSheet';
 
@@ -37,10 +41,17 @@ const ArrowLeftIcon = (props) => (
 // Mock user roles mapping (in production, this would come from your Google Sheets backend)
 const USER_ROLES = {
   'ken.advento@gmail.com': { name: 'Ken Advento', role: 'admin', department: 'IT' },
-  'admin@test.com': { name: 'Admin User', role: 'admin', department: 'Management' },
-  'manager@test.com': { name: 'Manager User', role: 'manager', department: 'Operations' },
-  'user@test.com': { name: 'Regular User', role: 'user', department: 'Engineering' }
+  'admin@test.com': { name: 'Demo Admin', role: 'admin', department: 'Management' },
+  'manager@test.com': { name: 'Demo Manager', role: 'manager', department: 'Operations' },
+  'user@test.com': { name: 'Demo User', role: 'user', department: 'Engineering' }
 };
+
+// Demo accounts configuration
+const DEMO_ACCOUNTS = [
+  { email: 'admin@test.com', password: 'demo123', name: 'Demo Admin', role: 'admin', department: 'Management' },
+  { email: 'manager@test.com', password: 'demo123', name: 'Demo Manager', role: 'manager', department: 'Operations' },
+  { email: 'user@test.com', password: 'demo123', name: 'Demo User', role: 'user', department: 'Engineering' }
+];
 
 // Mock data (replace with API calls to your Google Sheets backend)
 const MOCK_TICKETS = [
@@ -85,7 +96,58 @@ const MOCK_TICKET_TYPES = [
 // COMPONENTS
 // ============================================================================
 
-// Login Component
+// Demo Account Initialization
+const initializeDemoAccounts = async () => {
+  console.log('🎯 Initializing demo accounts...');
+  
+  for (const demo of DEMO_ACCOUNTS) {
+    try {
+      // Try to create each demo account
+      await createUserWithEmailAndPassword(auth, demo.email, demo.password);
+      console.log(`✅ Created demo account: ${demo.email}`);
+    } catch (error) {
+      if (error.code === 'auth/email-already-in-use') {
+        console.log(`✅ Demo account already exists: ${demo.email}`);
+      } else {
+        console.log(`❌ Failed to create demo account ${demo.email}:`, error.code);
+      }
+    }
+  }
+  
+  console.log('🎯 Demo accounts initialization complete');
+};
+function DebugPanel() {
+  const [debugInfo, setDebugInfo] = useState({});
+  
+  useEffect(() => {
+    try {
+      setDebugInfo({
+        authExists: !!auth,
+        authApp: auth?.app?.name || 'No app',
+        authConfig: auth?.app?.options || 'No config',
+        currentUser: auth?.currentUser?.email || 'None',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      setDebugInfo({
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, []);
+  
+  return (
+    <div className="fixed top-4 right-4 bg-red-900 text-white p-3 text-xs rounded-lg max-w-sm z-50">
+      <h4 className="font-bold mb-2">🔍 Firebase Debug Info</h4>
+      <pre className="whitespace-pre-wrap overflow-auto max-h-40">
+        {JSON.stringify(debugInfo, null, 2)}
+      </pre>
+      <div className="mt-2 pt-2 border-t border-red-700">
+        <p className="text-red-200">Check browser console for detailed logs</p>
+      </div>
+    </div>
+  );
+}
 function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -94,8 +156,19 @@ function LoginScreen() {
   const [isSignUp, setIsSignUp] = useState(false);
 
   const handleEmailLogin = async () => {
+    console.log('=== EMAIL LOGIN ATTEMPT ===');
+    console.log('Email:', email);
+    console.log('Password length:', password.length);
+    console.log('Auth object:', auth);
+    
     if (!email || !password) {
       setError('Please enter both email and password');
+      return;
+    }
+
+    if (!auth) {
+      setError('Firebase Auth not initialized. Check console for errors.');
+      console.error('AUTH OBJECT IS NULL/UNDEFINED');
       return;
     }
 
@@ -103,14 +176,26 @@ function LoginScreen() {
     setError(null);
 
     try {
+      console.log('Attempting Firebase auth...');
+      let userCredential;
+      
       if (isSignUp) {
-        await createUserWithEmailAndPassword(auth, email, password);
+        console.log('Creating new user...');
+        userCredential = await createUserWithEmailAndPassword(auth, email, password);
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        console.log('Signing in existing user...');
+        userCredential = await signInWithEmailAndPassword(auth, email, password);
       }
+      
+      console.log('Auth SUCCESS:', userCredential.user.email);
       // Auth state change will be handled by onAuthStateChanged listener
+      
     } catch (error) {
-      console.error('Authentication error:', error);
+      console.error('=== AUTHENTICATION ERROR ===');
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+      console.error('Full error:', error);
+      
       switch (error.code) {
         case 'auth/user-not-found':
           setError('No account found with this email. Try signing up instead.');
@@ -127,8 +212,11 @@ function LoginScreen() {
         case 'auth/invalid-email':
           setError('Please enter a valid email address.');
           break;
+        case 'auth/too-many-requests':
+          setError('Too many failed attempts. Please try again later.');
+          break;
         default:
-          setError('Authentication failed. Please try again.');
+          setError(`Authentication failed: ${error.message}`);
       }
     } finally {
       setLoading(false);
@@ -177,7 +265,12 @@ function LoginScreen() {
           // User cancelled - don't show error
           break;
         case 'auth/unauthorized-domain':
-          setError('This domain is not authorized for Google sign-in. Please contact support.');
+          setError('🚨 Domain Authorization Required: Please add jarvis-by-erp.vercel.app to Firebase authorized domains. Check console for detailed instructions.');
+          console.error('🚨 DOMAIN NOT AUTHORIZED');
+          console.error('Current domain:', window.location.hostname);
+          console.error('Full URL:', window.location.href);
+          console.error('👉 SOLUTION: Go to Firebase Console → Authentication → Settings → Authorized domains');
+          console.error('👉 ADD: jarvis-by-erp.vercel.app');
           break;
         case 'auth/operation-not-allowed':
           setError('Google sign-in is not enabled. Please contact support.');
@@ -200,6 +293,7 @@ function LoginScreen() {
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
+      <DebugPanel />
       <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Ticketing System</h1>
@@ -281,13 +375,37 @@ function LoginScreen() {
           </button>
 
           <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-800 mb-2">Demo Account:</p>
-            <button
-              onClick={handleDemoLogin}
-              className="text-blue-600 hover:text-blue-800 text-sm underline"
-            >
-              Fill demo credentials (admin@test.com)
-            </button>
+            <p className="text-sm text-blue-800 mb-3 font-medium">🎯 Demo Accounts (Auto-created if needed):</p>
+            <div className="space-y-2">
+              {DEMO_ACCOUNTS.map((demo, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    setEmail(demo.email);
+                    setPassword(demo.password);
+                    setError(null);
+                  }}
+                  className="w-full text-left text-sm bg-white border border-blue-200 rounded px-3 py-2 hover:bg-blue-50 transition-colors"
+                >
+                  <div className="font-medium text-blue-800">{demo.email}</div>
+                  <div className="text-blue-600 text-xs">{demo.role} • {demo.department}</div>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-blue-600 mt-2">
+              💡 Click any account above to auto-fill credentials. These accounts are auto-created on first use.
+            </p>
+            <div className="mt-2 pt-2 border-t border-blue-200">
+              <button
+                onClick={() => {
+                  initializeDemoAccounts();
+                  setError('Demo accounts are being initialized... Please wait a moment then try logging in.');
+                }}
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+              >
+                🔄 Reinitialize demo accounts
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -804,6 +922,20 @@ export default function App() {
     });
 
     return () => unsubscribe();
+  }, []);
+
+  // Initialize demo accounts when app starts
+  useEffect(() => {
+    const initDemo = async () => {
+      if (auth) {
+        // Wait a bit for Firebase to be fully ready
+        setTimeout(() => {
+          initializeDemoAccounts();
+        }, 2000);
+      }
+    };
+    
+    initDemo();
   }, []);
 
   const handleSignOut = async () => {
