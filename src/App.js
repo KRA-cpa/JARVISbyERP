@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
+import { getAnalytics } from "firebase/analytics";
 import { getAuth, onAuthStateChanged, signInWithCustomToken, signInAnonymously, signOut } from 'firebase/auth';
 
 // --- Helper Icons (components/shared/Icons.js) ---
@@ -20,18 +21,18 @@ const PlusCircle = (props) => (
 
 
 // --- Firebase & Config ---
-const firebaseConfig = typeof __firebase_config !== 'undefined' 
-    ? JSON.parse(__firebase_config)
-    : {
-        apiKey: "YOUR_API_KEY", // Replace with your actual Firebase config
-        authDomain: "YOUR_AUTH_DOMAIN",
-        projectId: "YOUR_PROJECT_ID",
-        storageBucket: "YOUR_STORAGE_BUCKET",
-        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-        appId: "YOUR_APP_ID"
-      };
+const firebaseConfig = {
+  apiKey: "AIzaSyDXYPPI-FifYgN39SP7yt96BMT5co0mYlw",
+  authDomain: "jarvisbyerp.firebaseapp.com",
+  projectId: "jarvisbyerp",
+  storageBucket: "jarvisbyerp.firebasestorage.app",
+  messagingSenderId: "3188796143",
+  appId: "1:3188796143:web:850ba08114a59b6158c91a",
+  measurementId: "G-523E3W5ZMN"
+};
 
 const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 const auth = getAuth(app);
 
 const TIMEZONE = 'Asia/Manila';
