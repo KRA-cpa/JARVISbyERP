@@ -15,16 +15,18 @@ import { getAuth } from 'firebase/auth';
 // This configuration object is a placeholder. In a real deployment environment
 // (like the one this app is designed for), these values are provided securely
 // by the hosting platform.
+// --- Firebase & Config ---
 const firebaseConfig = typeof __firebase_config !== 'undefined' 
     ? JSON.parse(__firebase_config)
     : {
-        apiKey: "YOUR_API_KEY",
-        authDomain: "YOUR_AUTH_DOMAIN",
-        projectId: "YOUR_PROJECT_ID",
-        storageBucket: "YOUR_STORAGE_BUCKET",
-        messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-        appId: "YOUR_APP_ID"
-      };
+  apiKey: "AIzaSyDXYPPI-FifYgN39SP7yt96BMT5co0mYlw",
+  authDomain: "jarvisbyerp.firebaseapp.com",
+  projectId: "jarvisbyerp",
+  storageBucket: "jarvisbyerp.firebasestorage.app",
+  messagingSenderId: "3188796143",
+  appId: "1:3188796143:web:850ba08114a59b6158c91a",
+  measurementId: "G-523E3W5ZMN"
+};
 
 // Initialize the Firebase app with the provided configuration.
 const app = initializeApp(firebaseConfig);
