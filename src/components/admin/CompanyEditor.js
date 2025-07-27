@@ -12,9 +12,9 @@ const Settings2 = (props) => (
 );
 
 // --- Mock Data ---
-const MOCK_COMPANIES = [
-    { id: 'comp_1', name: 'Main Corporation', code: 'MYCO' },
-    { id: 'comp_2', name: 'Subsidiary Inc.', code: 'SUB' },
+//const MOCK_COMPANIES = [
+//    { id: 'comp_1', name: 'Main Corporation', code: 'MYCO' },
+ //   { id: 'comp_2', name: 'Subsidiary Inc.', code: 'SUB' },
 ];
 
 /**
