@@ -195,13 +195,11 @@ export default function App() {
             } else {
                 setCurrentUser(null);
                 try {
-                    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; 
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) { console.error("Auto sign-in failed:", error); }
+                    // This is the corrected, simplified sign-in logic for a standard environment.
+                    await signInAnonymously(auth);
+                } catch (error) { 
+                    console.error("Anonymous sign-in failed:", error); 
+                }
             }
         });
         return () => unsubscribe();
