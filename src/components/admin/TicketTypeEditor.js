@@ -1,372 +1,498 @@
+// Phase 3: Advanced Ticket Type Editor Components
+// These components integrate into your existing Phase 2 App.js
+
 import React, { useState } from 'react';
+import {
+  Settings2,
+  PlusCircle,
+  ArrowLeftIcon,
+  Trash2,
+  CheckCircle2
+} from '../shared/Icons';
 
-// --- Helper Icons (Inlined for portability) ---
-const PlusCircle = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="16"/><line x1="8" x2="16" y1="12" y2="12"/></svg>
-);
-const Trash2 = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
-);
-const ArrowLeftIcon = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
-);
-const Settings2 = (props) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
-);
+// ============================================================================
+// EXTRACTED MODULAR COMPONENTS FROM TicketTypeEditor.js
+// ============================================================================
 
-
-/**
- * =================================================================================
- * TicketTypeEditor Component
- * ---------------------------------------------------------------------------------
- * This component provides a comprehensive UI for creating and editing all aspects
- * of a ticket type, including its fields, rules, and workflow steps.
- * =================================================================================
- */
-function TicketTypeEditor({ ticketType, onBack, onSave }) {
-    const [typeData, setTypeData] = useState(ticketType);
-
-    // --- Generic Handlers ---
-    const handleTopLevelChange = (field, value) => {
-        setTypeData(prev => ({ ...prev, [field]: value }));
-    };
-
-    const handleNestedChange = (section, field, value) => {
-        setTypeData(prev => ({ ...prev, [section]: { ...prev[section], [field]: value } }));
-    };
-
-    // --- Custom Field Handlers ---
-    const handleFieldUpdate = (index, field, value) => {
-        setTypeData(prev => {
-            const newFields = [...(prev.fields || [])];
-            newFields[index] = { ...newFields[index], [field]: value };
-            return { ...prev, fields: newFields };
-        });
-    };
-
-    const addField = () => {
-        const newField = { 
-            name: `newField${Date.now()}`, 
-            label: 'New Field', 
-            type: 'text', 
-            required: false, 
-            isNew: true // Flag to show it can be deleted
-        };
-        setTypeData(prev => ({ ...prev, fields: [...(prev.fields || []), newField] }));
-    };
-
-    const removeField = (index) => {
-        setTypeData(prev => ({ ...prev, fields: prev.fields.filter((_, i) => i !== index) }));
-    };
-
-    // --- Workflow Step Handlers ---
-    const handleWorkflowStepUpdate = (index, field, value, subField = null) => {
-        setTypeData(prev => {
-            const newSteps = [...(prev.workflow.steps || [])];
-            if (subField) {
-                newSteps[index][field] = { ...newSteps[index][field], [subField]: value };
-            } else {
-                newSteps[index][field] = value;
-            }
-            return { ...prev, workflow: { ...prev.workflow, steps: newSteps } };
-        });
-    };
-
-    const addWorkflowStep = () => {
-        const stepCount = typeData.workflow.steps.length;
-        const newStep = {
-            name: `For Approval of Approver (${stepCount + 1})`,
-            status: 'Pending Approval',
-            step_type: 'approval',
-            approvers: { roles: [], required: 'any' },
-            sla: { duration: 1, unit: 'days', excludeWeekends: true }
-        };
-        setTypeData(prev => ({ ...prev, workflow: { ...prev.workflow, steps: [...(prev.workflow.steps || []), newStep] } }));
-    };
-
-    const removeWorkflowStep = (index) => {
-        setTypeData(prev => ({
-            ...prev,
-            workflow: { ...prev.workflow, steps: prev.workflow.steps.filter((_, i) => i !== index) }
-        }));
-    };
-
-    return (
-        <div className="space-y-8">
-            <div className="flex justify-between items-center">
-                <h2 className="text-3xl font-bold text-gray-800">
-                    {typeData.id ? `Editing: ${typeData.name}` : 'Create New Ticket Type'}
-                </h2>
-                <div className="flex gap-4">
-                    <button onClick={onBack} className="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 flex items-center"><ArrowLeftIcon className="h-4 w-4 mr-2"/> Back</button>
-                    <button onClick={() => onSave(typeData)} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">Save Changes</button>
-                </div>
-            </div>
-
-            {/* General Settings */}
-            <div className="bg-white p-6 rounded-lg shadow-md">
-                 <h3 className="text-xl font-semibold mb-4 border-b pb-2">General Settings</h3>
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Name</label>
-                        <input type="text" value={typeData.name} onChange={(e) => handleTopLevelChange('name', e.target.value)} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"/>
-                    </div>
-                     <div>
-                        <label className="block text-sm font-medium text-gray-700">Is Active (Visible to users)</label>
-                        <input type="checkbox" checked={typeData.isActive} onChange={(e) => handleTopLevelChange('isActive', e.target.checked)} className="mt-2 h-5 w-5 text-indigo-600"/>
-                    </div>
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700">Description</label>
-                        <textarea value={typeData.description} onChange={(e) => handleTopLevelChange('description', e.target.value)} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm" rows="3"></textarea>
-                    </div>
-                 </div>
-            </div>
-
-            {/* Submission & Action Rules */}
-            <div className="bg-white p-6 rounded-lg shadow-md">
-                 <h3 className="text-xl font-semibold mb-4 border-b pb-2">Submission & Action Rules</h3>
-                 <div>
-                    <label className="flex items-center">
-                        <input type="checkbox" checked={typeData.requireAttachmentOnCreate} onChange={(e) => handleTopLevelChange('requireAttachmentOnCreate', e.target.checked)} className="h-5 w-5 text-indigo-600"/>
-                        <span className="ml-2 text-gray-700">Require attachment on ticket creation</span>
-                    </label>
-                 </div>
-                 <div className="mt-4">
-                     <p className="block text-sm font-medium text-gray-700 mb-2">Require comments for the following actions:</p>
-                     <div className="flex gap-6">
-                        {Object.keys(typeData.commentRequirements || {}).map(action => (
-                            <label key={action} className="flex items-center">
-                                <input type="checkbox" checked={typeData.commentRequirements[action]} onChange={(e) => handleNestedChange('commentRequirements', action, e.target.checked)} className="h-5 w-5 text-indigo-600"/>
-                                <span className="ml-2 text-gray-700 capitalize">{action}</span>
-                            </label>
-                        ))}
-                     </div>
-                 </div>
-            </div>
-            
-            {/* Custom Fields Builder */}
-            <div className="bg-white p-6 rounded-lg shadow-md">
-                 <h3 className="text-xl font-semibold mb-4 border-b pb-2">Custom Fields</h3>
-                 <div className="space-y-4">
-                    {(typeData.fields || []).map((field, index) => (
-                        <div key={index} className="p-4 border rounded-lg bg-gray-50">
-                            <div className="flex justify-end gap-2">
-                                {field.isNew ? (
-                                    <button onClick={() => removeField(index)} className="text-gray-400 hover:text-red-500"><Trash2 className="h-5 w-5"/> <span className="sr-only">Remove</span></button>
-                                ) : (
-                                    <button title="Cannot be deleted as it is used by existing tickets." className="text-gray-300 cursor-not-allowed"><Trash2 className="h-5 w-5"/> <span className="sr-only">Remove</span></button>
-                                )}
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-sm">Label</label><input type="text" value={field.label} onChange={e => handleFieldUpdate(index, 'label', e.target.value)} className="mt-1 w-full border-gray-300 rounded"/></div>
-                                <div><label className="text-sm">Type</label><select value={field.type} onChange={e => handleFieldUpdate(index, 'type', e.target.value)} className="mt-1 w-full border-gray-300 rounded"><option>text</option><option>paragraph</option><option>date</option><option>amount</option><option>dropdown</option><option>file</option></select></div>
-                                <div><label className="text-sm">Name (auto-generated)</label><input type="text" value={field.name} readOnly className="mt-1 w-full border-gray-300 rounded bg-gray-200"/></div>
-                                <div><label className="flex items-center mt-6"><input type="checkbox" checked={field.required} onChange={e => handleFieldUpdate(index, 'required', e.target.checked)} className="h-4 w-4"/> <span className="ml-2">Required</span></label></div>
-                            </div>
-                        </div>
-                    ))}
-                     <button onClick={addField} className="flex items-center gap-2 text-indigo-600 font-medium"><PlusCircle className="h-5 w-5"/> Add Field</button>
-                 </div>
-            </div>
-
-            {/* Workflow Steps Builder */}
-            <div className="bg-white p-6 rounded-lg shadow-md">
-                 <h3 className="text-xl font-semibold mb-4 border-b pb-2">Workflow Steps</h3>
-                 <div className="space-y-6">
-                    {(typeData.workflow.steps || []).map((step, index) => (
-                        <div key={index} className="p-4 border-2 border-indigo-200 rounded-lg bg-indigo-50/50 relative">
-                            <span className="absolute -top-3 -left-3 bg-indigo-600 text-white rounded-full h-7 w-7 flex items-center justify-center font-bold text-sm">{index + 1}</span>
-                            <div className="flex justify-end"><button onClick={() => removeWorkflowStep(index)}><Trash2 className="h-5 w-5 text-red-500"/></button></div>
-                            <div className="grid grid-cols-2 gap-4 mb-4">
-                                <div><label>Step Name</label><input type="text" value={step.name} onChange={e => handleWorkflowStepUpdate(index, 'name', e.target.value)} className="w-full mt-1 border-gray-300 rounded"/></div>
-                                <div><label>Ticket Status at this Step</label><input type="text" value={step.status} onChange={e => handleWorkflowStepUpdate(index, 'status', e.target.value)} className="w-full mt-1 border-gray-300 rounded"/></div>
-                            </div>
-                            <div className="mb-4">
-                                <label>Approver Role(s)</label>
-                                <input type="text" placeholder="e.g. manager,finance" value={(step.approvers.roles || []).join(',')} onChange={e => handleWorkflowStepUpdate(index, 'approvers', e.target.value.split(',').map(r => r.trim()), 'roles')} className="w-full mt-1 border-gray-300 rounded"/>
-                            </div>
-                            <div className="mb-4">
-                                <label>Require</label>
-                                <select value={step.approvers.required} onChange={e => handleWorkflowStepUpdate(index, 'approvers', e.target.value, 'required')} className="w-auto mt-1 ml-2 border-gray-300 rounded"><option>any</option><option>all</option></select>
-                                <span> of the above to approve</span>
-                            </div>
-                            <div className="mb-4">
-                                 <label>SLA</label>
-                                 <div className="flex items-center gap-2 mt-1">
-                                    <input type="number" value={step.sla.duration} onChange={e => handleWorkflowStepUpdate(index, 'sla', Number(e.target.value), 'duration')} className="w-20 border-gray-300 rounded"/>
-                                    <select value={step.sla.unit} onChange={e => handleWorkflowStepUpdate(index, 'sla', e.target.value, 'unit')} className="border-gray-300 rounded"><option>days</option><option>hours</option></select>
-                                    <label><input type="checkbox" checked={step.sla.excludeWeekends} onChange={e => handleWorkflowStepUpdate(index, 'sla', e.target.checked, 'excludeWeekends')}/> Weekdays only</label>
-                                 </div>
-                            </div>
-                        </div>
-                    ))}
-                     <button onClick={addWorkflowStep} className="flex items-center gap-2 text-indigo-600 font-medium"><PlusCircle className="h-5 w-5"/> Add Workflow Step</button>
-                 </div>
-            </div>
+// 1. General Settings Component
+function GeneralSettings({ typeData, onUpdate }) {
+  return (
+    <div className="bg-white p-6 rounded-lg shadow-md">
+      <h3 className="text-xl font-semibold mb-4 border-b pb-2">General Settings</h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Name</label>
+          <input 
+            type="text" 
+            value={typeData.name || ''} 
+            onChange={(e) => onUpdate('name', e.target.value)} 
+            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+            placeholder="e.g., Purchase Request"
+          />
         </div>
-    );
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Code (for ticket numbering)</label>
+          <input 
+            type="text" 
+            value={typeData.code || ''} 
+            onChange={(e) => onUpdate('code', e.target.value.toUpperCase())} 
+            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
+            placeholder="e.g., PR"
+            maxLength="5"
+          />
+        </div>
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700">Description</label>
+          <textarea 
+            value={typeData.description || ''} 
+            onChange={(e) => onUpdate('description', e.target.value)} 
+            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm" 
+            rows="3"
+            placeholder="Describe when this ticket type should be used"
+          />
+        </div>
+        <div>
+          <label className="flex items-center">
+            <input 
+              type="checkbox" 
+              checked={typeData.isActive || false} 
+              onChange={(e) => onUpdate('isActive', e.target.checked)} 
+              className="h-5 w-5 text-indigo-600"
+            />
+            <span className="ml-2 text-gray-700">Active (visible to users)</span>
+          </label>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-// --- components/admin/DropdownListEditor.js ---
-function DropdownListEditor({ dropdownList, onBack, onSave }) {
-    const [listData, setListData] = useState(dropdownList);
+// 2. Custom Field Builder Component
+function CustomFieldBuilder({ fields = [], onFieldsUpdate }) {
+  const handleFieldUpdate = (index, field, value) => {
+    const newFields = [...fields];
+    newFields[index] = { ...newFields[index], [field]: value };
+    onFieldsUpdate(newFields);
+  };
 
-    const handleOptionChange = (index, field, value) => {
-        const newOptions = [...listData.options];
-        newOptions[index][field] = value;
-        setListData(prev => ({ ...prev, options: newOptions }));
+  const addField = () => {
+    const newField = { 
+      name: `field_${Date.now()}`, 
+      label: 'New Field', 
+      type: 'text', 
+      required: false,
+      isNew: true
     };
+    onFieldsUpdate([...fields, newField]);
+  };
 
-    const addOption = () => {
-        setListData(prev => ({...prev, options: [...(prev.options || []), { label: '', value: '', parentValue: ''}]}));
-    };
-
-    const removeOption = (index) => {
-        setListData(prev => ({...prev, options: prev.options.filter((_, i) => i !== index)}));
-    };
-    
-    return (
-        <div className="bg-white p-6 rounded-lg shadow-md">
-            <div className="flex justify-between items-center mb-6">
-                 <h2 className="text-2xl font-bold text-gray-800">Editing Dropdown: {listData.name}</h2>
-                 <div className="flex gap-4">
-                    <button onClick={onBack} className="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 flex items-center"><ArrowLeftIcon className="h-4 w-4 mr-2"/> Back</button>
-                    <button onClick={() => onSave(listData)} className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700">Save Changes</button>
-                </div>
-            </div>
-            
-            <div>
-                <label className="block text-sm font-medium text-gray-700">List Name</label>
-                <input type="text" value={listData.name} onChange={e => setListData(prev => ({...prev, name: e.target.value}))} className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"/>
-            </div>
-
-            <div className="mt-6">
-                <h3 className="text-lg font-semibold">Options</h3>
-                <div className="mt-2 space-y-2">
-                    <div className="grid grid-cols-12 gap-2 font-semibold text-sm text-gray-600 px-2">
-                        <div className="col-span-4">Label</div>
-                        <div className="col-span-4">Value (no spaces)</div>
-                        <div className="col-span-3">Parent Value (Optional)</div>
-                    </div>
-                    {(listData.options || []).map((opt, index) => (
-                        <div key={index} className="grid grid-cols-12 gap-2 items-center">
-                            <div className="col-span-4"><input type="text" value={opt.label} onChange={e => handleOptionChange(index, 'label', e.target.value)} className="w-full border-gray-300 rounded"/></div>
-                            <div className="col-span-4"><input type="text" value={opt.value} onChange={e => handleOptionChange(index, 'value', e.target.value)} className="w-full border-gray-300 rounded"/></div>
-                            <div className="col-span-3"><input type="text" value={opt.parentValue} onChange={e => handleOptionChange(index, 'parentValue', e.target.value)} className="w-full border-gray-300 rounded"/></div>
-                            <div className="col-span-1"><button onClick={() => removeOption(index)}><Trash2 className="h-5 w-5 text-red-500"/></button></div>
-                        </div>
-                    ))}
-                </div>
-                <button onClick={addOption} className="mt-4 flex items-center gap-2 text-indigo-600 font-medium"><PlusCircle className="h-5 w-5"/> Add Option</button>
-            </div>
-        </div>
-    );
-}
-
-// --- Main Admin Panel Component (pages/AdminPage.js) ---
-// This component is exported as the default and would be used in App.js
-function AdminPage() {
-    const [view, setView] = useState('main'); // 'main', 'edit_type', 'edit_dropdown'
-    const [selectedItem, setSelectedItem] = useState(null);
-
-    const handleEditTicketType = (type) => {
-        setSelectedItem(JSON.parse(JSON.stringify(type)));
-        setView('edit_type');
-    };
-
-    const handleCreateTicketType = () => {
-        setSelectedItem({
-            name: '', description: '', isActive: true,
-            requireAttachmentOnCreate: false,
-            commentRequirements: { approve: false, return: false, reject: false, cancel: false },
-            fields: [],
-            workflow: { steps: [] }
-        });
-        setView('edit_type');
-    };
-    
-    const handleEditDropdown = (dropdown) => {
-        // Mock data for dropdown editor
-        setSelectedItem({
-            id: dropdown.id,
-            name: dropdown.name,
-            options: [
-                { label: 'Laptop', value: 'laptop', parentValue: 'hardware' },
-                { label: 'CRM License', value: 'crm-license', parentValue: 'software' },
-            ]
-        });
-        setView('edit_dropdown');
-    };
-    
-    const handleCreateDropdown = () => {
-        setSelectedItem({ name: 'New Dropdown List', options: [] });
-        setView('edit_dropdown');
-    };
-
-    const handleBack = () => {
-        setView('main');
-        setSelectedItem(null);
-    };
-
-    if (view === 'edit_type') {
-        return <TicketTypeEditor ticketType={selectedItem} onBack={handleBack} onSave={(data) => { console.log("Saving Ticket Type:", data); handleBack(); }} />;
+  const removeField = (index) => {
+    if (fields[index].isNew || window.confirm('Are you sure? This field is used in existing tickets.')) {
+      onFieldsUpdate(fields.filter((_, i) => i !== index));
     }
-    
-    if (view === 'edit_dropdown') {
-        return <DropdownListEditor dropdownList={selectedItem} onBack={handleBack} onSave={(data) => { console.log("Saving Dropdown:", data); handleBack(); }} />;
-    }
+  };
 
-    return (
-        <div className="bg-white p-6 rounded-lg shadow-md space-y-8">
-            <div>
-                <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-2xl font-bold text-gray-800 flex items-center"><Settings2 className="mr-3" /> Ticket Types Configuration</h2>
-                    <button onClick={handleCreateTicketType} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 flex items-center">
-                        <PlusCircle className="h-5 w-5 mr-2"/> Create New Ticket Type
-                    </button>
-                </div>
-                <div className="space-y-2">
-                    {MOCK_TICKET_TYPES.map(type => (
-                        <div key={type.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                            <div>
-                                <p className="font-semibold">{type.name}</p>
-                                <p className="text-sm text-gray-600">{type.description}</p>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${type.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                                    {type.isActive ? 'Active' : 'Inactive'}
-                                </span>
-                                <button onClick={() => alert(type.isActive ? 'Disabling...' : 'Enabling...')} className="text-sm font-medium text-gray-600 hover:text-black">
-                                    {type.isActive ? 'Disable' : 'Enable'}
-                                </button>
-                                <button onClick={() => handleEditTicketType(type)} className="text-sm font-medium text-indigo-600 hover:text-indigo-900">Edit</button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+  const fieldTypes = [
+    { value: 'text', label: 'Single Line Text' },
+    { value: 'textarea', label: 'Multi-line Text' },
+    { value: 'number', label: 'Number' },
+    { value: 'amount', label: 'Currency Amount' },
+    { value: 'date', label: 'Date' },
+    { value: 'dropdown', label: 'Dropdown List' },
+    { value: 'file', label: 'File Upload' }
+  ];
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow-md">
+      <h3 className="text-xl font-semibold mb-4 border-b pb-2">Custom Fields</h3>
+      <div className="space-y-4">
+        {fields.map((field, index) => (
+          <div key={index} className="p-4 border rounded-lg bg-gray-50">
+            <div className="flex justify-between items-start mb-4">
+              <h4 className="font-medium text-gray-800">Field {index + 1}</h4>
+              <button 
+                onClick={() => removeField(index)}
+                className={`text-red-500 hover:text-red-700 ${!field.isNew ? 'opacity-50' : ''}`}
+                title={!field.isNew ? 'Cannot delete - used in existing tickets' : 'Delete field'}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
-            
-            <div className="border-t pt-8">
-                 <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-2xl font-bold text-gray-800 flex items-center"><Settings2 className="mr-3" /> Dropdown List Management</h2>
-                    <button onClick={handleCreateDropdown} className="bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-indigo-700 flex items-center">
-                        <PlusCircle className="h-5 w-5 mr-2"/> Create New Dropdown List
-                    </button>
-                </div>
-                <div className="space-y-2">
-                    {MOCK_DROPDOWN_LISTS.map(list => (
-                        <div key={list.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50">
-                            <p className="font-semibold">{list.name}</p>
-                            <div className="flex items-center gap-4">
-                                <button onClick={() => alert('Deleting...')} className="text-sm font-medium text-red-600 hover:text-red-900">Delete</button>
-                                <button onClick={() => handleEditDropdown(list)} className="text-sm font-medium text-indigo-600 hover:text-indigo-900">Edit</button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Label</label>
+                <input 
+                  type="text" 
+                  value={field.label} 
+                  onChange={e => handleFieldUpdate(index, 'label', e.target.value)} 
+                  className="mt-1 w-full border-gray-300 rounded"
+                  placeholder="Field label"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Type</label>
+                <select 
+                  value={field.type} 
+                  onChange={e => handleFieldUpdate(index, 'type', e.target.value)} 
+                  className="mt-1 w-full border-gray-300 rounded"
+                >
+                  {fieldTypes.map(type => (
+                    <option key={type.value} value={type.value}>{type.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center mt-6">
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={field.required} 
+                    onChange={e => handleFieldUpdate(index, 'required', e.target.checked)} 
+                    className="h-4 w-4"
+                  />
+                  <span className="ml-2 text-sm">Required</span>
+                </label>
+              </div>
             </div>
-        </div>
-    );
+            {field.type === 'dropdown' && (
+              <div className="mt-4 p-3 bg-blue-50 rounded">
+                <p className="text-sm text-blue-800">
+                  📝 Dropdown configuration will be linked to your Dropdown Lists in the final implementation.
+                </p>
+              </div>
+            )}
+          </div>
+        ))}
+        <button 
+          onClick={addField} 
+          className="flex items-center gap-2 text-indigo-600 font-medium hover:text-indigo-800"
+        >
+          <PlusCircle className="h-5 w-5" /> Add Custom Field
+        </button>
+      </div>
+    </div>
+  );
 }
 
-export default AdminPage;
+// 3. Workflow Step Builder Component
+function WorkflowStepBuilder({ steps = [], onStepsUpdate, roles = [] }) {
+  const handleStepUpdate = (index, field, value) => {
+    const newSteps = [...steps];
+    newSteps[index] = { ...newSteps[index], [field]: value };
+    onStepsUpdate(newSteps);
+  };
+
+  const handleNestedUpdate = (index, section, field, value) => {
+    const newSteps = [...steps];
+    newSteps[index] = { 
+      ...newSteps[index], 
+      [section]: { ...newSteps[index][section], [field]: value }
+    };
+    onStepsUpdate(newSteps);
+  };
+
+  const addStep = () => {
+    const stepNumber = steps.length + 1;
+    const newStep = {
+      name: `For Approval of Approver (${stepNumber})`,
+      status: 'Pending Approval',
+      step_type: 'approval',
+      approvers: { roles: [], required: 'any' },
+      sla: { duration: 1, unit: 'days', excludeWeekends: true }
+    };
+    onStepsUpdate([...steps, newStep]);
+  };
+
+  const removeStep = (index) => {
+    if (window.confirm('Are you sure you want to remove this workflow step?')) {
+      onStepsUpdate(steps.filter((_, i) => i !== index));
+    }
+  };
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow-md">
+      <h3 className="text-xl font-semibold mb-4 border-b pb-2">Workflow Steps</h3>
+      <div className="space-y-6">
+        {steps.map((step, index) => (
+          <div key={index} className="p-4 border-2 border-indigo-200 rounded-lg bg-indigo-50/50 relative">
+            <span className="absolute -top-3 -left-3 bg-indigo-600 text-white rounded-full h-7 w-7 flex items-center justify-center font-bold text-sm">
+              {index + 1}
+            </span>
+            <div className="flex justify-end mb-2">
+              <button 
+                onClick={() => removeStep(index)}
+                className="text-red-500 hover:text-red-700"
+              >
+                <Trash2 className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="text-sm font-medium text-gray-700">Step Name</label>
+                <input 
+                  type="text" 
+                  value={step.name} 
+                  onChange={e => handleStepUpdate(index, 'name', e.target.value)} 
+                  className="w-full mt-1 border-gray-300 rounded"
+                  placeholder="e.g., Manager Approval"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Ticket Status at this Step</label>
+                <input 
+                  type="text" 
+                  value={step.status} 
+                  onChange={e => handleStepUpdate(index, 'status', e.target.value)} 
+                  className="w-full mt-1 border-gray-300 rounded"
+                  placeholder="e.g., Pending Manager Approval"
+                />
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="text-sm font-medium text-gray-700">Step Type</label>
+              <select 
+                value={step.step_type} 
+                onChange={e => handleStepUpdate(index, 'step_type', e.target.value)} 
+                className="w-full mt-1 border-gray-300 rounded"
+              >
+                <option value="approval">Approval Step</option>
+                <option value="task">External Task</option>
+                <option value="notification">Notification Only</option>
+              </select>
+            </div>
+
+            {step.step_type === 'approval' && (
+              <>
+                <div className="mb-4">
+                  <label className="text-sm font-medium text-gray-700">Required Approver Roles</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g., manager,finance (comma-separated)" 
+                    value={(step.approvers?.roles || []).join(',')} 
+                    onChange={e => handleNestedUpdate(index, 'approvers', 'roles', e.target.value.split(',').map(r => r.trim()).filter(r => r))} 
+                    className="w-full mt-1 border-gray-300 rounded"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Available roles: {roles.map(r => r.name).join(', ') || 'None configured yet'}
+                  </p>
+                </div>
+                <div className="mb-4">
+                  <label className="text-sm font-medium text-gray-700">Approval Requirement</label>
+                  <select 
+                    value={step.approvers?.required || 'any'} 
+                    onChange={e => handleNestedUpdate(index, 'approvers', 'required', e.target.value)} 
+                    className="w-auto mt-1 ml-2 border-gray-300 rounded"
+                  >
+                    <option value="any">Any one approver</option>
+                    <option value="all">All approvers must approve</option>
+                  </select>
+                </div>
+              </>
+            )}
+
+            <div className="mb-4">
+              <label className="text-sm font-medium text-gray-700">SLA (Service Level Agreement)</label>
+              <div className="flex items-center gap-2 mt-1">
+                <input 
+                  type="number" 
+                  value={step.sla?.duration || 1} 
+                  onChange={e => handleNestedUpdate(index, 'sla', 'duration', Number(e.target.value))} 
+                  className="w-20 border-gray-300 rounded"
+                  min="1"
+                />
+                <select 
+                  value={step.sla?.unit || 'days'} 
+                  onChange={e => handleNestedUpdate(index, 'sla', 'unit', e.target.value)} 
+                  className="border-gray-300 rounded"
+                >
+                  <option value="hours">Hours</option>
+                  <option value="days">Days</option>
+                </select>
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox" 
+                    checked={step.sla?.excludeWeekends || false} 
+                    onChange={e => handleNestedUpdate(index, 'sla', 'excludeWeekends', e.target.checked)} 
+                    className="mr-1"
+                  />
+                  <span className="text-sm">Exclude weekends</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        ))}
+        <button 
+          onClick={addStep} 
+          className="flex items-center gap-2 text-indigo-600 font-medium hover:text-indigo-800"
+        >
+          <PlusCircle className="h-5 w-5" /> Add Workflow Step
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// 4. Comment Requirements Component
+function CommentRequirements({ requirements = {}, onUpdate }) {
+  const actions = [
+    { key: 'approve', label: 'Approve' },
+    { key: 'return', label: 'Return' },
+    { key: 'reject', label: 'Reject' },
+    { key: 'cancel', label: 'Cancel' }
+  ];
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow-md">
+      <h3 className="text-xl font-semibold mb-4 border-b pb-2">Comment Requirements</h3>
+      <p className="text-gray-600 mb-4">Select which actions require a comment from the user:</p>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {actions.map(action => (
+          <label key={action.key} className="flex items-center">
+            <input 
+              type="checkbox" 
+              checked={requirements[action.key] || false} 
+              onChange={(e) => onUpdate({ ...requirements, [action.key]: e.target.checked })} 
+              className="h-5 w-5 text-indigo-600"
+            />
+            <span className="ml-2 text-gray-700">Require on {action.label}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// MAIN TICKET TYPE EDITOR (Composed of modular components)
+// ============================================================================
+
+function TicketTypeEditor({ ticketType, companies, roles, onBack, onSave }) {
+  const [typeData, setTypeData] = useState(
+    ticketType || {
+      name: '',
+      code: '',
+      description: '',
+      isActive: true,
+      requireAttachmentOnCreate: false,
+      commentRequirements: {},
+      fields: [],
+      workflow: { steps: [] }
+    }
+  );
+
+  const handleTopLevelUpdate = (field, value) => {
+    setTypeData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleFieldsUpdate = (fields) => {
+    setTypeData(prev => ({ ...prev, fields }));
+  };
+
+  const handleStepsUpdate = (steps) => {
+    setTypeData(prev => ({ ...prev, workflow: { ...prev.workflow, steps } }));
+  };
+
+  const handleCommentRequirementsUpdate = (requirements) => {
+    setTypeData(prev => ({ ...prev, commentRequirements: requirements }));
+  };
+
+  const handleSave = () => {
+    if (!typeData.name || !typeData.code) {
+      alert('Name and Code are required.');
+      return;
+    }
+    onSave(typeData);
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <h2 className="text-3xl font-bold text-gray-800">
+          {typeData.id ? `Editing: ${typeData.name}` : 'Create New Ticket Type'}
+        </h2>
+        <div className="flex gap-4">
+          <button 
+            onClick={onBack} 
+            className="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg hover:bg-gray-300 flex items-center"
+          >
+            <ArrowLeftIcon className="h-4 w-4 mr-2"/> Back
+          </button>
+          <button 
+            onClick={handleSave} 
+            className="bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 flex items-center"
+          >
+            <CheckCircle2 className="h-4 w-4 mr-2"/> Save Changes
+          </button>
+        </div>
+      </div>
+
+      {/* General Settings */}
+      <GeneralSettings 
+        typeData={typeData} 
+        onUpdate={handleTopLevelUpdate} 
+      />
+
+      {/* Submission Rules */}
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h3 className="text-xl font-semibold mb-4 border-b pb-2">Submission Rules</h3>
+        <div className="space-y-4">
+          <label className="flex items-center">
+            <input 
+              type="checkbox" 
+              checked={typeData.requireAttachmentOnCreate || false} 
+              onChange={(e) => handleTopLevelUpdate('requireAttachmentOnCreate', e.target.checked)} 
+              className="h-5 w-5 text-indigo-600"
+            />
+            <span className="ml-2 text-gray-700">Require attachment when creating this ticket type</span>
+          </label>
+        </div>
+      </div>
+
+      {/* Comment Requirements */}
+      <CommentRequirements 
+        requirements={typeData.commentRequirements} 
+        onUpdate={handleCommentRequirementsUpdate} 
+      />
+      
+      {/* Custom Fields Builder */}
+      <CustomFieldBuilder 
+        fields={typeData.fields} 
+        onFieldsUpdate={handleFieldsUpdate} 
+      />
+
+      {/* Workflow Steps Builder */}
+      <WorkflowStepBuilder 
+        steps={typeData.workflow?.steps || []} 
+        onStepsUpdate={handleStepsUpdate}
+        roles={roles}
+      />
+
+      {/* Preview Section */}
+      <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+        <h3 className="text-lg font-semibold text-blue-800 mb-3">Configuration Preview</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div>
+            <p className="font-medium text-blue-700">Basic Info</p>
+            <p>Name: {typeData.name || 'Not set'}</p>
+            <p>Code: {typeData.code || 'Not set'}</p>
+            <p>Status: {typeData.isActive ? 'Active' : 'Inactive'}</p>
+          </div>
+          <div>
+            <p className="font-medium text-blue-700">Fields & Rules</p>
+            <p>Custom Fields: {typeData.fields?.length || 0}</p>
+            <p>Require Attachment: {typeData.requireAttachmentOnCreate ? 'Yes' : 'No'}</p>
+            <p>Comment Rules: {Object.values(typeData.commentRequirements || {}).filter(Boolean).length} actions</p>
+          </div>
+          <div>
+            <p className="font-medium text-blue-700">Workflow</p>
+            <p>Steps: {typeData.workflow?.steps?.length || 0}</p>
+            <p>Approvers Required: {typeData.workflow?.steps?.filter(s => s.step_type === 'approval').length || 0}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default TicketTypeEditor;

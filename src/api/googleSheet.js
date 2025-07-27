@@ -1,171 +1,351 @@
+// src/api/googleSheet.js - Corrected Version
+
 /**
  * =================================================================================
- * API Utility for Google Sheets Backend
+ * Updated API Client for Complete MVP Integration
  * ---------------------------------------------------------------------------------
  * This file centralizes all `fetch` requests to the deployed Google Apps Script 
  * Web App. Each function corresponds to a specific action defined in the backend.
+ * This replaces your existing api/googleSheet.js with complete CRUD operations
+ * for all components: Companies, Roles, Dropdown Lists, Tickets, etc.
  * =================================================================================
  */
 
-// IMPORTANT: Replace this with your actual deployed Web App URL from Google Apps Script.
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz0ediGYs1TxZu4MddhncQIDyl3pZT3KNYpRLBr5haFrnV2as_9ykhjpvRLfjPG8yjEvw/exec";
+// Your actual deployed Web App URL from Google Apps Script
+// This will be loaded from your .env file
+const APPS_SCRIPT_URL = process.env.REACT_APP_APPS_SCRIPT_URL || 
+  "https://script.google.com/macros/s/AKfycbz0ediGYs1TxZu4MddhncQIDyl3pZT3KNYpRLBr5haFrnV2as_9ykhjpvRLfjPG8yjEvw/exec";
 
 /**
- * A generic helper function to handle POST requests to the Apps Script backend.
+ * Generic helper function to handle POST requests to the Apps Script backend.
  * @param {string} action - The name of the function to call in the Apps Script.
  * @param {object} payload - The data to send in the request body.
  * @returns {Promise<object>} - The JSON response from the API.
  */
 const postRequest = async (action, payload) => {
     try {
+        console.log(`API POST: ${action}`, payload);
+        
         const response = await fetch(APPS_SCRIPT_URL, {
             method: 'POST',
-            // Use 'no-cors' for simple POST requests if you encounter CORS issues,
-            // but be aware you won't be able to read the response directly.
-            // For production, proper CORS handling in Apps Script (doOptions) is better.
-            mode: 'cors', 
+            mode: 'cors',
             credentials: 'omit',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ action, payload }),
         });
+        
         if (!response.ok) {
-            throw new Error(`Network response was not ok for action: ${action}`);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        return response.json();
+        
+        const result = await response.json();
+        console.log(`API POST Result: ${action}`, result);
+        
+        if (result.status === 'error') {
+            throw new Error(result.message || 'API returned error status');
+        }
+        
+        return result;
     } catch (error) {
         console.error(`API POST Error (${action}):`, error);
-        // Return a standardized error format
-        return { status: 'error', message: error.message };
+        return { 
+            status: 'error', 
+            message: error.message || 'Network error occurred'
+        };
     }
 };
 
 /**
- * A generic helper function to handle GET requests to the Apps Script backend.
+ * Generic helper function to handle GET requests to the Apps Script backend.
  * @param {string} action - The name of the function to call in the Apps Script.
  * @param {object} params - An object of query parameters to append to the URL.
  * @returns {Promise<object>} - The JSON response from the API.
  */
 const getRequest = async (action, params = {}) => {
     try {
+        console.log(`API GET: ${action}`, params);
+        
         const url = new URL(APPS_SCRIPT_URL);
         url.searchParams.append('action', action);
-        for (const key in params) {
-            url.searchParams.append(key, params[key]);
-        }
+        
+        Object.keys(params).forEach(key => {
+            if (params[key] !== null && params[key] !== undefined) {
+                url.searchParams.append(key, params[key]);
+            }
+        });
+        
         const response = await fetch(url);
+        
         if (!response.ok) {
-            throw new Error(`Network response was not ok for action: ${action}`);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
-        return response.json();
+        
+        const result = await response.json();
+        console.log(`API GET Result: ${action}`, result);
+        
+        if (result.status === 'error') {
+            throw new Error(result.message || 'API returned error status');
+        }
+        
+        return result;
     } catch (error) {
         console.error(`API GET Error (${action}):`, error);
-        return { status: 'error', message: error.message };
+        return { 
+            status: 'error', 
+            message: error.message || 'Network error occurred'
+        };
     }
 };
 
-
-// --- API Functions ---
+// =================================================================================
+// MAIN API OBJECT WITH ALL CRUD OPERATIONS
+// =================================================================================
 
 const api = {
     /**
-     * Fetches a list of all tickets.
-     * @param {object} filters - Optional filters, e.g., { status: 'New', company_id: 1 }.
-     * @returns {Promise<object>} The API response containing the list of tickets.
+     * =================================================================================
+     * TESTING & HEALTH CHECK
+     * =================================================================================
      */
-    getTickets: (filters) => {
-        return getRequest('getTickets', filters);
+    
+    ping: () => {
+        return getRequest('ping');
     },
 
     /**
-     * Fetches the complete details for a single ticket by its ID.
-     * @param {number} ticketId - The unique ID of the ticket.
-     * @returns {Promise<object>} The API response containing the ticket details.
+     * =================================================================================
+     * COMPANY MANAGEMENT
+     * =================================================================================
      */
+    
+    getCompanies: (filters = {}) => {
+        return getRequest('getCompanies', filters);
+    },
+
+    getCompany: (companyId) => {
+        return getRequest('getCompany', { companyId });
+    },
+
+    createCompany: (companyData) => {
+        return postRequest('createCompany', companyData);
+    },
+
+    updateCompany: (companyData) => {
+        return postRequest('updateCompany', companyData);
+    },
+
+    deleteCompany: (companyId) => {
+        return postRequest('deleteCompany', { id: companyId });
+    },
+
+    /**
+     * =================================================================================
+     * ROLE MANAGEMENT
+     * =================================================================================
+     */
+    
+    getRoles: (filters = {}) => {
+        return getRequest('getRoles', filters);
+    },
+
+    createRole: (roleData) => {
+        return postRequest('createRole', roleData);
+    },
+
+    updateRole: (roleData) => {
+        return postRequest('updateRole', roleData);
+    },
+
+    deleteRole: (roleId) => {
+        return postRequest('deleteRole', { id: roleId });
+    },
+
+    /**
+     * =================================================================================
+     * DROPDOWN LIST MANAGEMENT
+     * =================================================================================
+     */
+    
+    getDropdownLists: (filters = {}) => {
+        return getRequest('getDropdownLists', filters);
+    },
+
+    getDropdownOptions: (listId) => {
+        return getRequest('getDropdownOptions', { listId });
+    },
+
+    createDropdownList: (dropdownData) => {
+        return postRequest('createDropdownList', dropdownData);
+    },
+
+    updateDropdownList: (dropdownData) => {
+        return postRequest('updateDropdownList', dropdownData);
+    },
+
+    deleteDropdownList: (listId) => {
+        return postRequest('deleteDropdownList', { id: listId });
+    },
+
+    /**
+     * =================================================================================
+     * TICKET TYPE MANAGEMENT
+     * =================================================================================
+     */
+    
+    getTicketTypes: (filters = {}) => {
+        return getRequest('getTicketTypes', filters);
+    },
+
+    createTicketType: (ticketTypeData) => {
+        return postRequest('createTicketType', ticketTypeData);
+    },
+
+    updateTicketType: (ticketTypeData) => {
+        return postRequest('updateTicketType', ticketTypeData);
+    },
+
+    deleteTicketType: (typeId) => {
+        return postRequest('deleteTicketType', { id: typeId });
+    },
+
+    /**
+     * =================================================================================
+     * TICKET MANAGEMENT
+     * =================================================================================
+     */
+    
+    getTickets: (filters = {}) => {
+        return getRequest('getTickets', filters);
+    },
+
     getTicketDetails: (ticketId) => {
         return getRequest('getTicketDetails', { ticketId });
     },
 
-    /**
-     * Creates a new ticket.
-     * @param {object} ticketData - The data for the new ticket.
-     * @returns {Promise<object>} The API response confirming creation.
-     */
     createTicket: (ticketData) => {
         return postRequest('createTicket', ticketData);
     },
 
-    /**
-     * Records a user login event in the admin audit log.
-     * @param {object} userData - Contains userId, email, etc.
-     * @returns {Promise<object>} The API response.
-     */
-    recordLogin: (userData) => {
-        return postRequest('recordLogin', userData);
-    },
-
-    /**
-     * Fetches all defined ticket types.
-     * @param {number} [companyId] - Optional company ID to filter by.
-     * @returns {Promise<object>} The API response with ticket types.
-     */
-    getTicketTypes: (companyId) => {
-        return getRequest('getTicketTypes', { companyId });
-    },
-
-    /**
-     * Fetches all defined companies.
-     * @returns {Promise<object>} The API response with companies.
-     */
-    getCompanies: () => {
-        return getRequest('getCompanies');
-    },
-
-    /**
-     * Fetches all defined roles.
-     * @param {number} [companyId] - Optional company ID to filter by.
-     * @returns {Promise<object>} The API response with roles.
-     */
-    getRoles: (companyId) => {
-        return getRequest('getRoles', { companyId });
-    },
-
-    /**
-     * Fetches all defined dropdown lists.
-     * @returns {Promise<object>} The API response with dropdown lists.
-     */
-    getDropdownLists: () => {
-        return getRequest('getDropdownLists');
-    },
-
-    /**
-     * Fetches the options for a specific dropdown list.
-     * @param {number} listId - The ID of the dropdown list.
-     * @returns {Promise<object>} The API response with the list's options.
-     */
-    getDropdownOptions: (listId) => {
-        return getRequest('getDropdownOptions', { listId });
-    },
-    
-    // --- Placeholder for future functions ---
-    
-    /**
-     * Updates an existing ticket (e.g., status change, assignment).
-     * @param {object} updateData - The data to update.
-     * @returns {Promise<object>} The API response.
-     */
     updateTicket: (updateData) => {
         return postRequest('updateTicket', updateData);
     },
 
     /**
-     * Saves a ticket type configuration from the admin panel.
-     * @param {object} ticketTypeData - The full ticket type configuration object.
-     * @returns {Promise<object>} The API response.
+     * =================================================================================
+     * USER & AUTHENTICATION
+     * =================================================================================
      */
-    saveTicketType: (ticketTypeData) => {
-        return postRequest('saveTicketType', ticketTypeData);
+    
+    recordLogin: (userData) => {
+        return postRequest('recordLogin', userData);
+    },
+
+    /**
+     * =================================================================================
+     * TESTING UTILITIES
+     * =================================================================================
+     */
+    
+    testConnection: async () => {
+        try {
+            const response = await api.ping();
+            return {
+                success: response.status === 'success',
+                data: response.data || response,
+                timestamp: new Date().toISOString()
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            };
+        }
+    },
+
+    runComprehensiveTest: async () => {
+        console.log('🚀 Starting comprehensive API test...');
+        const results = {};
+
+        try {
+            // Test ping
+            console.log('1. Testing ping...');
+            results.ping = await api.ping();
+
+            // Test companies
+            console.log('2. Testing companies...');
+            results.getCompanies = await api.getCompanies();
+            
+            const testCompany = {
+                name: 'API Test Company',
+                code: 'APITEST'
+            };
+            results.createCompany = await api.createCompany(testCompany);
+            
+            if (results.createCompany.status === 'success') {
+                const companyId = results.createCompany.data.id;
+                results.updateCompany = await api.updateCompany({
+                    id: companyId,
+                    name: 'Updated API Test Company',
+                    code: 'UPDATED'
+                });
+                results.deleteCompany = await api.deleteCompany(companyId);
+            }
+
+            // Test roles
+            console.log('3. Testing roles...');
+            results.getRoles = await api.getRoles();
+            
+            const testRole = {
+                name: 'API Test Role',
+                company_id: 'global'
+            };
+            results.createRole = await api.createRole(testRole);
+            
+            if (results.createRole.status === 'success') {
+                const roleId = results.createRole.data.id;
+                results.deleteRole = await api.deleteRole(roleId);
+            }
+
+            // Test dropdown lists
+            console.log('4. Testing dropdown lists...');
+            results.getDropdownLists = await api.getDropdownLists();
+            
+            const testDropdown = {
+                name: 'API Test Dropdown',
+                options: [
+                    { label: 'Test Option 1', value: 'test1', parentValue: '' },
+                    { label: 'Test Option 2', value: 'test2', parentValue: '' }
+                ]
+            };
+            results.createDropdownList = await api.createDropdownList(testDropdown);
+            
+            if (results.createDropdownList.status === 'success') {
+                const dropdownId = results.createDropdownList.data.id;
+                results.deleteDropdownList = await api.deleteDropdownList(dropdownId);
+            }
+
+            console.log('✅ Comprehensive test completed!');
+            return {
+                success: true,
+                results: results,
+                summary: {
+                    totalTests: Object.keys(results).length,
+                    successfulTests: Object.values(results).filter(r => r.status === 'success').length,
+                    failedTests: Object.values(results).filter(r => r.status === 'error').length
+                }
+            };
+
+        } catch (error) {
+            console.error('❌ Comprehensive test failed:', error);
+            return {
+                success: false,
+                error: error.message,
+                results: results
+            };
+        }
     }
 };
 
