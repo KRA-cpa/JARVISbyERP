@@ -15,7 +15,7 @@ const Settings2 = (props) => (
 //const MOCK_COMPANIES = [
 //    { id: 'comp_1', name: 'Main Corporation', code: 'MYCO' },
  //   { id: 'comp_2', name: 'Subsidiary Inc.', code: 'SUB' },
-];
+//];
 
 /**
  * =================================================================================
