@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from './config/firebase';
+
+// Context Providers
+import { UserProvider, useUser } from './contexts/UserContext';
 
 // Pages
 import LoginPage from './pages/LoginPage';
@@ -11,35 +12,42 @@ import AdminPage from './pages/AdminPage';
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
 
-function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [userRole, setUserRole] = useState(null);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      if (currentUser) {
-        setUser(currentUser);
-
-        // Mock user data for development - replace with real API call
-        setTimeout(() => {
-          setUserRole('admin'); // Mock role assignment
-          setLoading(false);
-        }, 1000);
-      } else {
-        setUser(null);
-        setUserRole(null);
-        setLoading(false);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
+// Protected Route Component
+const ProtectedRoute = ({ children, requireAdmin = false }) => {
+  const { isAuthenticated, isAdmin, loading } = useUser();
 
   if (loading) {
     return <LoadingScreen />;
   }
 
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (requireAdmin && !isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
+// Public Route Component (redirect if authenticated)
+const PublicRoute = ({ children }) => {
+  const { isAuthenticated, loading } = useUser();
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+};
+
+// App Routes Component (needs to be inside UserProvider)
+const AppRoutes = () => {
   return (
     <Router>
       <div className="App">
@@ -47,32 +55,55 @@ function App() {
           {/* Public Routes */}
           <Route
             path="/login"
-            element={!user ? <LoginPage /> : <Navigate to="/dashboard" replace />}
+            element={
+              <PublicRoute>
+                <LoginPage />
+              </PublicRoute>
+            }
           />
 
           {/* Protected Routes */}
           <Route
             path="/dashboard"
-            element={user ? <DashboardPage /> : <Navigate to="/login" replace />}
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
           />
 
           <Route
             path="/admin"
             element={
-              user && userRole === 'admin' ?
-                <AdminPage /> :
-                <Navigate to="/dashboard" replace />
+              <ProtectedRoute requireAdmin={true}>
+                <AdminPage />
+              </ProtectedRoute>
             }
           />
 
           {/* Default Route */}
           <Route
             path="/"
-            element={<Navigate to={user ? "/dashboard" : "/login"} replace />}
+            element={<Navigate to="/dashboard" replace />}
+          />
+
+          {/* Catch-all route */}
+          <Route
+            path="*"
+            element={<Navigate to="/dashboard" replace />}
           />
         </Routes>
       </div>
     </Router>
+  );
+};
+
+// Main App Component
+function App() {
+  return (
+    <UserProvider>
+      <AppRoutes />
+    </UserProvider>
   );
 }
 
