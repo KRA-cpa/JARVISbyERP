@@ -11,6 +11,7 @@ import AdminPage from './pages/AdminPage';
 
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
+import ErrorBoundary from './components/shared/ErrorBoundary';
 
 // Protected Route Component
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
@@ -101,9 +102,11 @@ const AppRoutes = () => {
 // Main App Component
 function App() {
   return (
-    <UserProvider>
-      <AppRoutes />
-    </UserProvider>
+    <ErrorBoundary>
+      <UserProvider>
+        <AppRoutes />
+      </UserProvider>
+    </ErrorBoundary>
   );
 }
 
