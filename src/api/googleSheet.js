@@ -429,12 +429,49 @@ class TicketAPI extends BaseAPI {
 
     const response = await this.makeRequest('createTicket', {
       title: data.title.trim(),
+      description: data.description || '',
       ticket_type_id: data.ticket_type_id,
       company_id: data.company_id,
       requester_id: data.requester_id,
+      priority: data.priority || 'medium',
+      assignee_email: data.assignee_email || '',
+      due_date: data.due_date || '',
+      custom_fields: data.custom_fields || {},
       customData: data.customData || {}
     });
+
+    // Clear tickets cache since we added a new ticket
+    this.cache.invalidate('tickets');
+
     return response.data;
+  }
+
+  /**
+   * Get next ticket number preview for a company/ticket type combination
+   * @param {string} companyId - Company ID
+   * @param {string} ticketTypeId - Ticket type ID
+   * @returns {Promise<string>} Next ticket number preview
+   */
+  async getNextTicketNumber(companyId, ticketTypeId) {
+    const response = await this.makeRequest('getNextTicketNumber', {
+      company_id: companyId,
+      ticket_type_id: ticketTypeId
+    });
+    return response.data?.ticket_number || 'XXX-XXX-YYYY-XXXX';
+  }
+
+  /**
+   * Generate and reserve a ticket number
+   * @param {string} companyId - Company ID
+   * @param {string} ticketTypeId - Ticket type ID
+   * @returns {Promise<string>} Generated ticket number
+   */
+  async generateTicketNumber(companyId, ticketTypeId) {
+    const response = await this.makeRequest('generateTicketNumber', {
+      company_id: companyId,
+      ticket_type_id: ticketTypeId
+    });
+    return response.data?.ticket_number;
   }
 
   async update(id, data) {
@@ -454,11 +491,37 @@ class TicketAPI extends BaseAPI {
     return response.data;
   }
 
-  getMockData(action) {
+  getMockData(action, params = {}) {
+    // Handle getNextTicketNumber mock request
+    if (action === 'getNextTicketNumber') {
+      const companyId = params.company_id || '1';
+      const ticketTypeId = params.ticket_type_id || 'purchase_request';
+
+      // Mock company and ticket type lookup
+      const mockCompanies = { '1': { code: 'ABC' }, '2': { code: 'XYZ' } };
+      const mockTicketTypes = {
+        'purchase_request': { code: 'PR' },
+        'it_request': { code: 'IT' },
+        'maintenance': { code: 'MNT' }
+      };
+
+      const company = mockCompanies[companyId] || { code: 'UNK' };
+      const ticketType = mockTicketTypes[ticketTypeId] || { code: 'TKT' };
+      const year = new Date().getFullYear();
+      const nextSequence = Math.floor(Math.random() * 100) + 1; // Mock next sequence
+
+      return {
+        success: true,
+        data: {
+          ticket_number: `${company.code}-${ticketType.code}-${year}-${nextSequence.toString().padStart(4, '0')}`
+        }
+      };
+    }
+
     const mockTickets = [
       {
         id: '1',
-        ticket_number: 'MAIN-PR-2025-00000001',
+        ticket_number: 'ABC-PR-2025-0001',
         title: 'Purchase Request - Office Supplies',
         ticket_type_id: 'purchase_request',
         requester_id: 'user123',
@@ -473,7 +536,7 @@ class TicketAPI extends BaseAPI {
       },
       {
         id: '2',
-        ticket_number: 'MAIN-IT-2025-00000002',
+        ticket_number: 'ABC-IT-2025-0002',
         title: 'Software License Renewal',
         ticket_type_id: 'it_request',
         requester_id: 'user456',
