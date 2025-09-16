@@ -14,7 +14,27 @@ const DEV_CONFIG = {
   SHOW_DEBUG_INFO: process.env.REACT_APP_SHOW_DEBUG === 'true',
 
   // Development tools
-  SHOW_API_PANEL: process.env.REACT_APP_SHOW_API_PANEL === 'true' || process.env.NODE_ENV === 'development'
+  SHOW_API_PANEL: process.env.REACT_APP_SHOW_API_PANEL === 'true' || process.env.NODE_ENV === 'development',
+
+  // Stats display toggles for live environment
+  STATS_DISPLAY: {
+    SHOW_USER_COUNT: process.env.REACT_APP_SHOW_USER_COUNT !== 'false',
+    SHOW_TICKET_COUNT: process.env.REACT_APP_SHOW_TICKET_COUNT !== 'false',
+    SHOW_COMPANY_COUNT: process.env.REACT_APP_SHOW_COMPANY_COUNT !== 'false',
+    SHOW_SYSTEM_HEALTH: process.env.REACT_APP_SHOW_SYSTEM_HEALTH !== 'false',
+    SHOW_MODULE_STATS: process.env.REACT_APP_SHOW_MODULE_STATS !== 'false',
+    SHOW_API_STATUS: process.env.REACT_APP_SHOW_API_STATUS !== 'false',
+    SHOW_BACKEND_INFO: process.env.REACT_APP_SHOW_BACKEND_INFO !== 'false'
+  },
+
+  // Dashboard card arrangement toggles
+  DASHBOARD_CARDS: {
+    SHOW_MY_TICKETS: process.env.REACT_APP_SHOW_MY_TICKETS !== 'false',
+    SHOW_PENDING_APPROVAL: process.env.REACT_APP_SHOW_PENDING_APPROVAL !== 'false',
+    SHOW_COMPLETED: process.env.REACT_APP_SHOW_COMPLETED !== 'false',
+    SHOW_OVERDUE: process.env.REACT_APP_SHOW_OVERDUE !== 'false',
+    SHOW_FOR_YOUR_APPROVAL: process.env.REACT_APP_SHOW_FOR_YOUR_APPROVAL !== 'false'
+  }
 };
 
 // Mock user for development when auth is disabled

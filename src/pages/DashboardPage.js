@@ -3,6 +3,7 @@ import { useUser } from '../contexts/UserContext';
 import Header from '../components/shared/Header';
 import Icons from '../components/shared/Icons';
 import { DetailedClock } from '../components/shared/LiveClock';
+import DEV_CONFIG from '../config/development';
 
 const DashboardPage = () => {
   const { user, userRoles, currentCompany, userCompanies, permissions } = useUser();
@@ -64,58 +65,81 @@ const DashboardPage = () => {
           </div>
 
           {/* Dashboard Stats */}
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">My Tickets</p>
-                  <p className="text-3xl font-bold text-gray-900">12</p>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-5 mb-8">
+            {DEV_CONFIG.DASHBOARD_CARDS.SHOW_MY_TICKETS && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">My Tickets</p>
+                    <p className="text-3xl font-bold text-gray-900">12</p>
+                  </div>
+                  <Icons.Ticket size={32} className="text-blue-600" />
                 </div>
-                <Icons.Ticket size={32} className="text-blue-600" />
+                <div className="mt-4 text-sm text-gray-500">
+                  <span className="text-green-600">+2</span> from last week
+                </div>
               </div>
-              <div className="mt-4 text-sm text-gray-500">
-                <span className="text-green-600">+2</span> from last week
-              </div>
-            </div>
+            )}
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Pending Approval</p>
-                  <p className="text-3xl font-bold text-gray-900">5</p>
+            {DEV_CONFIG.DASHBOARD_CARDS.SHOW_PENDING_APPROVAL && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Pending Approval</p>
+                    <p className="text-3xl font-bold text-gray-900">5</p>
+                  </div>
+                  <Icons.Pending size={32} className="text-yellow-600" />
                 </div>
-                <Icons.Pending size={32} className="text-yellow-600" />
+                <div className="mt-4 text-sm text-gray-500">
+                  <span className="text-yellow-600">3</span> due today
+                </div>
               </div>
-              <div className="mt-4 text-sm text-gray-500">
-                <span className="text-yellow-600">3</span> due today
-              </div>
-            </div>
+            )}
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Completed</p>
-                  <p className="text-3xl font-bold text-gray-900">28</p>
+            {DEV_CONFIG.DASHBOARD_CARDS.SHOW_COMPLETED && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Completed</p>
+                    <p className="text-3xl font-bold text-gray-900">28</p>
+                  </div>
+                  <Icons.Success size={32} className="text-green-600" />
                 </div>
-                <Icons.Success size={32} className="text-green-600" />
+                <div className="mt-4 text-sm text-gray-500">
+                  This month
+                </div>
               </div>
-              <div className="mt-4 text-sm text-gray-500">
-                This month
-              </div>
-            </div>
+            )}
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Overdue</p>
-                  <p className="text-3xl font-bold text-gray-900">2</p>
+            {DEV_CONFIG.DASHBOARD_CARDS.SHOW_OVERDUE && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Overdue</p>
+                    <p className="text-3xl font-bold text-gray-900">2</p>
+                  </div>
+                  <Icons.Overdue size={32} className="text-red-600" />
                 </div>
-                <Icons.Overdue size={32} className="text-red-600" />
+                <div className="mt-4 text-sm text-gray-500">
+                  <span className="text-red-600">Needs attention</span>
+                </div>
               </div>
-              <div className="mt-4 text-sm text-gray-500">
-                <span className="text-red-600">Needs attention</span>
+            )}
+
+            {DEV_CONFIG.DASHBOARD_CARDS.SHOW_FOR_YOUR_APPROVAL && permissions.canApproveTickets && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">For Your Approval</p>
+                    <p className="text-3xl font-bold text-gray-900">7</p>
+                  </div>
+                  <Icons.Approval size={32} className="text-purple-600" />
+                </div>
+                <div className="mt-4 text-sm text-gray-500">
+                  <span className="text-purple-600">3</span> urgent
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Main Dashboard Content */}

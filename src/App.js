@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
 // Configuration
-import DEV_CONFIG, { MOCK_USER } from './config/development';
+import DEV_CONFIG from './config/development';
 
 // Context Providers
 import { UserProvider, useUser } from './contexts/UserContext';

@@ -32,19 +32,11 @@ const LiveClock = ({
     return () => clearInterval(interval);
   }, []);
 
-  const formatTime = (date) => {
+  const formatDateTime = (date) => {
     if (showSeconds) {
-      return format(date, 'HH:mm:ss');
+      return format(date, 'dd MMM yyyy hh:mm:ss a');
     }
-    return format(date, 'HH:mm');
-  };
-
-  const formatDate = (date) => {
-    return format(date, 'MMM dd, yyyy');
-  };
-
-  const formatDayOfWeek = (date) => {
-    return format(date, 'EEEE');
+    return format(date, 'dd MMM yyyy hh:mm a');
   };
 
   const getSizeClasses = () => {
@@ -80,19 +72,14 @@ const LiveClock = ({
       <Icons.Clock size={size === 'small' ? 16 : size === 'large' ? 24 : 20} className="text-blue-600" />
 
       <div className="flex flex-col">
+        {/* Primary display: DD Mmm YYYY HH:MM:SS AM/PM */}
         <div className={`${sizeClasses.time} text-gray-900`}>
-          {formatTime(philippineTime)}
+          {formatDateTime(philippineTime)}
         </div>
-
-        {showDate && (
-          <div className={`${sizeClasses.date} text-gray-600`}>
-            {formatDayOfWeek(philippineTime)}, {formatDate(philippineTime)}
-          </div>
-        )}
 
         {showTimezone && (
           <div className={`${sizeClasses.timezone} text-gray-500`}>
-            GMT+8 (Philippine Time)
+            Philippine Time (GMT+8)
           </div>
         )}
       </div>
@@ -100,11 +87,11 @@ const LiveClock = ({
   );
 };
 
-// Compact version for headers/navbars
+// Compact version for headers/navbars (DD Mmm YYYY HH:MM AM/PM)
 export const CompactClock = ({ className = "" }) => (
   <LiveClock
     showSeconds={false}
-    showDate={false}
+    showDate={true}
     showTimezone={false}
     size="small"
     className={className}
@@ -122,18 +109,33 @@ export const DetailedClock = ({ className = "" }) => (
   />
 );
 
-// Header version with minimal info
-export const HeaderClock = ({ className = "" }) => (
-  <div className={`flex items-center space-x-1 text-sm text-gray-600 ${className}`}>
-    <Icons.Clock size={16} />
-    <span className="font-medium">
-      {format(
-        new Date(Date.now() + (8 * 60 * 60 * 1000)), // UTC+8
-        'HH:mm'
-      )}
-    </span>
-    <span className="text-xs opacity-75">PHT</span>
-  </div>
-);
+// Header version with full Philippine time format
+export const HeaderClock = ({ className = "" }) => {
+  const [philippineTime, setPhilippineTime] = React.useState(new Date());
+
+  React.useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const utcTime = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const philippineTimeOffset = 8; // UTC+8
+      const philippineCurrentTime = new Date(utcTime + (philippineTimeOffset * 3600000));
+      setPhilippineTime(philippineCurrentTime);
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className={`flex items-center space-x-1 text-sm text-gray-600 ${className}`}>
+      <Icons.Clock size={16} />
+      <span className="font-medium">
+        {format(philippineTime, 'dd MMM yyyy hh:mm:ss a')}
+      </span>
+      <span className="text-xs opacity-75">PHT</span>
+    </div>
+  );
+};
 
 export default LiveClock;

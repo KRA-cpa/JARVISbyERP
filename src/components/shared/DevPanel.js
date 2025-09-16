@@ -73,6 +73,64 @@ const DevPanel = () => {
               </div>
             </div>
 
+            {/* Stats Display Toggles */}
+            <div>
+              <h4 className="text-xs font-medium text-gray-700 mb-1">Admin Stats</h4>
+              <div className="grid grid-cols-2 gap-1 text-xs">
+                <div className="flex items-center space-x-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${DEV_CONFIG.STATS_DISPLAY.SHOW_USER_COUNT ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span>Users</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${DEV_CONFIG.STATS_DISPLAY.SHOW_TICKET_COUNT ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span>Tickets</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${DEV_CONFIG.STATS_DISPLAY.SHOW_COMPANY_COUNT ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span>Companies</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${DEV_CONFIG.STATS_DISPLAY.SHOW_SYSTEM_HEALTH ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span>Health</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${DEV_CONFIG.STATS_DISPLAY.SHOW_MODULE_STATS ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span>Modules</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${DEV_CONFIG.STATS_DISPLAY.SHOW_BACKEND_INFO ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span>Backend</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Dashboard Cards Toggles */}
+            <div>
+              <h4 className="text-xs font-medium text-gray-700 mb-1">Dashboard Cards</h4>
+              <div className="grid grid-cols-2 gap-1 text-xs">
+                <div className="flex items-center space-x-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${DEV_CONFIG.DASHBOARD_CARDS.SHOW_MY_TICKETS ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span>My Tickets</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${DEV_CONFIG.DASHBOARD_CARDS.SHOW_PENDING_APPROVAL ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span>Pending</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${DEV_CONFIG.DASHBOARD_CARDS.SHOW_COMPLETED ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span>Completed</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${DEV_CONFIG.DASHBOARD_CARDS.SHOW_OVERDUE ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span>Overdue</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <div className={`w-1.5 h-1.5 rounded-full ${DEV_CONFIG.DASHBOARD_CARDS.SHOW_FOR_YOUR_APPROVAL ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span>For Approval</span>
+                </div>
+              </div>
+            </div>
+
             {/* Quick Actions */}
             <div>
               <h4 className="text-xs font-medium text-gray-700 mb-1">Quick Actions</h4>

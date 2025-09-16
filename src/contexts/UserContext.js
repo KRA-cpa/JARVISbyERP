@@ -52,7 +52,7 @@ function userReducer(state, action) {
 
     case USER_ACTION_TYPES.SET_USER_ROLES:
       const roles = action.payload || [];
-      const isAdmin = roles.some(role => role.name.toLowerCase() === 'admin');
+      const isAdmin = roles.some(role => role.name.toLowerCase().includes('admin'));
 
       return {
         ...state,

@@ -3,10 +3,10 @@ import { useUser } from '../contexts/UserContext';
 import { useCompanies, useRoles, useDropdownLists } from '../hooks/useAPI';
 import Header from '../components/shared/Header';
 import Icons from '../components/shared/Icons';
-import APITestPanel from '../components/shared/APITestPanel';
+import DEV_CONFIG from '../config/development';
 
 const AdminPage = () => {
-  const { user, userRoles, permissions } = useUser();
+  const { user, userRoles } = useUser();
 
   // Fetch real data from API
   const { data: companies, loading: companiesLoading } = useCompanies();
@@ -124,64 +124,73 @@ const AdminPage = () => {
             </div>
           </div>
 
-          {/* Admin Stats */}
+          {/* Admin Stats - with toggles */}
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total Users</p>
-                  <p className="text-3xl font-bold text-gray-900">24</p>
+            {DEV_CONFIG.STATS_DISPLAY.SHOW_USER_COUNT && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Total Users</p>
+                    <p className="text-3xl font-bold text-gray-900">24</p>
+                  </div>
+                  <Icons.User size={32} className="text-blue-600" />
                 </div>
-                <Icons.User size={32} className="text-blue-600" />
+                <div className="mt-4 text-sm text-gray-500">
+                  <span className="text-green-600">+3</span> this month
+                </div>
               </div>
-              <div className="mt-4 text-sm text-gray-500">
-                <span className="text-green-600">+3</span> this month
-              </div>
-            </div>
+            )}
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Active Tickets</p>
-                  <p className="text-3xl font-bold text-gray-900">87</p>
+            {DEV_CONFIG.STATS_DISPLAY.SHOW_TICKET_COUNT && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Active Tickets</p>
+                    <p className="text-3xl font-bold text-gray-900">87</p>
+                  </div>
+                  <Icons.Ticket size={32} className="text-green-600" />
                 </div>
-                <Icons.Ticket size={32} className="text-green-600" />
+                <div className="mt-4 text-sm text-gray-500">
+                  <span className="text-yellow-600">12</span> pending
+                </div>
               </div>
-              <div className="mt-4 text-sm text-gray-500">
-                <span className="text-yellow-600">12</span> pending
-              </div>
-            </div>
+            )}
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Companies</p>
-                  <p className="text-3xl font-bold text-gray-900">3</p>
+            {DEV_CONFIG.STATS_DISPLAY.SHOW_COMPANY_COUNT && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Companies</p>
+                    <p className="text-3xl font-bold text-gray-900">{companies?.length || 3}</p>
+                  </div>
+                  <Icons.Company size={32} className="text-purple-600" />
                 </div>
-                <Icons.Company size={32} className="text-purple-600" />
+                <div className="mt-4 text-sm text-gray-500">
+                  Multi-tenant setup
+                </div>
               </div>
-              <div className="mt-4 text-sm text-gray-500">
-                Multi-tenant setup
-              </div>
-            </div>
+            )}
 
-            <div className="bg-white rounded-lg shadow p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">System Health</p>
-                  <p className="text-3xl font-bold text-green-600">99%</p>
+            {DEV_CONFIG.STATS_DISPLAY.SHOW_SYSTEM_HEALTH && (
+              <div className="bg-white rounded-lg shadow p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">System Health</p>
+                    <p className="text-3xl font-bold text-green-600">99%</p>
+                  </div>
+                  <Icons.Success size={32} className="text-green-600" />
                 </div>
-                <Icons.Success size={32} className="text-green-600" />
+                <div className="mt-4 text-sm text-gray-500">
+                  All systems operational
+                </div>
               </div>
-              <div className="mt-4 text-sm text-gray-500">
-                All systems operational
-              </div>
-            </div>
+            )}
           </div>
 
-          {/* Admin Modules Grid */}
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {adminModules.map((module) => (
+          {/* Admin Modules Grid - with toggle */}
+          {DEV_CONFIG.STATS_DISPLAY.SHOW_MODULE_STATS && (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {adminModules.map((module) => (
               <div key={module.id} className={`bg-white shadow rounded-lg p-6 transition-all duration-200 ${
                 module.available
                   ? 'hover:shadow-lg cursor-pointer border-l-4 border-l-blue-500'
@@ -220,41 +229,44 @@ const AdminPage = () => {
                   )}
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
-          {/* Backend Integration Status */}
-          <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <div className="flex items-start space-x-3">
-              <Icons.Info size={24} className="text-blue-600 mt-0.5 flex-shrink-0" />
-              <div>
-                <h3 className="text-lg font-medium text-blue-800 mb-2">
-                  Backend Integration Status
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="font-medium text-blue-700">✅ Available APIs:</p>
-                    <ul className="mt-2 space-y-1 text-blue-600">
-                      <li>• Companies CRUD</li>
-                      <li>• Roles CRUD</li>
-                      <li>• Dropdown Lists CRUD</li>
-                      <li>• User Login Logging</li>
-                      <li>• Ticket Creation</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <p className="font-medium text-blue-700">🚧 Implementation Status:</p>
-                    <ul className="mt-2 space-y-1 text-blue-600">
-                      <li>• Google Apps Script: Production Ready</li>
-                      <li>• Frontend Integration: Phase 4</li>
-                      <li>• UI Components: Phase 5</li>
-                      <li>• Testing: Phase 9</li>
-                    </ul>
+          {/* Backend Integration Status - with toggle */}
+          {DEV_CONFIG.STATS_DISPLAY.SHOW_BACKEND_INFO && (
+            <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+              <div className="flex items-start space-x-3">
+                <Icons.Info size={24} className="text-blue-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="text-lg font-medium text-blue-800 mb-2">
+                    Backend Integration Status
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <p className="font-medium text-blue-700">✅ Available APIs:</p>
+                      <ul className="mt-2 space-y-1 text-blue-600">
+                        <li>• Companies CRUD</li>
+                        <li>• Roles CRUD</li>
+                        <li>• Dropdown Lists CRUD</li>
+                        <li>• User Login Logging</li>
+                        <li>• Ticket Creation</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <p className="font-medium text-blue-700">🚧 Implementation Status:</p>
+                      <ul className="mt-2 space-y-1 text-blue-600">
+                        <li>• Google Apps Script: Production Ready</li>
+                        <li>• Frontend Integration: Phase 4</li>
+                        <li>• UI Components: Phase 5</li>
+                        <li>• Testing: Phase 9</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
