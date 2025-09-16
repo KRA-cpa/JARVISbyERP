@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { auth } from '../config/firebase';
+import { API } from '../api/googleSheet';
+import DEV_CONFIG, { MOCK_USER } from '../config/development';
 
 // User Context
 const UserContext = createContext();
@@ -160,8 +162,20 @@ function calculatePermissions(roles) {
 export const UserProvider = ({ children }) => {
   const [state, dispatch] = useReducer(userReducer, initialState);
 
-  // Firebase Auth State Listener
+  // Firebase Auth State Listener with Development Toggle
   useEffect(() => {
+    // Use mock user in development mode
+    if (DEV_CONFIG.DISABLE_AUTH) {
+      console.log('Development mode: Using mock user data');
+      dispatch({ type: USER_ACTION_TYPES.SET_USER, payload: MOCK_USER });
+      dispatch({ type: USER_ACTION_TYPES.SET_USER_ROLES, payload: MOCK_USER.roles });
+      dispatch({ type: USER_ACTION_TYPES.SET_USER_COMPANIES, payload: MOCK_USER.companies });
+      dispatch({ type: USER_ACTION_TYPES.SET_CURRENT_COMPANY, payload: MOCK_USER.companies[0] });
+      dispatch({ type: USER_ACTION_TYPES.SET_LOADING, payload: false });
+      return () => {}; // No cleanup needed for mock user
+    }
+
+    // Original Firebase auth logic for production
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         dispatch({ type: USER_ACTION_TYPES.SET_USER, payload: firebaseUser });
@@ -186,71 +200,72 @@ export const UserProvider = ({ children }) => {
   // Fetch user roles and companies from backend
   const fetchUserData = async (user) => {
     try {
-      // Mock API call - replace with actual backend integration
-      // This would normally call your Google Apps Script API
+      dispatch({ type: USER_ACTION_TYPES.SET_LOADING, payload: true });
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Fetch user profile with roles and companies from backend
+      const userProfile = await API.Users.getProfile(user.uid);
 
-      // Mock user roles - replace with actual API call
+      if (userProfile) {
+        // Set user roles
+        if (userProfile.roles && userProfile.roles.length > 0) {
+          dispatch({ type: USER_ACTION_TYPES.SET_USER_ROLES, payload: userProfile.roles });
+        }
+
+        // Set user companies
+        if (userProfile.companies && userProfile.companies.length > 0) {
+          dispatch({ type: USER_ACTION_TYPES.SET_USER_COMPANIES, payload: userProfile.companies });
+
+          // Set first company as current company if none selected
+          if (!state.currentCompany) {
+            dispatch({ type: USER_ACTION_TYPES.SET_CURRENT_COMPANY, payload: userProfile.companies[0] });
+          }
+        }
+      } else {
+        // If no user profile exists, create a basic user record
+        console.warn('No user profile found, user may need to be assigned roles');
+        dispatch({ type: USER_ACTION_TYPES.SET_USER_ROLES, payload: [] });
+        dispatch({ type: USER_ACTION_TYPES.SET_USER_COMPANIES, payload: [] });
+      }
+
+      dispatch({ type: USER_ACTION_TYPES.SET_LOADING, payload: false });
+
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+
+      // Fallback to mock data if API fails
+      console.warn('Falling back to mock user data');
       const mockRoles = [
         {
           id: 'role_1',
           name: 'Admin',
-          company_id: null, // Global role
-          ticket_type_id: null
+          company_id: null
         }
       ];
 
-      // Mock user companies - replace with actual API call
       const mockCompanies = [
         {
           id: 'comp_1',
           name: 'Main Corporation',
           code: 'MAIN'
-        },
-        {
-          id: 'comp_2',
-          name: 'Tech Solutions Inc.',
-          code: 'TECH'
         }
       ];
 
       dispatch({ type: USER_ACTION_TYPES.SET_USER_ROLES, payload: mockRoles });
       dispatch({ type: USER_ACTION_TYPES.SET_USER_COMPANIES, payload: mockCompanies });
-
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-      dispatch({ type: USER_ACTION_TYPES.SET_ERROR, payload: 'Failed to load user data' });
+      dispatch({ type: USER_ACTION_TYPES.SET_CURRENT_COMPANY, payload: mockCompanies[0] });
+      dispatch({ type: USER_ACTION_TYPES.SET_LOADING, payload: false });
     }
   };
 
   // Log user login to backend
   const logUserLogin = async (user) => {
-    const API_BASE_URL = process.env.REACT_APP_GAS_API_URL;
-
-    if (!API_BASE_URL) {
-      console.warn('No API URL configured');
-      return;
-    }
-
     try {
-      const response = await fetch(API_BASE_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'recordLogin',
-          payload: {
-            userId: user.uid,
-            email: user.email,
-            ipAddress: 'N/A' // Could get from a service
-          }
-        })
+      await API.System.recordLogin({
+        id: user.uid,
+        email: user.email,
+        ipAddress: 'N/A' // Could get from a service like ipapi.co
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to log user login');
-      }
+      console.log('User login logged successfully');
     } catch (error) {
       console.error('Error logging user login:', error);
     }

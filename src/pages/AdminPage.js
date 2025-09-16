@@ -1,10 +1,17 @@
 import React from 'react';
 import { useUser } from '../contexts/UserContext';
+import { useCompanies, useRoles, useDropdownLists } from '../hooks/useAPI';
 import Header from '../components/shared/Header';
 import Icons from '../components/shared/Icons';
+import APITestPanel from '../components/shared/APITestPanel';
 
 const AdminPage = () => {
   const { user, userRoles, permissions } = useUser();
+
+  // Fetch real data from API
+  const { data: companies, loading: companiesLoading } = useCompanies();
+  const { data: roles, loading: rolesLoading } = useRoles();
+  const { data: dropdownLists, loading: dropdownsLoading } = useDropdownLists();
 
   // Mock notifications
   const mockNotifications = [
@@ -17,6 +24,23 @@ const AdminPage = () => {
     }
   ];
 
+  // Generate admin modules with real data
+  const getModuleStats = (moduleId) => {
+    switch (moduleId) {
+      case 'companies':
+        if (companiesLoading) return 'Loading...';
+        return `${companies?.length || 0} companies`;
+      case 'roles':
+        if (rolesLoading) return 'Loading...';
+        return `${roles?.length || 0} roles`;
+      case 'dropdown-lists':
+        if (dropdownsLoading) return 'Loading...';
+        return `${dropdownLists?.length || 0} lists`;
+      default:
+        return 'Coming Soon';
+    }
+  };
+
   const adminModules = [
     {
       id: 'companies',
@@ -24,7 +48,7 @@ const AdminPage = () => {
       description: 'Manage company configurations and multi-tenant setup',
       icon: Icons.Company,
       available: true,
-      stats: '3 companies'
+      stats: getModuleStats('companies')
     },
     {
       id: 'roles',
@@ -32,7 +56,7 @@ const AdminPage = () => {
       description: 'Define user roles and permissions system',
       icon: Icons.Role,
       available: true,
-      stats: '8 roles'
+      stats: getModuleStats('roles')
     },
     {
       id: 'ticket-types',
@@ -56,7 +80,7 @@ const AdminPage = () => {
       description: 'Manage dropdown options and hierarchical data',
       icon: Icons.ChevronDown,
       available: true,
-      stats: '5 lists'
+      stats: getModuleStats('dropdown-lists')
     },
     {
       id: 'reports',

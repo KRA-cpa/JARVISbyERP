@@ -1,6 +1,9 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
+// Configuration
+import DEV_CONFIG, { MOCK_USER } from './config/development';
+
 // Context Providers
 import { UserProvider, useUser } from './contexts/UserContext';
 
@@ -12,11 +15,18 @@ import AdminPage from './pages/AdminPage';
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
 import ErrorBoundary from './components/shared/ErrorBoundary';
+import DevPanel from './components/shared/DevPanel';
 
-// Protected Route Component
+// Protected Route Component with Development Toggle
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
   const { isAuthenticated, isAdmin, loading } = useUser();
 
+  // Skip authentication in development mode
+  if (DEV_CONFIG.DISABLE_AUTH) {
+    return children;
+  }
+
+  // Original authentication logic for production
   if (loading) {
     return <LoadingScreen />;
   }
@@ -32,10 +42,16 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
   return children;
 };
 
-// Public Route Component (redirect if authenticated)
+// Public Route Component with Development Toggle
 const PublicRoute = ({ children }) => {
   const { isAuthenticated, loading } = useUser();
 
+  // Skip authentication in development mode
+  if (DEV_CONFIG.DISABLE_AUTH) {
+    return children;
+  }
+
+  // Original authentication logic for production
   if (loading) {
     return <LoadingScreen />;
   }
@@ -94,6 +110,9 @@ const AppRoutes = () => {
             element={<Navigate to="/dashboard" replace />}
           />
         </Routes>
+
+        {/* Development Panel */}
+        <DevPanel />
       </div>
     </Router>
   );
