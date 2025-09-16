@@ -713,6 +713,249 @@ class SystemAPI extends BaseAPI {
   }
 }
 
+// Workflow Steps API
+class WorkflowStepsAPI extends BaseAPI {
+  constructor() {
+    super('workflow_steps');
+  }
+
+  async getByTicketType(ticketTypeId) {
+    const response = await this.makeRequest('getWorkflowSteps', {
+      ticket_type_id: ticketTypeId
+    });
+    return response.data || [];
+  }
+
+  async getById(stepId) {
+    const response = await this.makeRequest('getWorkflowStep', {
+      step_id: stepId
+    });
+    return response.data;
+  }
+
+  async create(data) {
+    if (!data.ticket_type_id) {
+      throw new Error('Ticket type ID is required');
+    }
+
+    if (!data.name?.trim()) {
+      throw new Error('Step name is required');
+    }
+
+    if (!data.step_type) {
+      throw new Error('Step type is required');
+    }
+
+    const response = await this.makeRequest('createWorkflowStep', {
+      ticket_type_id: data.ticket_type_id,
+      name: data.name.trim(),
+      status_on_reach: data.status_on_reach || 'in_progress',
+      step_type: data.step_type,
+      approver_logic: data.approver_logic || 'any',
+      sort_order: data.sort_order || 1,
+      next_ticket_type_id: data.next_ticket_type_id || null,
+      external_app_url: data.external_app_url || null,
+      completion_action_name: data.completion_action_name || null,
+      sla_duration: data.sla_duration || null,
+      sla_unit: data.sla_unit || null,
+      exclude_weekends: data.exclude_weekends || false
+    });
+
+    this.cache.invalidate('workflow_steps');
+    return response.data;
+  }
+
+  async update(stepId, data) {
+    const response = await this.makeRequest('updateWorkflowStep', {
+      step_id: stepId,
+      ...data
+    });
+
+    this.cache.invalidate('workflow_steps');
+    return response.data;
+  }
+
+  async delete(stepId) {
+    const response = await this.makeRequest('deleteWorkflowStep', {
+      step_id: stepId
+    });
+
+    this.cache.invalidate('workflow_steps');
+    return response.data;
+  }
+
+  async getStepApprovers(stepId) {
+    const response = await this.makeRequest('getStepApprovers', {
+      step_id: stepId
+    });
+    return response.data || [];
+  }
+
+  async setStepApprovers(stepId, roleIds) {
+    const response = await this.makeRequest('setStepApprovers', {
+      step_id: stepId,
+      role_ids: roleIds
+    });
+
+    this.cache.invalidate('step_approvers');
+    return response.data;
+  }
+
+  getMockData(action, params = {}) {
+    if (action === 'getWorkflowSteps') {
+      const ticketTypeId = params.ticket_type_id;
+
+      const mockSteps = {
+        'purchase_request': [
+          {
+            id: 'step_pr_1',
+            ticket_type_id: 'purchase_request',
+            name: 'Manager Approval',
+            status_on_reach: 'pending_approval',
+            step_type: 'approval',
+            approver_logic: 'any',
+            sort_order: 1,
+            sla_duration: 24,
+            sla_unit: 'hours',
+            exclude_weekends: false
+          },
+          {
+            id: 'step_pr_2',
+            ticket_type_id: 'purchase_request',
+            name: 'Finance Review',
+            status_on_reach: 'pending_finance',
+            step_type: 'approval',
+            approver_logic: 'all',
+            sort_order: 2,
+            sla_duration: 48,
+            sla_unit: 'hours',
+            exclude_weekends: true
+          },
+          {
+            id: 'step_pr_3',
+            ticket_type_id: 'purchase_request',
+            name: 'Procurement Processing',
+            status_on_reach: 'in_procurement',
+            step_type: 'task',
+            sort_order: 3,
+            external_app_url: 'https://procurement.company.com/process/{ticket_id}',
+            completion_action_name: 'Mark Procurement Complete'
+          }
+        ],
+        'it_request': [
+          {
+            id: 'step_it_1',
+            ticket_type_id: 'it_request',
+            name: 'IT Manager Review',
+            status_on_reach: 'pending_it_approval',
+            step_type: 'approval',
+            approver_logic: 'any',
+            sort_order: 1,
+            sla_duration: 4,
+            sla_unit: 'hours',
+            exclude_weekends: false
+          },
+          {
+            id: 'step_it_2',
+            ticket_type_id: 'it_request',
+            name: 'Implementation',
+            status_on_reach: 'in_implementation',
+            step_type: 'task',
+            sort_order: 2,
+            external_app_url: 'https://ticketing.company.com/implement/{ticket_id}',
+            completion_action_name: 'Mark Implementation Complete'
+          }
+        ]
+      };
+
+      return {
+        success: true,
+        data: mockSteps[ticketTypeId] || []
+      };
+    }
+
+    if (action === 'getStepApprovers') {
+      return {
+        success: true,
+        data: [
+          { id: 'role_manager', name: 'Manager' },
+          { id: 'role_finance', name: 'Finance Team' }
+        ]
+      };
+    }
+
+    return super.getMockData(action, params);
+  }
+}
+
+// Step Approvals API
+class StepApprovalsAPI extends BaseAPI {
+  constructor() {
+    super('step_approvals');
+  }
+
+  async getStepApprovals(ticketId, stepId) {
+    const response = await this.makeRequest('getStepApprovals', {
+      ticket_id: ticketId,
+      step_id: stepId
+    });
+    return response.data || [];
+  }
+
+  async submitApproval(ticketId, stepId, userId, action, comment = '') {
+    const response = await this.makeRequest('submitStepApproval', {
+      ticket_id: ticketId,
+      step_id: stepId,
+      user_id: userId,
+      action: action, // 'approve', 'reject', 'return'
+      comment: comment.trim(),
+      timestamp: new Date().toISOString()
+    });
+
+    this.cache.invalidate('step_approvals');
+    this.cache.invalidate('tickets');
+    return response.data;
+  }
+
+  async canUserApprove(userId, stepId, ticketId = null) {
+    const response = await this.makeRequest('canUserApprove', {
+      user_id: userId,
+      step_id: stepId,
+      ticket_id: ticketId
+    });
+    return response.data?.can_approve || false;
+  }
+
+  getMockData(action, params = {}) {
+    if (action === 'getStepApprovals') {
+      return {
+        success: true,
+        data: [
+          {
+            id: 'approval_1',
+            ticket_id: params.ticket_id,
+            step_id: params.step_id,
+            user_id: 'user123',
+            user_name: 'John Manager',
+            action: 'approve',
+            comment: 'Budget approved',
+            timestamp: '2025-01-15T10:30:00.000Z'
+          }
+        ]
+      };
+    }
+
+    if (action === 'canUserApprove') {
+      return {
+        success: true,
+        data: { can_approve: true }
+      };
+    }
+
+    return super.getMockData(action, params);
+  }
+}
+
 // Main API object
 export const API = {
   Companies: new CompanyAPI(),
@@ -720,8 +963,20 @@ export const API = {
   Dropdowns: new DropdownAPI(),
   Tickets: new TicketAPI(),
   Users: new UserAPI(),
-  System: new SystemAPI()
+  System: new SystemAPI(),
+  WorkflowSteps: new WorkflowStepsAPI(),
+  StepApprovals: new StepApprovalsAPI()
 };
+
+// Individual API exports for backward compatibility
+export const companyAPI = API.Companies;
+export const roleAPI = API.Roles;
+export const dropdownAPI = API.Dropdowns;
+export const ticketAPI = API.Tickets;
+export const userAPI = API.Users;
+export const systemAPI = API.System;
+export const workflowStepsAPI = API.WorkflowSteps;
+export const stepApprovalsAPI = API.StepApprovals;
 
 // Utility functions
 export const APIUtils = {

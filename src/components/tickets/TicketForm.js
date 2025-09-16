@@ -4,6 +4,7 @@ import { useCompanies, useTicketTypes, useDropdownLists } from '../../hooks/useA
 import { useToast } from '../shared/Toast';
 import { previewTicketNumber } from '../../utils/ticketNumber';
 import { ticketAPI } from '../../api/googleSheet';
+import { processTicketWorkflow } from '../../utils/approvalRouter';
 import Icons from '../shared/Icons';
 
 const TicketForm = ({ ticket = null, onSave, onCancel }) => {
@@ -146,6 +147,20 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
 
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // For new tickets, trigger initial workflow setup
+      if (!isEditing) {
+        try {
+          // The actual implementation would pass the new ticket ID
+          // For now, we'll simulate it
+          const newTicketId = 'new-ticket-id';
+          await processTicketWorkflow(ticketAPI, newTicketId);
+          console.log('Initial workflow setup completed for new ticket');
+        } catch (workflowError) {
+          console.error('Workflow setup failed:', workflowError);
+          // Don't fail the ticket creation, just log the error
+        }
+      }
 
       success(isEditing ? 'Ticket updated successfully!' : 'Ticket created successfully!');
       onSave?.(ticketData);

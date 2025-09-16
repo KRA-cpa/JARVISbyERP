@@ -3,6 +3,7 @@ import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from
 import { auth } from '../config/firebase';
 import { API } from '../api/googleSheet';
 import DEV_CONFIG, { MOCK_USER } from '../config/development';
+import { usePermissions, hasPermission, getUserPermissions, isRBACEnabled } from '../utils/rbac';
 
 // User Context
 const UserContext = createContext();

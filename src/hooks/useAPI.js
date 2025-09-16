@@ -317,9 +317,58 @@ export const useAPIConnection = () => {
   return { status, loading, lastChecked, checkConnection };
 };
 
+/**
+ * Hook for workflow steps data
+ */
+export const useWorkflowSteps = (ticketTypeId) => {
+  return useAPIData(
+    ['workflow_steps', ticketTypeId],
+    () => API.WorkflowSteps.getByTicketType(ticketTypeId),
+    {
+      enabled: !!ticketTypeId,
+      staleTime: 5 * 60 * 1000 // 5 minutes
+    }
+  );
+};
+
+/**
+ * Hook for step approvals
+ */
+export const useStepApprovals = (ticketId, stepId) => {
+  return useAPIData(
+    ['step_approvals', ticketId, stepId],
+    () => API.StepApprovals.getStepApprovals(ticketId, stepId),
+    {
+      enabled: !!(ticketId && stepId),
+      staleTime: 30 * 1000 // 30 seconds (more frequent updates)
+    }
+  );
+};
+
+/**
+ * Hook for checking if user can approve a step
+ */
+export const useCanUserApprove = (userId, stepId, ticketId = null) => {
+  return useAPIData(
+    ['can_user_approve', userId, stepId, ticketId],
+    () => API.StepApprovals.canUserApprove(userId, stepId, ticketId),
+    {
+      enabled: !!(userId && stepId),
+      staleTime: 2 * 60 * 1000 // 2 minutes
+    }
+  );
+};
+
 export default {
   useAPI,
   useCompanies,
+  useRoles,
+  useDropdownLists,
+  useTickets,
+  useUsers,
+  useWorkflowSteps,
+  useStepApprovals,
+  useCanUserApprove,
   useCompany,
   useCompanyMutations,
   useRoles,

@@ -4,6 +4,8 @@
  * Supports "any" vs "all" approver logic and step conditions
  */
 
+import { findConditionalNextStep } from './conditionalWorkflows';
+
 /**
  * Workflow step types and approver logic constants
  */
@@ -325,7 +327,19 @@ export const getNextWorkflowStep = (workflowSteps, currentStep, ticket = null) =
     return null;
   }
 
-  // Sort steps by sort_order
+  // Check for conditional routing first
+  if (currentStep && ticket) {
+    try {
+      const conditionalNext = findConditionalNextStep(currentStep, workflowSteps, ticket);
+      if (conditionalNext) {
+        return conditionalNext;
+      }
+    } catch (error) {
+      console.warn('Conditional workflow evaluation failed, using default logic:', error);
+    }
+  }
+
+  // Fallback to default sequential logic
   const sortedSteps = [...workflowSteps].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
   if (!currentStep) {
@@ -530,6 +544,17 @@ export const validateWorkflowConfiguration = (workflowSteps) => {
   };
 };
 
+/**
+ * Calculate the next workflow step (alias for getNextWorkflowStep for compatibility)
+ * @param {Object} currentStep - Current step
+ * @param {Array} workflowSteps - All workflow steps for the ticket type
+ * @param {Object} ticketData - Ticket data for conditional routing
+ * @returns {Object|null} Next step or null if workflow complete
+ */
+export const calculateNextStep = (currentStep, workflowSteps, ticketData) => {
+  return getNextWorkflowStep(workflowSteps, currentStep, ticketData);
+};
+
 // Export default object with all functions
 export default {
   WORKFLOW_CONSTANTS,
@@ -543,5 +568,6 @@ export default {
   getPossibleNextSteps,
   advanceToNextStep,
   calculateStepDueDate,
-  validateWorkflowConfiguration
+  validateWorkflowConfiguration,
+  calculateNextStep
 };

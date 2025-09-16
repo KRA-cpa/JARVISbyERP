@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useUser } from '../../contexts/UserContext';
 import { useCompanies, useTicketTypes, useUsers } from '../../hooks/useAPI';
 import { useToast } from '../shared/Toast';
+import WorkflowStep from './WorkflowStep';
 import Icons from '../shared/Icons';
 
 const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
@@ -404,8 +405,21 @@ const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
     );
   };
 
+  const renderWorkflowTab = () => (
+    <div className="space-y-6">
+      <WorkflowStep
+        ticket={ticket}
+        onTicketUpdate={() => {
+          onUpdate?.(ticket);
+          success('Ticket updated');
+        }}
+      />
+    </div>
+  );
+
   const tabs = [
     { id: 'details', name: 'Details', icon: Icons.Info },
+    { id: 'workflow', name: 'Workflow', icon: Icons.Workflow },
     { id: 'comments', name: 'Comments', icon: Icons.User, count: comments.length },
     { id: 'history', name: 'History', icon: Icons.History, count: history.length },
     { id: 'actions', name: 'Actions', icon: Icons.Create }
@@ -480,6 +494,7 @@ const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
             {activeTab === 'comments' && renderCommentsTab()}
             {activeTab === 'history' && renderHistoryTab()}
             {activeTab === 'actions' && renderActionsTab()}
+            {activeTab === 'workflow' && renderWorkflowTab()}
           </div>
         </div>
       </div>

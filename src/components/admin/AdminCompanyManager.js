@@ -307,6 +307,7 @@ const AdminCompanyManager = () => {
       {/* Company List */}
       {renderCompanyList()}
     </div>
+    </>
   );
 };
 
