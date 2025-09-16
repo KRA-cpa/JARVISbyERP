@@ -430,7 +430,9 @@ const AdminRoleManager = () => {
             disabled={isSubmitting}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200 flex items-center space-x-2"
           >
-            {isSubmitting && <Icons.Loading size={16} className="animate-spin" />}
+            {isSubmitting && (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            )}
             <span>{editingRole ? 'Update Role' : 'Create Role'}</span>
           </button>
         </div>
@@ -446,7 +448,7 @@ const AdminRoleManager = () => {
 
       {rolesLoading ? (
         <div className="p-6 text-center">
-          <Icons.Loading size={32} className="mx-auto text-gray-400 animate-spin mb-4" />
+          <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-500">Loading roles...</p>
         </div>
       ) : rolesError ? (

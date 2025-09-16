@@ -57,9 +57,9 @@ const APIConnectionStatus = () => {
 
   const getStatusIcon = () => {
     switch (connectionStatus.status) {
-      case 'healthy': return Icons.CheckCircle;
-      case 'unhealthy': return Icons.XCircle;
-      case 'checking': return Icons.Loading;
+      case 'healthy': return Icons.Success;
+      case 'unhealthy': return Icons.Error;
+      case 'checking': return Icons.Clock;
       default: return Icons.Warning;
     }
   };
@@ -78,7 +78,9 @@ const APIConnectionStatus = () => {
           disabled={isChecking}
           className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
         >
-          {isChecking && <Icons.Loading size={14} className="animate-spin" />}
+          {isChecking && (
+            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          )}
           <span>Check Now</span>
         </button>
       </div>

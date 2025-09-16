@@ -441,7 +441,7 @@ class TicketAPI extends BaseAPI {
     });
 
     // Clear tickets cache since we added a new ticket
-    this.cache.invalidate('tickets');
+    cache.invalidate('tickets');
 
     return response.data;
   }
@@ -761,7 +761,7 @@ class WorkflowStepsAPI extends BaseAPI {
       exclude_weekends: data.exclude_weekends || false
     });
 
-    this.cache.invalidate('workflow_steps');
+    cache.invalidate('workflow_steps');
     return response.data;
   }
 
@@ -771,7 +771,7 @@ class WorkflowStepsAPI extends BaseAPI {
       ...data
     });
 
-    this.cache.invalidate('workflow_steps');
+    cache.invalidate('workflow_steps');
     return response.data;
   }
 
@@ -780,7 +780,7 @@ class WorkflowStepsAPI extends BaseAPI {
       step_id: stepId
     });
 
-    this.cache.invalidate('workflow_steps');
+    cache.invalidate('workflow_steps');
     return response.data;
   }
 
@@ -797,7 +797,7 @@ class WorkflowStepsAPI extends BaseAPI {
       role_ids: roleIds
     });
 
-    this.cache.invalidate('step_approvers');
+    cache.invalidate('step_approvers');
     return response.data;
   }
 
@@ -912,7 +912,7 @@ class StepApprovalsAPI extends BaseAPI {
       timestamp: new Date().toISOString()
     });
 
-    this.cache.invalidate('step_approvals');
+    cache.invalidate('step_approvals');
     this.cache.invalidate('tickets');
     return response.data;
   }

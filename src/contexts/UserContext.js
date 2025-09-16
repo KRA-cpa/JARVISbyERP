@@ -3,7 +3,6 @@ import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from
 import { auth } from '../config/firebase';
 import { API } from '../api/googleSheet';
 import DEV_CONFIG, { MOCK_USER } from '../config/development';
-import { usePermissions, hasPermission, getUserPermissions, isRBACEnabled } from '../utils/rbac';
 
 // User Context
 const UserContext = createContext();
@@ -199,7 +198,7 @@ export const UserProvider = ({ children }) => {
   }, []);
 
   // Fetch user roles and companies from backend
-  const fetchUserData = async (user) => {
+  const fetchUserData = React.useCallback(async (user) => {
     try {
       dispatch({ type: USER_ACTION_TYPES.SET_LOADING, payload: true });
 
@@ -256,10 +255,10 @@ export const UserProvider = ({ children }) => {
       dispatch({ type: USER_ACTION_TYPES.SET_CURRENT_COMPANY, payload: mockCompanies[0] });
       dispatch({ type: USER_ACTION_TYPES.SET_LOADING, payload: false });
     }
-  };
+  }, [state.currentCompany]);
 
   // Log user login to backend
-  const logUserLogin = async (user) => {
+  const logUserLogin = React.useCallback(async (user) => {
     try {
       await API.System.recordLogin({
         id: user.uid,

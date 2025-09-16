@@ -65,7 +65,7 @@ const RBACSettings = () => {
           : 'bg-gray-100 text-gray-500'
       }`}
     >
-      {hasPermission && <Icons.CheckCircle size={12} className="mr-1" />}
+      {hasPermission && <Icons.Success size={12} className="mr-1" />}
       {action}
     </span>
   );
@@ -132,7 +132,7 @@ const RBACSettings = () => {
       }`}>
         <div className="flex items-start">
           {rbacProps.enabled ? (
-            <Icons.Shield size={20} className="text-green-600 mt-0.5 mr-3" />
+            <Icons.Success size={20} className="text-green-600 mt-0.5 mr-3" />
           ) : (
             <Icons.Warning size={20} className="text-yellow-600 mt-0.5 mr-3" />
           )}

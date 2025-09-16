@@ -402,7 +402,7 @@ const ConditionalWorkflowBuilder = ({
 
               {conditionalRouting.routes.length === 0 && (
                 <div className="text-center py-8 bg-gray-50 rounded-lg">
-                  <Icons.Route size={48} className="mx-auto text-gray-400 mb-2" />
+                  <Icons.Workflow size={48} className="mx-auto text-gray-400 mb-2" />
                   <p className="text-gray-600 mb-4">No routes configured</p>
                   <button
                     onClick={addRoute}
@@ -456,7 +456,7 @@ const ConditionalWorkflowBuilder = ({
 
       {!conditionalRouting.enabled && (
         <div className="text-center py-8 text-gray-500">
-          <Icons.Route size={48} className="mx-auto text-gray-400 mb-2" />
+          <Icons.Workflow size={48} className="mx-auto text-gray-400 mb-2" />
           <p>Enable conditional routing to configure field-based workflow branching</p>
         </div>
       )}
