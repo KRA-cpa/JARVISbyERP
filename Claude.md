@@ -8,6 +8,9 @@ This document outlines the functional requirements for a dynamic ticketing and w
 
 For the proof-of-concept phase, the system will utilize a React frontend deployed to a cloud service (e.g., Vercel) and a serverless backend powered by a Google Sheet database and a Google Apps Script web app API.
 
+NOTICE: Ensure to check/recheck/fix any and all syntax errors in component created/edited.
+Consider create mapping of all dependencies connection before creating/updating the components.
+
 ### **2.0 System Architecture**
 
 The system is composed of two main parts: a frontend application for user interaction and a backend for data storage and logic.
@@ -183,3 +186,5 @@ The mock user data is currently essential for the proof-of-concept to work. It a
 
 Once you fully connect the frontend to Firebase Authentication and your Google Sheet backend API, you will replace that entire `setTimeout` block with the live `onAuthStateChanged` listener and an API call to fetch the user's profile. At that point, the mock data will be removed.
 
+NOTICE: Ensure to check/recheck/fix any and all syntax errors in component created/edited.
+Consider create mapping of all dependencies connection before creating/updating the components.
