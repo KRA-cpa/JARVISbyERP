@@ -91,6 +91,11 @@ export const useCompanyMutations = () => {
   return { createCompany, updateCompany, deleteCompany, loading, error };
 };
 
+// Ticket Types hooks
+export const useTicketTypes = (companyId = null) => {
+  return useAPI(() => API.TicketTypes?.getAll(companyId) || API.Tickets.getTicketTypes(companyId), [companyId]);
+};
+
 // Roles hooks
 export const useRoles = (companyId = null) => {
   return useAPI(() => API.Roles.getAll(companyId), [companyId]);
