@@ -61,11 +61,11 @@
 - ✅ **Permission System**: Role-based access control with dynamic UI components
 - ✅ **Backend Integration**: User login logging to Google Apps Script API
 
-### Phase 4: API Integration Layer ⚡ **BACKEND READY**
-- [ ] **googleSheet.js** - All fetch requests to Google Apps Script API
-- [ ] **Data Models** - JavaScript interfaces for all entity types (15+ tables)
-- [ ] **API Response Handling** - Error handling and data validation
-- [ ] **Caching Strategy** - Optimize API calls with local caching
+### ✅ Phase 4: API Integration Layer (COMPLETED)
+- [x] **googleSheet.js** - ✅ Complete API client with caching and error handling
+- [x] **Data Models** - ✅ JavaScript interfaces for all entity types (15+ tables)
+- [x] **API Response Handling** - ✅ Comprehensive error handling and data validation
+- [x] **Caching Strategy** - ✅ Local caching with TTL and automatic invalidation
 - [x] **Google Apps Script Development** - ✅ **COMPLETE MVP BACKEND IMPLEMENTED**
 
 **✅ Available API Endpoints:**
@@ -196,8 +196,10 @@ action: recordLogin      - payload: {userId, email, ipAddress}
 
 **Phase 1**: ✅ COMPLETED - Project foundation and structure established
 **Phase 2**: ✅ COMPLETED - Core shared components built and ready
+**Phase 3**: ✅ COMPLETED - Authentication and user management system
+**Phase 4**: ✅ COMPLETED - API integration layer with Google Sheets backend
 **Backend API**: ✅ **PRODUCTION-READY** - Complete MVP implementation available
-**Next Steps**: Build Google Sheets API integration layer (Phase 4)
+**Current Status**: Ready for Phase 5 - Admin Panel Development
 
 ## Phase 3 Authentication Documentation
 
@@ -268,4 +270,168 @@ With Phase 2 complete, we now have:
 
 Next: Implement Firebase Authentication and integrate with the backend API.
 
-*Last Updated: September 15, 2025*
+## Phase 4 API Integration Documentation
+
+### 📡 googleSheet.js - Complete API Client
+- **Comprehensive API Client**: Full integration with Google Apps Script backend
+- **Caching Layer**: TTL-based caching with automatic invalidation
+- **Error Handling**: Retry logic, timeout handling, and fallback to mock data
+- **Request Optimization**: Batched requests and debouncing for performance
+- **Mock Data Support**: Built-in fallback data for development and testing
+
+### 📋 models.js - Data Models & Validation
+- **Complete Type Definitions**: JSDoc types for all 15+ database entities
+- **Validation Utilities**: Built-in validation functions for data integrity
+- **Relationships**: Proper foreign key relationships between entities
+- **Utility Functions**: Helper functions for data transformation and formatting
+
+### 🎮 useAPI.js - React Hooks
+- **Data Fetching Hooks**: `useCompanies()`, `useRoles()`, `useDropdownLists()`
+- **Loading States**: Built-in loading, error, and success state management
+- **Cache Integration**: Automatic cache invalidation and data freshening
+- **Real-time Updates**: Optimized for live data updates
+
+## Recent Production Enhancements (September 2025)
+
+### 🔧 Configuration & Toggle System
+- **Environment-based Toggles**: Production-ready feature flag system
+- **Stats Display Control**: Hide/show dashboard statistics via environment variables
+- **Dashboard Card Arrangement**: Toggle individual dashboard cards (My Tickets, Pending, Completed, Overdue, For Your Approval)
+- **Development Panel**: Real-time configuration status monitoring
+- **Direct Access Toggle**: Bypass authentication during setup phase (`REACT_APP_ALLOW_DIRECT_ACCESS`)
+
+### 🎨 UI/UX Improvements
+- **Sticky Header**: Fixed navigation header for improved user experience
+- **Philippine Time Format**: Standardized to "DD Mmm YYYY HH:MM:SS AM/PM"
+- **Responsive Grid Layout**: Dashboard cards adapt from 4 to 5 column layout
+- **Admin Role Detection**: Improved role matching with `.includes('admin')`
+- **Unauthorized Page**: Professional access denied page with navigation options
+
+### 🔐 Authentication & Routing Enhancements
+- **Smart Root Redirect**: Intelligent routing based on authentication status
+- **Protected Route System**: Enhanced route protection with admin access control
+- **Flexible Auth Configuration**: Multiple authentication bypass options for development
+- **Production Safety**: Clear warnings and guidance for production deployment
+
+### 📊 Dashboard Features
+- **5 Dashboard Cards**: My Tickets, Pending Approval, Completed, Overdue, For Your Approval
+- **Permission-based Display**: Cards shown based on user permissions
+- **Toggle Control**: Each card can be hidden via environment variables
+- **Real-time Data**: Integration ready for live backend data
+
+### 🛠️ Development Tools
+- **DevPanel**: Comprehensive development status panel
+- **Environment Monitoring**: Real-time display of all configuration toggles
+- **Production Warnings**: Clear alerts for development-only settings
+- **Quick Actions**: Fast navigation and reload functionality
+
+## Environment Configuration
+
+### 🔧 Available Toggles
+```env
+# Authentication Control
+REACT_APP_DISABLE_AUTH=true              # Bypass all authentication
+REACT_APP_ALLOW_DIRECT_ACCESS=true       # Allow direct page access (setup phase)
+
+# Data & Debug
+REACT_APP_USE_MOCK_DATA=true             # Use mock data instead of API
+REACT_APP_SHOW_DEBUG=true                # Show debug information
+REACT_APP_SHOW_API_PANEL=true            # Display API testing panel
+
+# Admin Dashboard Stats
+REACT_APP_SHOW_USER_COUNT=false          # Hide "Total Users" stat
+REACT_APP_SHOW_TICKET_COUNT=false        # Hide "Active Tickets" stat
+REACT_APP_SHOW_COMPANY_COUNT=false       # Hide "Companies" stat
+REACT_APP_SHOW_SYSTEM_HEALTH=false       # Hide "System Health" stat
+REACT_APP_SHOW_MODULE_STATS=false        # Hide modules grid
+REACT_APP_SHOW_BACKEND_INFO=false        # Hide backend integration panel
+
+# Dashboard Cards
+REACT_APP_SHOW_MY_TICKETS=false          # Hide "My Tickets" card
+REACT_APP_SHOW_PENDING_APPROVAL=false    # Hide "Pending Approval" card
+REACT_APP_SHOW_COMPLETED=false           # Hide "Completed" card
+REACT_APP_SHOW_OVERDUE=false             # Hide "Overdue" card
+REACT_APP_SHOW_FOR_YOUR_APPROVAL=false   # Hide "For Your Approval" card
+```
+
+### 🚀 Deployment Modes
+
+**Development Mode:**
+```env
+REACT_APP_DISABLE_AUTH=true
+REACT_APP_USE_MOCK_DATA=true
+REACT_APP_SHOW_DEBUG=true
+```
+
+**Setup Phase (Live Testing):**
+```env
+REACT_APP_ALLOW_DIRECT_ACCESS=true
+REACT_APP_DISABLE_AUTH=false
+REACT_APP_USE_MOCK_DATA=false
+```
+
+**Production Mode:**
+```env
+REACT_APP_ALLOW_DIRECT_ACCESS=false
+REACT_APP_DISABLE_AUTH=false
+REACT_APP_USE_MOCK_DATA=false
+# Hide development stats as needed
+```
+
+## Technical Architecture
+
+### 🏗️ File Structure
+```
+src/
+├── api/
+│   ├── googleSheet.js     # API client with caching
+│   ├── models.js          # Data models & validation
+│   └── hooks/
+│       └── useAPI.js      # React hooks for data fetching
+├── components/
+│   ├── shared/
+│   │   ├── Header.js      # Sticky navigation header
+│   │   ├── DevPanel.js    # Development status panel
+│   │   ├── LiveClock.js   # Philippine time display
+│   │   └── Icons.js       # SVG icon library
+├── contexts/
+│   └── UserContext.js     # Authentication state management
+├── pages/
+│   ├── DashboardPage.js   # Main user dashboard
+│   ├── AdminPage.js       # Admin panel
+│   ├── LoginPage.js       # Authentication page
+│   └── UnauthorizedPage.js # Access denied page
+└── config/
+    └── development.js     # Feature toggles & configuration
+```
+
+### 🔄 Data Flow
+1. **Authentication**: Firebase Auth → UserContext → Role Assignment
+2. **API Calls**: Component → useAPI Hook → googleSheet.js → Cache/Backend
+3. **State Management**: UserContext + Local State + API Cache
+4. **Configuration**: Environment Variables → development.js → Components
+
+## Next Steps: Phase 5 - Admin Panel Development
+
+### 🎯 Immediate Goals
+1. **Company Management UI**: CRUD interface for companies
+2. **Role Management UI**: User role assignment and permissions
+3. **Dropdown List Editor**: Manage system dropdown options
+4. **Real Data Integration**: Connect admin interfaces to Google Sheets API
+5. **Testing & Validation**: Ensure all CRUD operations work correctly
+
+### 🚀 Phase 5 Implementation Plan
+- **AdminCompanyManager.js**: Company CRUD with validation
+- **AdminRoleManager.js**: Role management with permission preview
+- **AdminDropdownManager.js**: Hierarchical dropdown configuration
+- **AdminDashboard.js**: Overview with real-time statistics
+- **Integration Testing**: End-to-end workflow validation
+
+### 📈 Success Metrics
+- ✅ Full CRUD operations for companies, roles, and dropdowns
+- ✅ Real-time data synchronization with Google Sheets
+- ✅ Proper error handling and user feedback
+- ✅ Mobile-responsive admin interfaces
+- ✅ Production-ready with proper access controls
+
+*Last Updated: September 16, 2025*
