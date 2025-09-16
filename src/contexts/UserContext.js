@@ -269,7 +269,7 @@ export const UserProvider = ({ children }) => {
     } catch (error) {
       console.error('Error logging user login:', error);
     }
-  };
+  }, []);
 
   // Sign in with Google
   const signInWithGoogle = async () => {
