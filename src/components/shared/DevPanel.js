@@ -63,6 +63,10 @@ const DevPanel = () => {
                   <span>Authentication: {DEV_CONFIG.DISABLE_AUTH ? 'Bypassed' : 'Active'}</span>
                 </div>
                 <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${DEV_CONFIG.ALLOW_DIRECT_ACCESS ? 'bg-orange-500' : 'bg-gray-500'}`}></div>
+                  <span>Direct Access: {DEV_CONFIG.ALLOW_DIRECT_ACCESS ? 'Enabled' : 'Disabled'}</span>
+                </div>
+                <div className="flex items-center space-x-2">
                   <div className={`w-2 h-2 rounded-full ${DEV_CONFIG.USE_MOCK_DATA ? 'bg-yellow-500' : 'bg-green-500'}`}></div>
                   <span>API Data: {DEV_CONFIG.USE_MOCK_DATA ? 'Mock' : 'Real'}</span>
                 </div>
@@ -168,6 +172,7 @@ const DevPanel = () => {
               <div className="bg-gray-50 rounded p-2 text-xs font-mono">
                 <div className="space-y-1">
                   <div>DISABLE_AUTH: {String(DEV_CONFIG.DISABLE_AUTH)}</div>
+                  <div>ALLOW_DIRECT_ACCESS: {String(DEV_CONFIG.ALLOW_DIRECT_ACCESS)}</div>
                   <div>USE_MOCK_DATA: {String(DEV_CONFIG.USE_MOCK_DATA)}</div>
                   <div>SHOW_DEBUG: {String(DEV_CONFIG.SHOW_DEBUG_INFO)}</div>
                   <div>SHOW_API_PANEL: {String(DEV_CONFIG.SHOW_API_PANEL)}</div>
@@ -176,15 +181,20 @@ const DevPanel = () => {
             </div>
 
             {/* Production Warning */}
-            {DEV_CONFIG.DISABLE_AUTH && (
+            {(DEV_CONFIG.DISABLE_AUTH || DEV_CONFIG.ALLOW_DIRECT_ACCESS) && (
               <div className="bg-red-50 border border-red-200 rounded p-2">
                 <div className="flex items-center space-x-1">
                   <Icons.Warning size={14} className="text-red-600" />
                   <span className="text-xs font-medium text-red-800">Development Mode</span>
                 </div>
-                <p className="text-xs text-red-700 mt-1">
-                  Authentication is disabled. Set REACT_APP_DISABLE_AUTH=false for production.
-                </p>
+                <div className="text-xs text-red-700 mt-1 space-y-1">
+                  {DEV_CONFIG.DISABLE_AUTH && (
+                    <p>Authentication is disabled. Set REACT_APP_DISABLE_AUTH=false for production.</p>
+                  )}
+                  {DEV_CONFIG.ALLOW_DIRECT_ACCESS && (
+                    <p>Direct access enabled. Set REACT_APP_ALLOW_DIRECT_ACCESS=false when auth is ready.</p>
+                  )}
+                </div>
               </div>
             )}
           </div>

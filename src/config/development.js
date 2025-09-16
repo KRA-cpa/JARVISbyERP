@@ -7,6 +7,9 @@ const DEV_CONFIG = {
   // Authentication bypass for development
   DISABLE_AUTH: process.env.REACT_APP_DISABLE_AUTH === 'true' || process.env.NODE_ENV === 'development',
 
+  // Allow direct access to pages without authentication (for setup phase)
+  ALLOW_DIRECT_ACCESS: process.env.REACT_APP_ALLOW_DIRECT_ACCESS === 'true',
+
   // API configuration
   USE_MOCK_DATA: process.env.REACT_APP_USE_MOCK_DATA === 'true',
 

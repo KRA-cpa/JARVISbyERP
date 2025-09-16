@@ -11,18 +11,41 @@ import { UserProvider, useUser } from './contexts/UserContext';
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import AdminPage from './pages/AdminPage';
+import UnauthorizedPage from './pages/UnauthorizedPage';
 
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
 import ErrorBoundary from './components/shared/ErrorBoundary';
 import DevPanel from './components/shared/DevPanel';
 
+// Smart Redirect Component for Root Route
+const SmartRedirect = () => {
+  const { isAuthenticated, loading } = useUser();
+
+  // Skip authentication check in development mode or when direct access is allowed
+  if (DEV_CONFIG.DISABLE_AUTH || DEV_CONFIG.ALLOW_DIRECT_ACCESS) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Show loading while checking authentication
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  // Redirect based on authentication status
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />;
+  } else {
+    return <Navigate to="/login" replace />;
+  }
+};
+
 // Protected Route Component with Development Toggle
 const ProtectedRoute = ({ children, requireAdmin = false }) => {
   const { isAuthenticated, isAdmin, loading } = useUser();
 
-  // Skip authentication in development mode
-  if (DEV_CONFIG.DISABLE_AUTH) {
+  // Skip authentication in development mode or when direct access is allowed
+  if (DEV_CONFIG.DISABLE_AUTH || DEV_CONFIG.ALLOW_DIRECT_ACCESS) {
     return children;
   }
 
@@ -36,7 +59,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }) => {
   }
 
   if (requireAdmin && !isAdmin) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/unauthorized" replace />;
   }
 
   return children;
@@ -98,10 +121,16 @@ const AppRoutes = () => {
             }
           />
 
-          {/* Default Route */}
+          {/* Unauthorized Access Page */}
+          <Route
+            path="/unauthorized"
+            element={<UnauthorizedPage />}
+          />
+
+          {/* Default Route - Smart Redirect */}
           <Route
             path="/"
-            element={<Navigate to="/dashboard" replace />}
+            element={<SmartRedirect />}
           />
 
           {/* Catch-all route */}
