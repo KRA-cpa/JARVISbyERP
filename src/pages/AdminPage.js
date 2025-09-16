@@ -1,12 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useUser } from '../contexts/UserContext';
 import { useCompanies, useRoles, useDropdownLists } from '../hooks/useAPI';
 import Header from '../components/shared/Header';
 import Icons from '../components/shared/Icons';
 import DEV_CONFIG from '../config/development';
+import AdminCompanyManager from '../components/admin/AdminCompanyManager';
+import AdminRoleManager from '../components/admin/AdminRoleManager';
+import AdminDropdownManager from '../components/admin/AdminDropdownManager';
 
 const AdminPage = () => {
   const { user, userRoles } = useUser();
+  const [activeTab, setActiveTab] = useState('overview');
 
   // Fetch real data from API
   const { data: companies, loading: companiesLoading } = useCompanies();
@@ -21,6 +25,51 @@ const AdminPage = () => {
       message: 'System maintenance scheduled for Sunday 2:00 AM PHT',
       timestamp: '1 hour ago',
       read: false
+    }
+  ];
+
+  // Admin tabs configuration
+  const adminTabs = [
+    {
+      id: 'overview',
+      name: 'Overview',
+      icon: Icons.Dashboard,
+      description: 'System overview and statistics'
+    },
+    {
+      id: 'companies',
+      name: 'Companies',
+      icon: Icons.Company,
+      description: 'Manage company configurations',
+      component: AdminCompanyManager
+    },
+    {
+      id: 'roles',
+      name: 'Roles',
+      icon: Icons.Role,
+      description: 'Define user roles and permissions',
+      component: AdminRoleManager
+    },
+    {
+      id: 'dropdown-lists',
+      name: 'Dropdown Lists',
+      icon: Icons.ChevronDown,
+      description: 'Manage dropdown options',
+      component: AdminDropdownManager
+    },
+    {
+      id: 'ticket-types',
+      name: 'Ticket Types',
+      icon: Icons.Workflow,
+      description: 'Configure ticket types (Coming Soon)',
+      disabled: true
+    },
+    {
+      id: 'custom-fields',
+      name: 'Custom Fields',
+      icon: Icons.Edit,
+      description: 'Build dynamic form fields (Coming Soon)',
+      disabled: true
     }
   ];
 
@@ -40,57 +89,6 @@ const AdminPage = () => {
         return 'Coming Soon';
     }
   };
-
-  const adminModules = [
-    {
-      id: 'companies',
-      name: 'Companies',
-      description: 'Manage company configurations and multi-tenant setup',
-      icon: Icons.Company,
-      available: true,
-      stats: getModuleStats('companies')
-    },
-    {
-      id: 'roles',
-      name: 'Roles',
-      description: 'Define user roles and permissions system',
-      icon: Icons.Role,
-      available: true,
-      stats: getModuleStats('roles')
-    },
-    {
-      id: 'ticket-types',
-      name: 'Ticket Types',
-      description: 'Configure ticket types and workflow definitions',
-      icon: Icons.Workflow,
-      available: false,
-      stats: 'Coming in Phase 5'
-    },
-    {
-      id: 'custom-fields',
-      name: 'Custom Fields',
-      description: 'Build dynamic form fields and validation rules',
-      icon: Icons.Edit,
-      available: false,
-      stats: 'Coming in Phase 5'
-    },
-    {
-      id: 'dropdown-lists',
-      name: 'Dropdown Lists',
-      description: 'Manage dropdown options and hierarchical data',
-      icon: Icons.ChevronDown,
-      available: true,
-      stats: getModuleStats('dropdown-lists')
-    },
-    {
-      id: 'reports',
-      name: 'Reports',
-      description: 'Configure report layouts and data visualization',
-      icon: Icons.View,
-      available: false,
-      stats: 'Coming in Phase 8'
-    }
-  ];
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -125,7 +123,7 @@ const AdminPage = () => {
           </div>
 
           {/* Admin Stats - with toggles */}
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
             {DEV_CONFIG.STATS_DISPLAY.SHOW_USER_COUNT && (
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center justify-between">
@@ -187,51 +185,121 @@ const AdminPage = () => {
             )}
           </div>
 
-          {/* Admin Modules Grid - with toggle */}
-          {DEV_CONFIG.STATS_DISPLAY.SHOW_MODULE_STATS && (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {adminModules.map((module) => (
-              <div key={module.id} className={`bg-white shadow rounded-lg p-6 transition-all duration-200 ${
-                module.available
-                  ? 'hover:shadow-lg cursor-pointer border-l-4 border-l-blue-500'
-                  : 'opacity-60 cursor-not-allowed border-l-4 border-l-gray-300'
-              }`}>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <module.icon size={24} className={module.available ? 'text-blue-600' : 'text-gray-400'} />
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900">
-                        {module.name}
-                      </h3>
-                      <p className="mt-1 text-sm text-gray-600">
-                        {module.description}
-                      </p>
-                    </div>
-                  </div>
-                  {module.available ? (
-                    <Icons.ChevronRight size={20} className="text-gray-400" />
-                  ) : (
-                    <Icons.Clock size={20} className="text-gray-400" />
-                  )}
-                </div>
-                <div className="mt-4 flex items-center justify-between">
-                  <span className="text-sm text-gray-500">
-                    {module.stats}
-                  </span>
-                  {module.available ? (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                      Available
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
-                      Coming Soon
-                    </span>
-                  )}
-                </div>
-              </div>
-              ))}
+          {/* Admin Navigation Tabs */}
+          <div className="bg-white shadow rounded-lg mb-6">
+            <div className="border-b border-gray-200">
+              <nav className="flex flex-wrap gap-2 sm:space-x-8 sm:gap-0 px-4 sm:px-6" aria-label="Tabs">
+                {adminTabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => !tab.disabled && setActiveTab(tab.id)}
+                    className={`py-3 px-2 sm:py-4 sm:px-1 border-b-2 font-medium text-sm flex items-center space-x-2 transition-colors duration-200 flex-shrink-0 ${
+                      activeTab === tab.id
+                        ? 'border-blue-500 text-blue-600'
+                        : tab.disabled
+                        ? 'border-transparent text-gray-400 cursor-not-allowed'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                    disabled={tab.disabled}
+                  >
+                    <tab.icon size={16} />
+                    <span>{tab.name}</span>
+                    {tab.disabled && (
+                      <Icons.Clock size={14} className="text-gray-400" />
+                    )}
+                  </button>
+                ))}
+              </nav>
             </div>
-          )}
+
+            {/* Tab Description */}
+            <div className="px-6 py-3 bg-gray-50">
+              <p className="text-sm text-gray-600">
+                {adminTabs.find(tab => tab.id === activeTab)?.description}
+              </p>
+            </div>
+          </div>
+
+          {/* Tab Content */}
+          <div className="bg-white shadow rounded-lg p-6">
+            {activeTab === 'overview' ? (
+              <div className="space-y-6">
+                {/* Admin Stats - with toggle */}
+                {DEV_CONFIG.STATS_DISPLAY.SHOW_MODULE_STATS && (
+                  <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {adminTabs.filter(tab => tab.component).map((tab) => (
+                      <div
+                        key={tab.id}
+                        className="bg-gray-50 border border-gray-200 rounded-lg p-6 hover:shadow-md transition-all duration-200 cursor-pointer"
+                        onClick={() => setActiveTab(tab.id)}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center space-x-3">
+                            <tab.icon size={24} className="text-blue-600" />
+                            <div>
+                              <h3 className="text-lg font-medium text-gray-900">
+                                {tab.name}
+                              </h3>
+                              <p className="mt-1 text-sm text-gray-600">
+                                {tab.description}
+                              </p>
+                            </div>
+                          </div>
+                          <Icons.ChevronRight size={20} className="text-gray-400" />
+                        </div>
+                        <div className="mt-4 flex items-center justify-between">
+                          <span className="text-sm text-gray-500">
+                            {getModuleStats(tab.id)}
+                          </span>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Available
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Coming Soon Modules */}
+                    {adminTabs.filter(tab => tab.disabled).map((tab) => (
+                      <div key={tab.id} className="bg-gray-50 border border-gray-200 rounded-lg p-6 opacity-60">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center space-x-3">
+                            <tab.icon size={24} className="text-gray-400" />
+                            <div>
+                              <h3 className="text-lg font-medium text-gray-900">
+                                {tab.name}
+                              </h3>
+                              <p className="mt-1 text-sm text-gray-600">
+                                {tab.description}
+                              </p>
+                            </div>
+                          </div>
+                          <Icons.Clock size={20} className="text-gray-400" />
+                        </div>
+                        <div className="mt-4 flex items-center justify-between">
+                          <span className="text-sm text-gray-500">Coming Soon</span>
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                            Phase 6+
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              (() => {
+                const activeTabConfig = adminTabs.find(tab => tab.id === activeTab);
+                const Component = activeTabConfig?.component;
+                return Component ? <Component /> : (
+                  <div className="text-center py-12">
+                    <Icons.Clock size={48} className="mx-auto text-gray-400 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Coming Soon</h3>
+                    <p className="text-gray-600">This feature will be available in a future update.</p>
+                  </div>
+                );
+              })()
+            )}
+          </div>
 
           {/* Backend Integration Status - with toggle */}
           {DEV_CONFIG.STATS_DISPLAY.SHOW_BACKEND_INFO && (
