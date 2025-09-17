@@ -146,7 +146,7 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
     return (
       <div className="bg-white border border-gray-200 rounded-lg p-6">
         <div className="flex items-center space-x-2">
-          <Icons.Loading size={20} className="animate-spin text-blue-600" />
+          <div className="w-5 h-5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
           <span className="text-gray-600">Loading workflow information...</span>
         </div>
       </div>
@@ -168,7 +168,7 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
     return (
       <div className="bg-green-50 border border-green-200 rounded-lg p-6">
         <div className="flex items-center space-x-2">
-          <Icons.CheckCircle size={20} className="text-green-600" />
+          <Icons.Success size={20} className="text-green-600" />
           <span className="text-green-800 font-medium">Workflow Complete</span>
         </div>
         <p className="text-green-700 mt-2">This ticket has completed all workflow steps.</p>
@@ -186,8 +186,8 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
   };
 
   const getStepStatusIcon = () => {
-    if (completionStatus.rejected) return Icons.XCircle;
-    if (completionStatus.canComplete) return Icons.CheckCircle;
+    if (completionStatus.rejected) return Icons.Error;
+    if (completionStatus.canComplete) return Icons.Success;
     return Icons.Clock;
   };
 
@@ -293,7 +293,7 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
                           <ul className="text-sm mt-1 space-y-1">
                             {externalAppIntegration.checklist.map((item, index) => (
                               <li key={index} className="flex items-center">
-                                <Icons.CheckCircle size={12} className="mr-2 text-blue-600" />
+                                <Icons.Success size={12} className="mr-2 text-blue-600" />
                                 {item}
                               </li>
                             ))}
@@ -341,8 +341,10 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
                   disabled={isSubmitting || isRouting}
                   className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
-                  {(isSubmitting || isRouting) && <Icons.Loading size={16} className="mr-2 animate-spin" />}
-                  <Icons.CheckCircle size={16} className="mr-2" />
+                  {(isSubmitting || isRouting) && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  )}
+                  <Icons.Success size={16} className="mr-2" />
                   {externalAppIntegration?.completion_action_name || currentStep.completion_action_name || 'Mark Task Complete'}
                 </button>
               </div>
@@ -384,8 +386,10 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
                 disabled={isSubmitting || isRouting}
                 className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
               >
-                {(isSubmitting || isRouting) && <Icons.Loading size={16} className="mr-2 animate-spin" />}
-                <Icons.CheckCircle size={16} className="mr-2" />
+                {(isSubmitting || isRouting) && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                )}
+                <Icons.Success size={16} className="mr-2" />
                 Approve
               </button>
 
@@ -394,8 +398,10 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
                 disabled={isSubmitting || isRouting}
                 className="flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
               >
-                {(isSubmitting || isRouting) && <Icons.Loading size={16} className="mr-2 animate-spin" />}
-                <Icons.XCircle size={16} className="mr-2" />
+                {(isSubmitting || isRouting) && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                )}
+                <Icons.Error size={16} className="mr-2" />
                 Reject
               </button>
 
@@ -404,8 +410,10 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
                 disabled={isSubmitting || isRouting}
                 className="flex items-center justify-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors disabled:opacity-50"
               >
-                {(isSubmitting || isRouting) && <Icons.Loading size={16} className="mr-2 animate-spin" />}
-                <Icons.Return size={16} className="mr-2" />
+                {(isSubmitting || isRouting) && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                )}
+                <Icons.Edit size={16} className="mr-2" />
                 Return
               </button>
             </div>
@@ -448,7 +456,9 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
                 disabled={isSubmitting || (pendingAction !== 'approve' && !comment.trim())}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 flex items-center"
               >
-                {isSubmitting && <Icons.Loading size={16} className="mr-2 animate-spin" />}
+                {isSubmitting && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                )}
                 {pendingAction === 'approve' ? 'Approve' :
                  pendingAction === 'reject' ? 'Reject' : 'Return'}
               </button>

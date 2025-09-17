@@ -281,7 +281,9 @@ const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
             disabled={isAddingComment || !newComment.trim()}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
           >
-            {isAddingComment && <Icons.Loading size={16} className="animate-spin" />}
+            {isAddingComment && (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            )}
             <span>Add Comment</span>
           </button>
         </div>
@@ -390,7 +392,9 @@ const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
                 disabled={isPerformingAction || !workflowAction}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
-                {isPerformingAction && <Icons.Loading size={16} className="animate-spin" />}
+                {isPerformingAction && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
                 <span>Perform Action</span>
               </button>
             </div>

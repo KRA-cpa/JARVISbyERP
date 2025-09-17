@@ -394,7 +394,7 @@ const DashboardPage = () => {
                       onClick={() => refetchTickets()}
                       className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
                     >
-                      <Icons.Loading size={16} />
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       <span>Refresh</span>
                     </button>
                   </div>
@@ -419,7 +419,7 @@ const DashboardPage = () => {
 
               {ticketsLoading ? (
                 <div className="p-6 text-center">
-                  <Icons.Loading size={32} className="mx-auto text-gray-400 animate-spin mb-4" />
+                  <div className="w-8 h-8 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mx-auto mb-4" />
                   <p className="text-gray-500">Loading tickets...</p>
                 </div>
               ) : ticketsError ? (
