@@ -7,7 +7,7 @@
 const API_CONFIG = {
   development: {
     // Google Apps Script Web App URL (development deployment)
-    baseURL: process.env.REACT_APP_API_BASE_URL_DEV || 'https://script.google.com/macros/s/AKfycbyoHL6D9whNrh2lMujkbS576tA0AMLvXlOJFi8eKb0Lxwl5Hdl7MHiEcBWNPQDEI6zqYA/exec',
+    baseURL: process.env.REACT_APP_API_BASE_URL_DEV || 'https://script.google.com/macros/s/AKfycbyeSHLU8sW3S87yEZ7BAGJWBdaMEvJfkz3OzjPjE8XaP0pOjmGxxYQWmUwvgoIvMQArXA/exec',
     timeout: 30000,
     retryAttempts: 3,
     retryDelay: 1000,
@@ -17,7 +17,7 @@ const API_CONFIG = {
 
   production: {
     // Google Apps Script Web App URL (production deployment)
-    baseURL: process.env.REACT_APP_API_BASE_URL || 'https://script.google.com/macros/s/AKfycbyoHL6D9whNrh2lMujkbS576tA0AMLvXlOJFi8eKb0Lxwl5Hdl7MHiEcBWNPQDEI6zqYA/exec',
+    baseURL: process.env.REACT_APP_API_BASE_URL || 'https://script.google.com/macros/s/AKfycbyeSHLU8sW3S87yEZ7BAGJWBdaMEvJfkz3OzjPjE8XaP0pOjmGxxYQWmUwvgoIvMQArXA/exec',
     timeout: 45000,
     retryAttempts: 5,
     retryDelay: 2000,

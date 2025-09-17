@@ -1837,7 +1837,7 @@ After deployment, you can test the API using these functions in the Apps Script 
 
 ## 🔗 Integration Status
 
-**Production Web App URL**: `https://script.google.com/macros/s/AKfycbyU_9RfwP-w3xn3tNl4IFcSEv1MJJzJArpHbZwz3RLoVHLWCwn13MKGIki0K4nmK9amWg/exec`
+**Production Web App URL**: `https://script.google.com/macros/s/AKfycbyeSHLU8sW3S87yEZ7BAGJWBdaMEvJfkz3OzjPjE8XaP0pOjmGxxYQWmUwvgoIvMQArXA/exec`
 
 **Status**: ✅ **PRODUCTION OPERATIONAL** - Post-audit deployment complete
 
@@ -1868,7 +1868,7 @@ After deployment, you can test the API using these functions in the Apps Script 
 
 ### **🚀 Post-Audit Deployment Status**
 - **Google Apps Script**: ✅ Successfully deployed with all fixes
-- **Web App URL**: `AKfycbyU_9RfwP-w3xn3tNl4IFcSEv1MJJzJArpHbZwz3RLoVHLWCwn13MKGIki0K4nmK9amWg`
+- **Web App URL**: `AKfycbyeSHLU8sW3S87yEZ7BAGJWBdaMEvJfkz3OzjPjE8XaP0pOjmGxxYQWmUwvgoIvMQArXA`
 - **Frontend Integration**: ✅ All 8 admin components connected to real API
 - **Testing Status**: ✅ All functions verified via `verifyAllFunctionsRuntimeSafety()`
 - **Error Monitoring**: ✅ Comprehensive logging and error handling active
@@ -1907,7 +1907,7 @@ verifyAllFunctionsRuntimeSafety() // Comprehensive error checking
 **Frontend API Configuration** (`src/config/apiConfig.js`):
 ```javascript
 const apiConfig = {
-  baseURL: 'https://script.google.com/macros/s/AKfycbyU_9RfwP-w3xn3tNl4IFcSEv1MJJzJArpHbZwz3RLoVHLWCwn13MKGIki0K4nmK9amWg/exec',
+  baseURL: 'https://script.google.com/macros/s/AKfycbyeSHLU8sW3S87yEZ7BAGJWBdaMEvJfkz3OzjPjE8XaP0pOjmGxxYQWmUwvgoIvMQArXA/exec',
   timeout: 30000,
   retries: 3
 };

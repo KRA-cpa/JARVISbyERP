@@ -7,7 +7,7 @@
 **Audit Status**: ✅ **100% COMPLETE** - All critical issues resolved
 **Database**: [Google Sheet](https://docs.google.com/spreadsheets/d/1EjFpr_yktSU6QAeBSAvcr6iWVtmaOCV1t5unvImmot4/edit?usp=drive_link)
 **Spreadsheet ID**: `1EjFpr_yktSU6QAeBSAvcr6iWVtmaOCV1t5unvImmot4`
-**Deployed Web App**: `https://script.google.com/macros/s/AKfycbyU_9RfwP-w3xn3tNl4IFcSEv1MJJzJArpHbZwz3RLoVHLWCwn13MKGIki0K4nmK9amWg/exec`
+**Deployed Web App**: `https://script.google.com/macros/s/AKfycbyeSHLU8sW3S87yEZ7BAGJWBdaMEvJfkz3OzjPjE8XaP0pOjmGxxYQWmUwvgoIvMQArXA/exec`
 
 This Google Apps Script provides a complete serverless backend using Google Sheets for the dynamic ticketing system. It includes multi-tenancy, dynamic roles, sequential ticket numbering, and comprehensive audit logging.
 
@@ -336,7 +336,7 @@ export const createCompany = async (companyData) => {
 
 ### 🚀 **Deployment Status**
 - **Google Apps Script**: ✅ Deployed and operational
-- **Web App URL**: `AKfycbyU_9RfwP-w3xn3tNl4IFcSEv1MJJzJArpHbZwz3RLoVHLWCwn13MKGIki0K4nmK9amWg`
+- **Web App URL**: `AKfycbyeSHLU8sW3S87yEZ7BAGJWBdaMEvJfkz3OzjPjE8XaP0pOjmGxxYQWmUwvgoIvMQArXA`
 - **Frontend Integration**: ✅ Connected via `googleSheet.js`
 - **Admin Components**: ✅ All 8 admin components connected to real API
 - **Testing Status**: ✅ All functions verified, zero runtime errors

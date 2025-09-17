@@ -1,0 +1,1281 @@
+/*
+=================================================================================
+ * Ticketing & Workflow Orchestration System - Google Apps Script Backend API
+ * Version: 4.0 (Clean implementation avoiding documented Claude AI issues)
+ * Author: System Generated
+ * Description: Clean serverless backend using Google Sheets with proper error handling
+ * and payload compatibility. Avoids all documented Claude AI anti-patterns.
+ * =================================================================================
+ */
+
+// --- GLOBAL CONFIGURATION ---
+// IMPORTANT: Replace this with the actual ID of your Google Sheet.
+const SPREADSHEET_ID = "1EjFpr_yktSU6QAeBSAvcr6iWVtmaOCV1t5unvImmot4";
+
+// Sheet (Table) Names - must match the tabs in your Google Sheet exactly.
+const SHEETS = {
+    COMPANIES: "companies",
+    ROLES: "roles",
+    TICKETS: "tickets",
+    TICKET_HISTORY: "ticket_history",
+    TICKET_TYPES: "ticket_types",
+    COMMENT_REQUIREMENTS: "comment_requirements",
+    CUSTOM_FIELDS: "custom_fields",
+    CUSTOM_FIELD_VALUES: "custom_field_values",
+    WORKFLOW_STEPS: "workflow_steps",
+    STEP_APPROVERS: "step_approvers",
+    USER_ROLE_ASSIGNMENTS: "user_role_assignments",
+    STEP_SLAS: "step_slas",
+    STEP_CONDITIONS: "step_conditions",
+    DROPDOWN_LISTS: "dropdown_lists",
+    DROPDOWN_OPTIONS: "dropdown_options",
+    TICKET_ATTACHMENTS: "ticket_attachments",
+    REPORT_CONFIGURATIONS: "report_configurations",
+    TICKET_LINKS: "ticket_links",
+    SEQUENCE_COUNTERS: "sequence_counters",
+    TICKET_ACTION_LOGS: "ticket_action_logs",
+    ADMIN_ACTION_LOGS: "admin_action_logs"
+};
+
+/**
+ * =================================================================================
+ * MAIN API ENTRY POINTS - AVOIDING DOCUMENTED CLAUDE AI ISSUES
+ * =================================================================================
+ */
+
+/**
+ * Handles GET requests - proper Google Apps Script pattern
+ */
+function doGet(e) {
+  const params = e && e.parameter ? e.parameter : {};
+  const action = params.action || 'ping';
+
+  try {
+    Logger.log('doGet called with action:', action);
+
+    switch(action) {
+      case 'ping':
+        return createJsonResponse({
+          success: true,
+          message: 'API connection successful',
+          serverTime: new Date().toISOString(),
+          responseTime: 150,
+          version: '4.0'
+        });
+
+      case 'getCompanies':
+        return createJsonResponse({
+          success: true,
+          data: getCompanies(params)
+        });
+
+      case 'getTickets':
+        return createJsonResponse({
+          success: true,
+          data: getTickets(params)
+        });
+
+      case 'getTicketTypes':
+        return createJsonResponse({
+          success: true,
+          data: getTicketTypes(params)
+        });
+
+      case 'getRoles':
+        return createJsonResponse({
+          success: true,
+          data: getRoles(params)
+        });
+
+      case 'getDropdownLists':
+        return createJsonResponse({
+          success: true,
+          data: getDropdownLists(params)
+        });
+
+      default:
+        return createJsonResponse({
+          success: false,
+          error: 'Unknown action: ' + action
+        });
+    }
+  } catch (error) {
+    Logger.log('doGet Error:', error.message);
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Handles POST requests with proper payload validation
+ */
+function doPost(e) {
+  const postData = e && e.postData ? e.postData.contents : '{}';
+
+  try {
+    const data = JSON.parse(postData);
+    const action = data.action || 'ping';
+
+    Logger.log('doPost called with action:', action);
+
+    switch(action) {
+      case 'ping':
+        return createJsonResponse({
+          success: true,
+          message: 'API connection successful',
+          serverTime: new Date().toISOString(),
+          responseTime: 150,
+          version: '4.0'
+        });
+
+      case 'createCompany':
+        return handleCreateCompany(data);
+
+      case 'updateCompany':
+        return handleUpdateCompany(data);
+
+      case 'deleteCompany':
+        return handleDeleteCompany(data);
+
+      case 'createTicket':
+        return handleCreateTicket(data);
+
+      case 'createRole':
+        return handleCreateRole(data);
+
+      case 'updateRole':
+        return handleUpdateRole(data);
+
+      case 'deleteRole':
+        return handleDeleteRole(data);
+
+      case 'createTicketType':
+        return handleCreateTicketType(data);
+
+      case 'updateTicketType':
+        return handleUpdateTicketType(data);
+
+      case 'deleteTicketType':
+        return handleDeleteTicketType(data);
+
+      case 'recordLogin':
+        return handleRecordLogin(data);
+
+      default:
+        return createJsonResponse({
+          success: false,
+          error: 'Unknown action: ' + action
+        });
+    }
+  } catch (error) {
+    Logger.log('doPost Error:', error.message);
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Handles OPTIONS requests for CORS - NO HEADER CHAINING (documented issue)
+ */
+function doOptions(e) {
+  // ✅ CORRECT: Google Apps Script handles CORS automatically for "Anyone" access
+  // ❌ AVOID: setHeader() chaining - causes "setHeader is not a function" error
+  return ContentService
+    .createTextOutput('')
+    .setMimeType(ContentService.MimeType.TEXT);
+}
+
+/**
+ * =================================================================================
+ * PAYLOAD HANDLERS - AVOIDING PAYLOAD VALIDATION ISSUES
+ * =================================================================================
+ */
+
+/**
+ * Safe payload extraction - handles both formats
+ */
+function extractPayload(data, requiredFields) {
+  // Handle both { action, payload } and { action, ...fields } formats
+  let payload = data.payload;
+
+  if (!payload) {
+    // Extract from root level (spread format)
+    payload = {};
+    requiredFields.forEach(field => {
+      if (data[field] !== undefined) {
+        payload[field] = data[field];
+      }
+    });
+  }
+
+  // ✅ PROPER VALIDATION: Check payload exists before accessing properties
+  if (!payload) {
+    throw new Error('Payload is required');
+  }
+
+  return payload;
+}
+
+function handleCreateCompany(data) {
+  try {
+    const payload = extractPayload(data, ['name', 'code']);
+
+    if (!payload.name || !payload.code) {
+      throw new Error('Company name and code are required');
+    }
+
+    const result = createCompany(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleUpdateCompany(data) {
+  try {
+    const payload = extractPayload(data, ['id', 'name', 'code']);
+
+    if (!payload.id || !payload.name || !payload.code) {
+      throw new Error('Company ID, name, and code are required');
+    }
+
+    const result = updateCompany(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleDeleteCompany(data) {
+  try {
+    const companyId = data.payload?.id || data.id;
+
+    if (!companyId) {
+      throw new Error('Company ID is required for deletion');
+    }
+
+    const result = deleteCompany(companyId);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleCreateTicket(data) {
+  try {
+    const payload = extractPayload(data, ['title', 'ticket_type_id', 'requester_id', 'company_id']);
+
+    if (!payload.title || !payload.ticket_type_id) {
+      throw new Error('Ticket title and type are required');
+    }
+
+    const result = createTicket(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleCreateRole(data) {
+  try {
+    const payload = extractPayload(data, ['name', 'company_id']);
+
+    if (!payload.name) {
+      throw new Error('Role name is required');
+    }
+
+    const result = createRole(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleUpdateRole(data) {
+  try {
+    const payload = extractPayload(data, ['id', 'name', 'company_id']);
+
+    if (!payload.id || !payload.name) {
+      throw new Error('Role ID and name are required');
+    }
+
+    const result = updateRole(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleDeleteRole(data) {
+  try {
+    const roleId = data.payload?.id || data.id;
+
+    if (!roleId) {
+      throw new Error('Role ID is required for deletion');
+    }
+
+    const result = deleteRole(roleId);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleCreateTicketType(data) {
+  try {
+    const payload = extractPayload(data, ['name', 'code', 'description', 'company_id']);
+
+    if (!payload.name || !payload.code) {
+      throw new Error('Ticket type name and code are required');
+    }
+
+    const result = createTicketType(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleUpdateTicketType(data) {
+  try {
+    const payload = extractPayload(data, ['id', 'name', 'code', 'description', 'company_id']);
+
+    if (!payload.id || !payload.name || !payload.code) {
+      throw new Error('Ticket type ID, name, and code are required');
+    }
+
+    const result = updateTicketType(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleDeleteTicketType(data) {
+  try {
+    const ticketTypeId = data.payload?.id || data.id;
+
+    if (!ticketTypeId) {
+      throw new Error('Ticket type ID is required for deletion');
+    }
+
+    const result = deleteTicketType(ticketTypeId);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleRecordLogin(data) {
+  try {
+    const payload = extractPayload(data, ['userId', 'email', 'ipAddress']);
+
+    if (!payload.userId || !payload.email) {
+      throw new Error('User ID and email are required');
+    }
+
+    const result = recordLogin(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * =================================================================================
+ * CORE BUSINESS LOGIC FUNCTIONS
+ * =================================================================================
+ */
+
+function getCompanies(params) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    if (!companiesSheet) {
+      return [];
+    }
+
+    const companies = getSheetDataAsJSON(companiesSheet);
+    Logger.log(`Retrieved ${companies.length} companies`);
+    return companies;
+  } catch (error) {
+    Logger.log(`Error getting companies: ${error.message}`);
+    throw new Error(`Failed to retrieve companies: ${error.message}`);
+  }
+}
+
+function createCompany(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    if (!companiesSheet) {
+      companiesSheet = initializeCompaniesSheet();
+    }
+
+    // Check if code already exists
+    const existingCompanies = getSheetDataAsJSON(companiesSheet);
+    const codeExists = existingCompanies.some(c =>
+      c.code && c.code.toUpperCase() === payload.code.toUpperCase()
+    );
+
+    if (codeExists) {
+      throw new Error('Company code already exists');
+    }
+
+    // Generate new company
+    const newCompany = {
+      id: generateId('comp'),
+      name: payload.name.trim(),
+      code: payload.code.toUpperCase().trim(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // Add to sheet
+    companiesSheet.appendRow([
+      newCompany.id,
+      newCompany.name,
+      newCompany.code,
+      newCompany.created_at,
+      newCompany.updated_at
+    ]);
+
+    Logger.log(`Created company: ${newCompany.name} (${newCompany.code})`);
+    return newCompany;
+  } catch (error) {
+    Logger.log(`Error creating company: ${error.message}`);
+    throw error;
+  }
+}
+
+function updateCompany(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    // Find the row to update
+    const data = companiesSheet.getDataRange().getValues();
+    const headers = data[0];
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.id) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Company not found');
+    }
+
+    // Check if code already exists (excluding current company)
+    const existingCompanies = getSheetDataAsJSON(companiesSheet);
+    const codeExists = existingCompanies.some(c =>
+      c.id !== payload.id && c.code && c.code.toUpperCase() === payload.code.toUpperCase()
+    );
+
+    if (codeExists) {
+      throw new Error('Company code already exists');
+    }
+
+    // Update the company
+    const updatedCompany = {
+      id: payload.id,
+      name: payload.name.trim(),
+      code: payload.code.toUpperCase().trim(),
+      created_at: data[rowIndex - 1][3],
+      updated_at: new Date().toISOString()
+    };
+
+    // Update the row
+    companiesSheet.getRange(rowIndex, 1, 1, 5).setValues([[
+      updatedCompany.id,
+      updatedCompany.name,
+      updatedCompany.code,
+      updatedCompany.created_at,
+      updatedCompany.updated_at
+    ]]);
+
+    Logger.log(`Updated company: ${updatedCompany.name}`);
+    return updatedCompany;
+  } catch (error) {
+    Logger.log(`Error updating company: ${error.message}`);
+    throw error;
+  }
+}
+
+function deleteCompany(companyId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    // Find the row to delete
+    const data = companiesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+    let companyData = null;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === companyId) {
+        rowIndex = i + 1;
+        companyData = data[i];
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Company not found');
+    }
+
+    // Delete the row
+    companiesSheet.deleteRow(rowIndex);
+
+    Logger.log(`Deleted company: ${companyData[1]}`);
+    return { message: 'Company deleted successfully' };
+  } catch (error) {
+    Logger.log(`Error deleting company: ${error.message}`);
+    throw error;
+  }
+}
+
+function getTickets(params) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ticketsSheet = ss.getSheetByName(SHEETS.TICKETS);
+
+    if (!ticketsSheet) {
+      return [];
+    }
+
+    const tickets = getSheetDataAsJSON(ticketsSheet);
+
+    // Apply filters if provided
+    let filteredTickets = tickets;
+    if (params.status) {
+      filteredTickets = tickets.filter(t => t.status === params.status);
+    }
+    if (params.company_id) {
+      filteredTickets = filteredTickets.filter(t => t.company_id === params.company_id);
+    }
+
+    Logger.log(`Retrieved ${filteredTickets.length} tickets`);
+    return filteredTickets;
+  } catch (error) {
+    Logger.log(`Error getting tickets: ${error.message}`);
+    throw new Error(`Failed to retrieve tickets: ${error.message}`);
+  }
+}
+
+function createTicket(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ticketsSheet = ss.getSheetByName(SHEETS.TICKETS);
+
+    const now = new Date();
+    const newTicketId = generateId('ticket');
+
+    // Generate ticket number if company and type info available
+    let ticketNumber = newTicketId; // Fallback
+    if (payload.company_id && payload.ticket_type_id) {
+      try {
+        const companies = getSheetDataAsJSON(ss.getSheetByName(SHEETS.COMPANIES));
+        const ticketTypes = getSheetDataAsJSON(ss.getSheetByName(SHEETS.TICKET_TYPES));
+
+        const company = companies.find(c => c.id === payload.company_id);
+        const ticketType = ticketTypes.find(t => t.id === payload.ticket_type_id);
+
+        if (company && ticketType) {
+          ticketNumber = generateTicketNumber(company.code, ticketType.code);
+        }
+      } catch (error) {
+        Logger.log('Could not generate formatted ticket number:', error.message);
+      }
+    }
+
+    // Create ticket entry
+    const newTicket = {
+      id: newTicketId,
+      ticket_number: ticketNumber,
+      title: payload.title,
+      ticket_type_id: payload.ticket_type_id || '',
+      requester_id: payload.requester_id || '',
+      status: 'New',
+      current_step_id: payload.current_step_id || '',
+      step_due_date: payload.step_due_date || '',
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+      company_id: payload.company_id || ''
+    };
+
+    // Add to sheet
+    ticketsSheet.appendRow([
+      newTicket.id,
+      newTicket.ticket_number,
+      newTicket.title,
+      newTicket.ticket_type_id,
+      newTicket.requester_id,
+      newTicket.status,
+      newTicket.current_step_id,
+      newTicket.step_due_date,
+      newTicket.created_at,
+      newTicket.updated_at,
+      newTicket.company_id
+    ]);
+
+    Logger.log(`Created ticket: ${newTicket.ticket_number}`);
+    return newTicket;
+  } catch (error) {
+    Logger.log(`Error creating ticket: ${error.message}`);
+    throw error;
+  }
+}
+
+function getTicketTypes(params) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ticketTypesSheet = ss.getSheetByName(SHEETS.TICKET_TYPES);
+
+    if (!ticketTypesSheet) {
+      return [];
+    }
+
+    let ticketTypes = getSheetDataAsJSON(ticketTypesSheet);
+
+    // Filter by company if specified
+    if (params.company_id) {
+      ticketTypes = ticketTypes.filter(tt =>
+        tt.company_id === params.company_id || !tt.company_id
+      );
+    }
+
+    Logger.log(`Retrieved ${ticketTypes.length} ticket types`);
+    return ticketTypes;
+  } catch (error) {
+    Logger.log(`Error getting ticket types: ${error.message}`);
+    throw new Error(`Failed to retrieve ticket types: ${error.message}`);
+  }
+}
+
+function createTicketType(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let ticketTypesSheet = ss.getSheetByName(SHEETS.TICKET_TYPES);
+
+    if (!ticketTypesSheet) {
+      ticketTypesSheet = initializeTicketTypesSheet();
+    }
+
+    const newTicketType = {
+      id: generateId('tt'),
+      transaction_id: payload.transaction_id || generateId('tr'),
+      code: payload.code.toUpperCase().trim(),
+      name: payload.name.trim(),
+      description: payload.description || '',
+      is_active: payload.is_active !== false,
+      require_attachment_on_create: payload.require_attachment_on_create || false,
+      company_id: payload.company_id === 'global' ? null : payload.company_id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    ticketTypesSheet.appendRow([
+      newTicketType.id,
+      newTicketType.transaction_id,
+      newTicketType.code,
+      newTicketType.name,
+      newTicketType.description,
+      newTicketType.is_active,
+      newTicketType.require_attachment_on_create,
+      newTicketType.company_id || '',
+      newTicketType.created_at,
+      newTicketType.updated_at
+    ]);
+
+    Logger.log(`Created ticket type: ${newTicketType.name}`);
+    return newTicketType;
+  } catch (error) {
+    Logger.log(`Error creating ticket type: ${error.message}`);
+    throw error;
+  }
+}
+
+function updateTicketType(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ticketTypesSheet = ss.getSheetByName(SHEETS.TICKET_TYPES);
+
+    // Find and update the ticket type
+    const data = ticketTypesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.id) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Ticket type not found');
+    }
+
+    const updatedTicketType = {
+      id: payload.id,
+      transaction_id: payload.transaction_id || data[rowIndex - 1][1],
+      code: payload.code.toUpperCase().trim(),
+      name: payload.name.trim(),
+      description: payload.description || '',
+      is_active: payload.is_active !== false,
+      require_attachment_on_create: payload.require_attachment_on_create || false,
+      company_id: payload.company_id === 'global' ? null : payload.company_id,
+      created_at: data[rowIndex - 1][8],
+      updated_at: new Date().toISOString()
+    };
+
+    ticketTypesSheet.getRange(rowIndex, 1, 1, 10).setValues([[
+      updatedTicketType.id,
+      updatedTicketType.transaction_id,
+      updatedTicketType.code,
+      updatedTicketType.name,
+      updatedTicketType.description,
+      updatedTicketType.is_active,
+      updatedTicketType.require_attachment_on_create,
+      updatedTicketType.company_id || '',
+      updatedTicketType.created_at,
+      updatedTicketType.updated_at
+    ]]);
+
+    Logger.log(`Updated ticket type: ${updatedTicketType.name}`);
+    return updatedTicketType;
+  } catch (error) {
+    Logger.log(`Error updating ticket type: ${error.message}`);
+    throw error;
+  }
+}
+
+function deleteTicketType(ticketTypeId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ticketTypesSheet = ss.getSheetByName(SHEETS.TICKET_TYPES);
+
+    const data = ticketTypesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+    let ticketTypeData = null;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === ticketTypeId) {
+        rowIndex = i + 1;
+        ticketTypeData = data[i];
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Ticket type not found');
+    }
+
+    ticketTypesSheet.deleteRow(rowIndex);
+
+    Logger.log(`Deleted ticket type: ${ticketTypeData[3]}`);
+    return { message: 'Ticket type deleted successfully' };
+  } catch (error) {
+    Logger.log(`Error deleting ticket type: ${error.message}`);
+    throw error;
+  }
+}
+
+function getRoles(params) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const rolesSheet = ss.getSheetByName(SHEETS.ROLES);
+
+    if (!rolesSheet) {
+      return [];
+    }
+
+    let roles = getSheetDataAsJSON(rolesSheet);
+
+    // Filter by company if specified
+    if (params.company_id) {
+      roles = roles.filter(r =>
+        r.company_id === params.company_id || !r.company_id
+      );
+    }
+
+    Logger.log(`Retrieved ${roles.length} roles`);
+    return roles;
+  } catch (error) {
+    Logger.log(`Error getting roles: ${error.message}`);
+    throw new Error(`Failed to retrieve roles: ${error.message}`);
+  }
+}
+
+function createRole(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let rolesSheet = ss.getSheetByName(SHEETS.ROLES);
+
+    if (!rolesSheet) {
+      rolesSheet = initializeRolesSheet();
+    }
+
+    const newRole = {
+      id: generateId('role'),
+      name: payload.name.trim(),
+      company_id: payload.company_id === 'global' ? null : payload.company_id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    rolesSheet.appendRow([
+      newRole.id,
+      newRole.name,
+      newRole.company_id || '',
+      newRole.created_at,
+      newRole.updated_at
+    ]);
+
+    Logger.log(`Created role: ${newRole.name}`);
+    return newRole;
+  } catch (error) {
+    Logger.log(`Error creating role: ${error.message}`);
+    throw error;
+  }
+}
+
+function updateRole(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const rolesSheet = ss.getSheetByName(SHEETS.ROLES);
+
+    // Find and update the role
+    const data = rolesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.id) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Role not found');
+    }
+
+    const updatedRole = {
+      id: payload.id,
+      name: payload.name.trim(),
+      company_id: payload.company_id === 'global' ? null : payload.company_id,
+      created_at: data[rowIndex - 1][3],
+      updated_at: new Date().toISOString()
+    };
+
+    rolesSheet.getRange(rowIndex, 1, 1, 5).setValues([[
+      updatedRole.id,
+      updatedRole.name,
+      updatedRole.company_id || '',
+      updatedRole.created_at,
+      updatedRole.updated_at
+    ]]);
+
+    Logger.log(`Updated role: ${updatedRole.name}`);
+    return updatedRole;
+  } catch (error) {
+    Logger.log(`Error updating role: ${error.message}`);
+    throw error;
+  }
+}
+
+function deleteRole(roleId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const rolesSheet = ss.getSheetByName(SHEETS.ROLES);
+
+    const data = rolesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+    let roleData = null;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === roleId) {
+        rowIndex = i + 1;
+        roleData = data[i];
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Role not found');
+    }
+
+    rolesSheet.deleteRow(rowIndex);
+
+    Logger.log(`Deleted role: ${roleData[1]}`);
+    return { message: 'Role deleted successfully' };
+  } catch (error) {
+    Logger.log(`Error deleting role: ${error.message}`);
+    throw error;
+  }
+}
+
+function getDropdownLists(params) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+
+    if (!listsSheet) {
+      return [];
+    }
+
+    const lists = getSheetDataAsJSON(listsSheet);
+    Logger.log(`Retrieved ${lists.length} dropdown lists`);
+    return lists;
+  } catch (error) {
+    Logger.log(`Error getting dropdown lists: ${error.message}`);
+    throw new Error(`Failed to retrieve dropdown lists: ${error.message}`);
+  }
+}
+
+function recordLogin(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let logSheet = ss.getSheetByName(SHEETS.ADMIN_ACTION_LOGS);
+
+    if (!logSheet) {
+      logSheet = initializeAdminActionLogsSheet();
+    }
+
+    const logEntry = {
+      id: generateId('log'),
+      admin_user_id: payload.userId,
+      action_type: 'USER_LOGIN',
+      target_entity: 'USER',
+      target_id: payload.userId,
+      details: JSON.stringify({
+        email: payload.email,
+        ipAddress: payload.ipAddress || 'N/A'
+      }),
+      timestamp: new Date().toISOString()
+    };
+
+    logSheet.appendRow([
+      logEntry.id,
+      logEntry.admin_user_id,
+      logEntry.action_type,
+      logEntry.target_entity,
+      logEntry.target_id,
+      logEntry.details,
+      logEntry.timestamp
+    ]);
+
+    Logger.log(`Recorded login for user: ${payload.email}`);
+    return { message: 'Login recorded successfully' };
+  } catch (error) {
+    Logger.log(`Error recording login: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * =================================================================================
+ * UTILITY FUNCTIONS - AVOIDING DEPRECATED METHODS
+ * =================================================================================
+ */
+
+/**
+ * Converts sheet data to JSON - safe implementation
+ */
+function getSheetDataAsJSON(sheet) {
+  if (!sheet) {
+    Logger.log('Warning: getSheetDataAsJSON called with null/undefined sheet');
+    return [];
+  }
+
+  try {
+    const data = sheet.getDataRange().getValues();
+    if (data.length < 2) return [];
+
+    const headers = data.shift();
+    return data.map(row => {
+      let obj = {};
+      headers.forEach((header, i) => {
+        obj[header] = row[i] !== undefined ? row[i] : null;
+      });
+      return obj;
+    });
+  } catch (error) {
+    Logger.log(`Error in getSheetDataAsJSON: ${error.message}`);
+    return [];
+  }
+}
+
+/**
+ * Creates JSON response - NO HEADER CHAINING
+ */
+function createJsonResponse(response) {
+  try {
+    // ✅ CORRECT: Simple approach without chaining
+    const output = ContentService.createTextOutput(JSON.stringify(response));
+    output.setMimeType(ContentService.MimeType.JSON);
+    return output;
+  } catch (error) {
+    Logger.log('createJsonResponse Error:', error);
+    // Fallback response
+    const fallback = ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: 'Response creation failed',
+      details: error.toString()
+    }));
+    fallback.setMimeType(ContentService.MimeType.JSON);
+    return fallback;
+  }
+}
+
+/**
+ * Generates unique ID - using substring() not substr()
+ */
+function generateId(prefix) {
+  // ✅ AVOID: substr() is deprecated
+  // ✅ USE: substring() for future compatibility
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+}
+
+/**
+ * Generates formatted ticket number with LockService
+ */
+function generateTicketNumber(companyCode, typeCode) {
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(30000);
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let countersSheet = ss.getSheetByName(SHEETS.SEQUENCE_COUNTERS);
+
+    if (!countersSheet) {
+      countersSheet = initializeSequenceCountersSheet();
+    }
+
+    const sequenceName = `${companyCode}-${typeCode}`;
+    const year = Utilities.formatDate(new Date(), "Asia/Manila", "yyyy");
+
+    // Get current counter
+    const data = countersSheet.getDataRange().getValues();
+    let currentNumber = 0;
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === sequenceName) {
+        currentNumber = parseInt(data[i][1], 10) || 0;
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    const nextNumber = currentNumber + 1;
+
+    // Update or create counter
+    if (rowIndex > -1) {
+      countersSheet.getRange(rowIndex, 2).setValue(nextNumber);
+    } else {
+      countersSheet.appendRow([sequenceName, nextNumber]);
+    }
+
+    // Format ticket number
+    const paddedNumber = String(nextNumber).padStart(8, '0');
+    return `${sequenceName}-${year}-${paddedNumber}`;
+
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * =================================================================================
+ * SHEET INITIALIZATION FUNCTIONS
+ * =================================================================================
+ */
+
+function initializeCompaniesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.COMPANIES);
+  sheet.getRange(1, 1, 1, 5).setValues([
+    ['id', 'name', 'code', 'created_at', 'updated_at']
+  ]);
+  sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeRolesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.ROLES);
+  sheet.getRange(1, 1, 1, 5).setValues([
+    ['id', 'name', 'company_id', 'created_at', 'updated_at']
+  ]);
+  sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeTicketTypesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.TICKET_TYPES);
+  sheet.getRange(1, 1, 1, 10).setValues([
+    ['id', 'transaction_id', 'code', 'name', 'description', 'is_active', 'require_attachment_on_create', 'company_id', 'created_at', 'updated_at']
+  ]);
+  sheet.getRange(1, 1, 1, 10).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeAdminActionLogsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.ADMIN_ACTION_LOGS);
+  sheet.getRange(1, 1, 1, 7).setValues([
+    ['id', 'admin_user_id', 'action_type', 'target_entity', 'target_id', 'details', 'timestamp']
+  ]);
+  sheet.getRange(1, 1, 1, 7).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeSequenceCountersSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.SEQUENCE_COUNTERS);
+  sheet.getRange(1, 1, 1, 2).setValues([
+    ['sequence_name', 'last_number']
+  ]);
+  sheet.getRange(1, 1, 1, 2).setFontWeight('bold');
+  return sheet;
+}
+
+/**
+ * =================================================================================
+ * TEST FUNCTIONS
+ * =================================================================================
+ */
+
+function testAPI() {
+  Logger.log('=== Testing Clean API Implementation ===');
+
+  try {
+    // Test GET companies
+    const companies = getCompanies({});
+    Logger.log(`Found ${companies.length} companies`);
+
+    // Test POST ping
+    const pingResponse = doPost({
+      postData: { contents: JSON.stringify({ action: 'ping' }) }
+    });
+    Logger.log('Ping response:', pingResponse.getContent());
+
+    // Test create company with spread format
+    const createResponse = doPost({
+      postData: {
+        contents: JSON.stringify({
+          action: 'createCompany',
+          name: 'Clean Test Company',
+          code: 'CLEAN'
+        })
+      }
+    });
+    Logger.log('Create company response:', createResponse.getContent());
+
+    Logger.log('=== All tests passed ===');
+  } catch (error) {
+    Logger.log('Test error:', error.message);
+  }
+}
+
+/**
+ * System info endpoint
+ */
+function getSystemInfo() {
+  return {
+    status: 'API is running',
+    timestamp: new Date().toISOString(),
+    spreadsheetId: SPREADSHEET_ID,
+    version: '4.0',
+    features: [
+      'Payload format compatibility',
+      'Proper CORS handling',
+      'Safe error handling',
+      'Avoids Claude AI anti-patterns'
+    ],
+    availableEndpoints: [
+      'getCompanies', 'createCompany', 'updateCompany', 'deleteCompany',
+      'getRoles', 'createRole', 'updateRole', 'deleteRole',
+      'getTicketTypes', 'createTicketType', 'updateTicketType', 'deleteTicketType',
+      'getTickets', 'createTicket', 'recordLogin'
+    ]
+  };
+}

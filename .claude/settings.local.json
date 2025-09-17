@@ -11,7 +11,9 @@
       "Bash(node:*)",
       "Bash(tail:*)",
       "WebFetch(domain:script.googleusercontent.com)",
-      "WebFetch(domain:script.google.com)"
+      "WebFetch(domain:script.google.com)",
+      "WebFetch(domain:docs.google.com)",
+      "WebFetch(domain:doc-0g-ak-sheets.googleusercontent.com)"
     ],
     "deny": [],
     "ask": []
