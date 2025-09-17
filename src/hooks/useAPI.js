@@ -413,6 +413,7 @@ export default {
   useRoles,
   useDropdownLists,
   useTickets,
+  useTicketTypes,
   useUsers,
   useWorkflowSteps,
   useStepApprovals,
