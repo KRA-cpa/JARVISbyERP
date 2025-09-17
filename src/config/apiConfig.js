@@ -12,7 +12,7 @@ const API_CONFIG = {
     retryAttempts: 3,
     retryDelay: 1000,
     debugMode: true,
-    mockMode: true // Set to true to use mock data instead of real API
+    mockMode: false // Set to true to use mock data instead of real API
   },
 
   production: {
