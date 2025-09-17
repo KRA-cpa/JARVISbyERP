@@ -888,6 +888,269 @@ class WorkflowStepsAPI extends BaseAPI {
   }
 }
 
+// Custom Fields API
+class CustomFieldsAPI extends BaseAPI {
+  constructor() {
+    super('custom_fields');
+  }
+
+  async getAll() {
+    const response = await this.makeRequest('getCustomFields');
+    return response.data || [];
+  }
+
+  async getByTicketType(ticketTypeId) {
+    const response = await this.makeRequest('getCustomFields', {
+      ticket_type_id: ticketTypeId
+    });
+    return response.data || [];
+  }
+
+  async getById(id) {
+    const response = await this.makeRequest('getCustomField', {
+      field_id: id
+    });
+    return response.data;
+  }
+
+  async create(data) {
+    if (!data.ticket_type_id) {
+      throw new Error('Ticket type ID is required');
+    }
+
+    if (!data.name?.trim()) {
+      throw new Error('Field name is required');
+    }
+
+    if (!data.label?.trim()) {
+      throw new Error('Field label is required');
+    }
+
+    if (!data.type) {
+      throw new Error('Field type is required');
+    }
+
+    const response = await this.makeRequest('createCustomField', {
+      ticket_type_id: data.ticket_type_id,
+      name: data.name.trim(),
+      label: data.label.trim(),
+      type: data.type,
+      is_required: data.is_required || false,
+      is_hidden: data.is_hidden || false,
+      sort_order: data.sort_order || 1,
+      dropdown_list_id: data.dropdown_list_id || null,
+      depends_on_field_id: data.depends_on_field_id || null
+    });
+    return response.data;
+  }
+
+  async update(id, data) {
+    if (!id) {
+      throw new Error('Field ID is required');
+    }
+
+    const response = await this.makeRequest('updateCustomField', {
+      field_id: id,
+      ...data
+    });
+    return response.data;
+  }
+
+  async delete(id) {
+    if (!id) {
+      throw new Error('Field ID is required');
+    }
+
+    const response = await this.makeRequest('deleteCustomField', {
+      field_id: id
+    });
+    return response.data;
+  }
+
+  getMockData(action, params = {}) {
+    const mockCustomFields = [
+      {
+        id: '1',
+        ticket_type_id: 'tt_1',
+        name: 'item_description',
+        label: 'Item Description',
+        type: 'paragraph',
+        is_required: true,
+        is_hidden: false,
+        sort_order: 1,
+        dropdown_list_id: null,
+        depends_on_field_id: null,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      },
+      {
+        id: '2',
+        ticket_type_id: 'tt_1',
+        name: 'estimated_cost',
+        label: 'Estimated Cost',
+        type: 'amount',
+        is_required: true,
+        is_hidden: false,
+        sort_order: 2,
+        dropdown_list_id: null,
+        depends_on_field_id: null,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      },
+      {
+        id: '3',
+        ticket_type_id: 'tt_1',
+        name: 'vendor_category',
+        label: 'Vendor Category',
+        type: 'dropdown',
+        is_required: false,
+        is_hidden: false,
+        sort_order: 3,
+        dropdown_list_id: '1',
+        depends_on_field_id: null,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      }
+    ];
+
+    switch (action) {
+      case 'getCustomFields':
+        if (params.ticket_type_id) {
+          return {
+            status: 'success',
+            data: mockCustomFields.filter(f => f.ticket_type_id === params.ticket_type_id)
+          };
+        }
+        return { status: 'success', data: mockCustomFields };
+      case 'getCustomField':
+        const field = mockCustomFields.find(f => f.id === params.field_id);
+        return { status: 'success', data: field };
+      case 'createCustomField':
+      case 'updateCustomField':
+        return {
+          status: 'success',
+          data: {
+            ...mockCustomFields[0],
+            id: Date.now().toString(),
+            ...params
+          }
+        };
+      case 'deleteCustomField':
+        return { status: 'success', data: { deleted: true } };
+      default:
+        return super.getMockData(action, params);
+    }
+  }
+}
+
+// Ticket Types API
+class TicketTypesAPI extends BaseAPI {
+  constructor() {
+    super('ticket_types');
+  }
+
+  async getAll(companyId = null) {
+    const response = await this.makeRequest('getTicketTypes', {
+      company_id: companyId
+    });
+    return response.data || [];
+  }
+
+  async getById(id) {
+    const response = await this.makeRequest('getTicketType', {
+      ticket_type_id: id
+    });
+    return response.data;
+  }
+
+  async create(data) {
+    if (!data.transaction_id?.trim()) {
+      throw new Error('Transaction ID is required');
+    }
+
+    if (!data.code?.trim()) {
+      throw new Error('Code is required');
+    }
+
+    if (!data.name?.trim()) {
+      throw new Error('Name is required');
+    }
+
+    const response = await this.makeRequest('createTicketType', {
+      transaction_id: data.transaction_id.trim(),
+      code: data.code.toUpperCase().trim(),
+      name: data.name.trim(),
+      description: data.description || '',
+      is_active: data.is_active !== false,
+      require_attachment_on_create: data.require_attachment_on_create || false,
+      company_id: data.company_id || null
+    });
+    return response.data;
+  }
+
+  async update(id, data) {
+    if (!id) {
+      throw new Error('Ticket type ID is required');
+    }
+
+    const response = await this.makeRequest('updateTicketType', {
+      ticket_type_id: id,
+      ...data
+    });
+    return response.data;
+  }
+
+  async delete(id) {
+    if (!id) {
+      throw new Error('Ticket type ID is required');
+    }
+
+    const response = await this.makeRequest('deleteTicketType', {
+      ticket_type_id: id
+    });
+    return response.data;
+  }
+
+  getMockData(action, params = {}) {
+    const mockTicketTypes = [
+      {
+        id: 'tt_1',
+        transaction_id: 'TR001',
+        code: 'PR',
+        name: 'Purchase Request',
+        description: 'Request for purchasing items',
+        is_active: true,
+        require_attachment_on_create: true,
+        company_id: null,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      }
+    ];
+
+    switch (action) {
+      case 'getTicketTypes':
+        return { status: 'success', data: mockTicketTypes };
+      case 'getTicketType':
+        const ticketType = mockTicketTypes.find(tt => tt.id === params.ticket_type_id);
+        return { status: 'success', data: ticketType };
+      case 'createTicketType':
+      case 'updateTicketType':
+        return {
+          status: 'success',
+          data: {
+            ...mockTicketTypes[0],
+            id: Date.now().toString(),
+            ...params
+          }
+        };
+      case 'deleteTicketType':
+        return { status: 'success', data: { deleted: true } };
+      default:
+        return super.getMockData(action, params);
+    }
+  }
+}
+
 // Step Approvals API
 class StepApprovalsAPI extends BaseAPI {
   constructor() {
@@ -962,6 +1225,8 @@ export const API = {
   Roles: new RoleAPI(),
   Dropdowns: new DropdownAPI(),
   Tickets: new TicketAPI(),
+  TicketTypes: new TicketTypesAPI(),
+  CustomFields: new CustomFieldsAPI(),
   Users: new UserAPI(),
   System: new SystemAPI(),
   WorkflowSteps: new WorkflowStepsAPI(),
@@ -973,6 +1238,8 @@ export const companyAPI = API.Companies;
 export const roleAPI = API.Roles;
 export const dropdownAPI = API.Dropdowns;
 export const ticketAPI = API.Tickets;
+export const ticketTypesAPI = API.TicketTypes;
+export const customFieldsAPI = API.CustomFields;
 export const userAPI = API.Users;
 export const systemAPI = API.System;
 export const workflowStepsAPI = API.WorkflowSteps;

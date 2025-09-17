@@ -7,6 +7,9 @@ import DEV_CONFIG from '../config/development';
 import AdminCompanyManager from '../components/admin/AdminCompanyManager';
 import AdminRoleManager from '../components/admin/AdminRoleManager';
 import AdminDropdownManager from '../components/admin/AdminDropdownManager';
+import AdminTicketTypeManager from '../components/admin/AdminTicketTypeManager';
+import AdminCustomFieldManager from '../components/admin/AdminCustomFieldManager';
+import APIConnectionStatus from '../components/admin/APIConnectionStatus';
 
 const AdminPage = () => {
   const { user, userRoles } = useUser();
@@ -61,15 +64,15 @@ const AdminPage = () => {
       id: 'ticket-types',
       name: 'Ticket Types',
       icon: Icons.Workflow,
-      description: 'Configure ticket types (Coming Soon)',
-      disabled: true
+      description: 'Configure ticket types and transaction IDs',
+      component: AdminTicketTypeManager
     },
     {
       id: 'custom-fields',
       name: 'Custom Fields',
       icon: Icons.Edit,
-      description: 'Build dynamic form fields (Coming Soon)',
-      disabled: true
+      description: 'Build dynamic form fields for ticket types',
+      component: AdminCustomFieldManager
     }
   ];
 
@@ -85,6 +88,10 @@ const AdminPage = () => {
       case 'dropdown-lists':
         if (dropdownsLoading) return 'Loading...';
         return `${dropdownLists?.length || 0} lists`;
+      case 'ticket-types':
+        return 'Phase 8.5 - Available';
+      case 'custom-fields':
+        return 'Phase 8.5 - Available';
       default:
         return 'Coming Soon';
     }
@@ -224,6 +231,9 @@ const AdminPage = () => {
           <div className="bg-white shadow rounded-lg p-6">
             {activeTab === 'overview' ? (
               <div className="space-y-6">
+                {/* API Connection Status */}
+                <APIConnectionStatus />
+
                 {/* Admin Stats - with toggle */}
                 {DEV_CONFIG.STATS_DISPLAY.SHOW_MODULE_STATS && (
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">

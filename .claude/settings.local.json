@@ -3,7 +3,12 @@
     "allow": [
       "Bash(npm install:*)",
       "Bash(mkdir:*)",
-      "Bash(npm start)"
+      "Bash(npm start)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd //c taskkill:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
