@@ -203,41 +203,40 @@ const APIConnectionStatus = () => {
         </div>
       )}
 
-        {/* Troubleshooting */}
-        {connectionStatus.status === 'unhealthy' && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-start space-x-2">
-              <Icons.Warning size={16} className="text-yellow-600 mt-0.5" />
-              <div>
-                <h5 className="text-sm font-medium text-yellow-900">Troubleshooting</h5>
-                <ul className="text-sm text-yellow-700 mt-1 space-y-1">
-                  <li>• Verify the Google Apps Script deployment URL is correct</li>
-                  <li>• Check that the script is deployed as a web app with proper permissions</li>
-                  <li>• Ensure CORS is configured in the Apps Script project</li>
-                  <li>• Verify environment variables are set correctly</li>
-                  <li>• Check network connectivity and firewall settings</li>
-                </ul>
-              </div>
+      {/* Troubleshooting */}
+      {connectionStatus.status === 'unhealthy' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
+          <div className="flex items-start space-x-2">
+            <Icons.Warning size={16} className="text-yellow-600 mt-0.5" />
+            <div>
+              <h5 className="text-sm font-medium text-yellow-900">Troubleshooting</h5>
+              <ul className="text-sm text-yellow-700 mt-1 space-y-1">
+                <li>• Verify the Google Apps Script deployment URL is correct</li>
+                <li>• Check that the script is deployed as a web app with proper permissions</li>
+                <li>• Ensure CORS is configured in the Apps Script project</li>
+                <li>• Verify environment variables are set correctly</li>
+                <li>• Check network connectivity and firewall settings</li>
+              </ul>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Mock Mode Warning */}
-        {apiConfig.mockMode && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex items-start space-x-2">
-              <Icons.Warning size={16} className="text-yellow-600 mt-0.5" />
-              <div>
-                <h5 className="text-sm font-medium text-yellow-900">Mock Mode Active</h5>
-                <p className="text-sm text-yellow-700 mt-1">
-                  The application is currently using mock data instead of the live Google Sheets API.
-                  Disable mock mode in the API configuration to use real data.
-                </p>
-              </div>
+      {/* Mock Mode Warning */}
+      {apiConfig.mockMode && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
+          <div className="flex items-start space-x-2">
+            <Icons.Warning size={16} className="text-yellow-600 mt-0.5" />
+            <div>
+              <h5 className="text-sm font-medium text-yellow-900">Mock Mode Active</h5>
+              <p className="text-sm text-yellow-700 mt-1">
+                The application is currently using mock data instead of the live Google Sheets API.
+                Disable mock mode in the API configuration to use real data.
+              </p>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
