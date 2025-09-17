@@ -291,7 +291,7 @@ class CompanyAPI extends BaseAPI {
     }
 
     if (!ValidationUtils.isValidCompanyCode(data.code)) {
-      throw new Error('Company code must be 2-8 uppercase letters');
+      throw new Error('Company code must be 2-8 uppercase letters or numbers');
     }
 
     const response = await this.makeRequest('createCompany', {

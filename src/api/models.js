@@ -41,8 +41,8 @@ export class CompanyModel {
 
     if (!this.code?.trim()) {
       errors.push('Company code is required');
-    } else if (!/^[A-Z]{2,8}$/.test(this.code)) {
-      errors.push('Company code must be 2-8 uppercase letters');
+    } else if (!/^[A-Z0-9]{2,8}$/.test(this.code)) {
+      errors.push('Company code must be 2-8 uppercase letters or numbers');
     }
 
     return {
@@ -571,7 +571,7 @@ export const ValidationUtils = {
    * @returns {boolean}
    */
   isValidCompanyCode(code) {
-    return /^[A-Z]{2,8}$/.test(code);
+    return /^[A-Z0-9]{2,8}$/.test(code);
   },
 
   /**
@@ -580,7 +580,7 @@ export const ValidationUtils = {
    * @returns {boolean}
    */
   isValidTicketNumber(ticketNumber) {
-    return /^[A-Z]{2,8}-[A-Z]{2,8}-\d{4}-\d{8}$/.test(ticketNumber);
+    return /^[A-Z0-9]{2,8}-[A-Z0-9]{2,8}-\d{4}-\d{8}$/.test(ticketNumber);
   },
 
   /**

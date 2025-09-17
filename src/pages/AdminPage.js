@@ -15,10 +15,104 @@ const AdminPage = () => {
   const { user, userRoles } = useUser();
   const [activeTab, setActiveTab] = useState('overview');
 
-  // Fetch real data from API
-  const { data: companies, loading: companiesLoading } = useCompanies();
-  const { data: roles, loading: rolesLoading } = useRoles();
-  const { data: dropdownLists, loading: dropdownsLoading } = useDropdownLists();
+  // Fetch real data from API with manual refresh capability
+  const { data: companies, loading: companiesLoading, error: companiesError, refetch: refetchCompanies } = useCompanies();
+  const { data: roles, loading: rolesLoading, error: rolesError, refetch: refetchRoles } = useRoles();
+  const { data: dropdownLists, loading: dropdownsLoading, error: dropdownsError, refetch: refetchDropdowns } = useDropdownLists();
+
+  // Manual refresh all data
+  const refreshAllData = async () => {
+    try {
+      await Promise.all([
+        refetchCompanies(),
+        refetchRoles(),
+        refetchDropdowns()
+      ]);
+    } catch (error) {
+      console.error('Failed to refresh data:', error);
+    }
+  };
+
+  // Determine API health status
+  const getAPIHealthStatus = () => {
+    const errors = [companiesError, rolesError, dropdownsError].filter(Boolean);
+    const loading = companiesLoading || rolesLoading || dropdownsLoading;
+
+    if (errors.length > 0) {
+      // Analyze error types
+      const hasNetworkError = errors.some(err => err.includes('net::ERR_FAILED') || err.includes('Failed to fetch'));
+      const hasCORSError = errors.some(err => err.includes('CORS') || err.includes('blocked by CORS policy'));
+      const hasTimeoutError = errors.some(err => err.includes('timeout') || err.includes('AbortError'));
+      const hasServerError = errors.some(err => err.includes('500') || err.includes('502') || err.includes('503'));
+
+      if (hasNetworkError) {
+        return {
+          status: 'error',
+          type: 'NETWORK_ERROR',
+          code: 'NET_001',
+          message: 'Network connection failed',
+          details: 'Cannot connect to Google Apps Script API',
+          solution: 'Check deployment status and network connection'
+        };
+      }
+
+      if (hasCORSError) {
+        return {
+          status: 'error',
+          type: 'CORS_ERROR',
+          code: 'CORS_001',
+          message: 'Cross-Origin Request Blocked',
+          details: 'CORS policy preventing API access',
+          solution: 'Update Google Apps Script CORS configuration'
+        };
+      }
+
+      if (hasTimeoutError) {
+        return {
+          status: 'error',
+          type: 'TIMEOUT_ERROR',
+          code: 'API_002',
+          message: 'API Request Timeout',
+          details: 'Google Apps Script not responding within timeout',
+          solution: 'Check Apps Script execution logs and performance'
+        };
+      }
+
+      if (hasServerError) {
+        return {
+          status: 'error',
+          type: 'SERVER_ERROR',
+          code: 'API_003',
+          message: 'Server Error',
+          details: 'Google Apps Script internal error',
+          solution: 'Check Apps Script logs and deployment status'
+        };
+      }
+
+      return {
+        status: 'error',
+        type: 'UNKNOWN_ERROR',
+        code: 'API_999',
+        message: 'Unknown API Error',
+        details: errors[0],
+        solution: 'Check browser console and Apps Script logs'
+      };
+    }
+
+    if (loading) {
+      return {
+        status: 'loading',
+        message: 'Loading data...'
+      };
+    }
+
+    return {
+      status: 'healthy',
+      message: 'All systems operational'
+    };
+  };
+
+  const apiHealth = getAPIHealthStatus();
 
   // Mock notifications
   const mockNotifications = [
@@ -180,17 +274,85 @@ const AdminPage = () => {
               <div className="bg-white rounded-lg shadow p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium text-gray-600">System Health</p>
-                    <p className="text-3xl font-bold text-green-600">99%</p>
+                    <p className="text-sm font-medium text-gray-600">API Health</p>
+                    <div className="flex items-center space-x-2">
+                      <p className={`text-3xl font-bold ${
+                        apiHealth.status === 'healthy' ? 'text-green-600' :
+                        apiHealth.status === 'loading' ? 'text-yellow-600' : 'text-red-600'
+                      }`}>
+                        {apiHealth.status === 'healthy' ? '✓' :
+                         apiHealth.status === 'loading' ? '⟳' : '✗'}
+                      </p>
+                      {apiHealth.code && (
+                        <span className="text-sm font-mono bg-gray-100 px-2 py-1 rounded">
+                          {apiHealth.code}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <Icons.Success size={32} className="text-green-600" />
+                  <div className="flex flex-col space-y-2">
+                    {apiHealth.status === 'healthy' && <Icons.Success size={32} className="text-green-600" />}
+                    {apiHealth.status === 'loading' && <Icons.Loading size={32} className="text-yellow-600" />}
+                    {apiHealth.status === 'error' && <Icons.Error size={32} className="text-red-600" />}
+                    <button
+                      onClick={refreshAllData}
+                      disabled={apiHealth.status === 'loading'}
+                      className="p-1 text-blue-600 hover:text-blue-800 disabled:text-gray-400"
+                      title="Refresh all data"
+                    >
+                      <Icons.Refresh size={16} />
+                    </button>
+                  </div>
                 </div>
-                <div className="mt-4 text-sm text-gray-500">
-                  All systems operational
+                <div className="mt-4">
+                  <p className="text-sm text-gray-500">{apiHealth.message}</p>
+                  {apiHealth.status === 'error' && (
+                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
+                      <p className="text-sm font-medium text-red-800">{apiHealth.details}</p>
+                      <p className="text-xs text-red-600 mt-1">💡 {apiHealth.solution}</p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
+
+          {/* API Error Banner */}
+          {apiHealth.status === 'error' && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <div className="flex items-start">
+                <Icons.Error size={20} className="text-red-600 mt-0.5 flex-shrink-0" />
+                <div className="ml-3 flex-1">
+                  <h3 className="text-sm font-medium text-red-800">
+                    Apps Script API Error ({apiHealth.code})
+                  </h3>
+                  <div className="mt-1 text-sm text-red-700">
+                    <p><strong>{apiHealth.type}:</strong> {apiHealth.message}</p>
+                    <p className="mt-1"><strong>Details:</strong> {apiHealth.details}</p>
+                    <p className="mt-1"><strong>Solution:</strong> {apiHealth.solution}</p>
+                  </div>
+                  <div className="mt-3 flex space-x-3">
+                    <button
+                      onClick={refreshAllData}
+                      className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    >
+                      <Icons.Refresh size={14} className="mr-1" />
+                      Retry Connection
+                    </button>
+                    <a
+                      href="https://script.google.com/home"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                    >
+                      <Icons.ExternalLink size={14} className="mr-1" />
+                      Check Apps Script
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Admin Navigation Tabs */}
           <div className="bg-white shadow rounded-lg mb-6">
@@ -219,11 +381,63 @@ const AdminPage = () => {
               </nav>
             </div>
 
-            {/* Tab Description */}
-            <div className="px-6 py-3 bg-gray-50">
+            {/* Tab Description with Refresh Controls */}
+            <div className="px-6 py-3 bg-gray-50 flex justify-between items-center">
               <p className="text-sm text-gray-600">
                 {adminTabs.find(tab => tab.id === activeTab)?.description}
               </p>
+
+              {/* Refresh Controls for Data Tabs */}
+              <div className="flex items-center space-x-2">
+                {activeTab === 'companies' && (
+                  <button
+                    onClick={refetchCompanies}
+                    disabled={companiesLoading}
+                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Refresh companies data"
+                  >
+                    <Icons.Refresh size={12} className={`mr-1 ${companiesLoading ? 'animate-spin' : ''}`} />
+                    Refresh Companies
+                  </button>
+                )}
+
+                {activeTab === 'roles' && (
+                  <button
+                    onClick={refetchRoles}
+                    disabled={rolesLoading}
+                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Refresh roles data"
+                  >
+                    <Icons.Refresh size={12} className={`mr-1 ${rolesLoading ? 'animate-spin' : ''}`} />
+                    Refresh Roles
+                  </button>
+                )}
+
+                {activeTab === 'dropdowns' && (
+                  <button
+                    onClick={refetchDropdowns}
+                    disabled={dropdownsLoading}
+                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Refresh dropdown data"
+                  >
+                    <Icons.Refresh size={12} className={`mr-1 ${dropdownsLoading ? 'animate-spin' : ''}`} />
+                    Refresh Dropdowns
+                  </button>
+                )}
+
+                {/* Universal refresh for overview */}
+                {activeTab === 'overview' && (
+                  <button
+                    onClick={refreshAllData}
+                    disabled={companiesLoading || rolesLoading || dropdownsLoading}
+                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Refresh all data"
+                  >
+                    <Icons.Refresh size={12} className={`mr-1 ${(companiesLoading || rolesLoading || dropdownsLoading) ? 'animate-spin' : ''}`} />
+                    Refresh All
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 

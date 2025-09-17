@@ -12,7 +12,7 @@ const API_CONFIG = {
     retryAttempts: 3,
     retryDelay: 1000,
     debugMode: true,
-    mockMode: true // TEMPORARY: Enable mock mode to prevent resource exhaustion
+    mockMode: false // Test real API using CLAUDE.md methodology
   },
 
   production: {
