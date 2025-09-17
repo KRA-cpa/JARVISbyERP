@@ -13,7 +13,8 @@
       "WebFetch(domain:script.googleusercontent.com)",
       "WebFetch(domain:script.google.com)",
       "WebFetch(domain:docs.google.com)",
-      "WebFetch(domain:doc-0g-ak-sheets.googleusercontent.com)"
+      "WebFetch(domain:doc-0g-ak-sheets.googleusercontent.com)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

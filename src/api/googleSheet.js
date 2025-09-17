@@ -121,22 +121,22 @@ class BaseAPI {
 
     try {
       const url = new URL(CONFIG.APPS_SCRIPT_URL);
-      url.searchParams.set('action', action);
 
-      if (payload && ['get', 'delete'].includes(action.split(/(?=[A-Z])/).pop()?.toLowerCase())) {
-        Object.entries(payload).forEach(([key, value]) => {
-          if (value !== null && value !== undefined) {
-            url.searchParams.set(key, value);
-          }
-        });
+      // All API requests should be POST with action in body for Google Apps Script
+      // Only simple ping can be GET with query parameter
+      const isSimplePing = action === 'ping' && (!payload || Object.keys(payload).length === 0);
+
+      if (isSimplePing) {
+        // Simple GET ping with query parameter
+        url.searchParams.set('action', action);
       }
 
-      const options = payload && !['get', 'delete'].includes(action.split(/(?=[A-Z])/).pop()?.toLowerCase())
-        ? {
+      const options = isSimplePing
+        ? { method: 'GET' }
+        : {
             method: 'POST',
-            body: JSON.stringify({ action, ...payload })
-          }
-        : { method: 'GET' };
+            body: JSON.stringify({ action, ...(payload || {}) })
+          };
 
       const response = await HTTPClient.request(url.toString(), options);
 
