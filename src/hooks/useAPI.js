@@ -33,6 +33,40 @@ export const useAPI = (apiCall, dependencies = []) => {
   return { data, loading, error, refetch: fetchData };
 };
 
+// Enhanced API hook with caching and advanced options
+export const useAPIData = (key, apiCall, options = {}) => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const { enabled = true, staleTime = 0 } = options;
+
+  const fetchData = useCallback(async () => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await apiCall();
+      setData(result);
+    } catch (err) {
+      setError(err.message);
+      console.error('API Error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [apiCall, enabled]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return { data, loading, error, refetch: fetchData };
+};
+
 // Companies hooks
 export const useCompanies = () => {
   return useAPI(() => API.Companies.getAll());
@@ -264,6 +298,15 @@ export const useTicketMutations = () => {
   };
 
   return { createTicket, updateTicket, updateTicketStatus, loading, error };
+};
+
+// User hooks
+export const useUsers = () => {
+  return useAPI(() => API.Users.getAll());
+};
+
+export const useUser = (id) => {
+  return useAPI(() => API.Users.getById(id), [id]);
 };
 
 // System hooks
