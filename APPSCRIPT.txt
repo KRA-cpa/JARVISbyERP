@@ -1,7 +1,7 @@
 /*
 =================================================================================
  * Ticketing & Workflow Orchestration System - Google Apps Script Backend API
- * Version: 2.5 (Post-Superthink Audit)
+ * Version: 3.0 (Complete payload compatibility audit - all endpoints updated)
  * Author: System Generated
  * Description: This script provides a complete serverless backend using Google Sheets
  * for the dynamic ticketing system, as specified in the design document. It includes
@@ -106,6 +106,12 @@ function doGet(e) {
             data: getTicketTypes(params)
           });
 
+        case 'getTickets':
+          return createJsonResponse({
+            success: true,
+            data: getTickets(params)
+          });
+
         default:
           return createJsonResponse({
             success: false,
@@ -154,75 +160,130 @@ function doPost(e) {
           });
 
         case 'createCompany':
+          // Handle both payload formats: { action, payload } or { action, ...payload }
+          const companyData = data.payload || { name: data.name, code: data.code };
           return createJsonResponse({
             success: true,
-            data: createCompany(data.payload)
+            data: createCompany(companyData)
           });
 
         case 'updateCompany':
+          const updateCompanyData = data.payload || { id: data.id, name: data.name, code: data.code };
           return createJsonResponse({
             success: true,
-            data: updateCompany(data.payload)
+            data: updateCompany(updateCompanyData)
           });
 
         case 'deleteCompany':
+          const companyId = data.payload?.id || data.id;
+          if (!companyId) {
+            throw new Error('Company ID is required for deletion');
+          }
           return createJsonResponse({
             success: true,
-            data: deleteCompany(data.payload.id)
+            data: deleteCompany(companyId)
           });
 
         case 'createRole':
+          const roleData = data.payload || { name: data.name, company_id: data.company_id };
           return createJsonResponse({
             success: true,
-            data: createRole(data.payload)
+            data: createRole(roleData)
           });
 
         case 'updateRole':
+          const updateRoleData = data.payload || { id: data.id, name: data.name, company_id: data.company_id };
           return createJsonResponse({
             success: true,
-            data: updateRole(data.payload)
+            data: updateRole(updateRoleData)
           });
 
         case 'deleteRole':
+          const roleId = data.payload?.id || data.id;
+          if (!roleId) {
+            throw new Error('Role ID is required for deletion');
+          }
           return createJsonResponse({
             success: true,
-            data: deleteRole(data.payload.id)
+            data: deleteRole(roleId)
           });
 
         case 'createDropdownList':
+          const dropdownData = data.payload || { name: data.name, options: data.options };
           return createJsonResponse({
             success: true,
-            data: createDropdownList(data.payload)
+            data: createDropdownList(dropdownData)
           });
 
         case 'updateDropdownList':
+          const updateDropdownData = data.payload || { id: data.id, name: data.name, options: data.options };
           return createJsonResponse({
             success: true,
-            data: updateDropdownList(data.payload)
+            data: updateDropdownList(updateDropdownData)
           });
 
         case 'deleteDropdownList':
+          const dropdownId = data.payload?.id || data.id;
+          if (!dropdownId) {
+            throw new Error('Dropdown list ID is required for deletion');
+          }
           return createJsonResponse({
             success: true,
-            data: deleteDropdownList(data.payload.id)
+            data: deleteDropdownList(dropdownId)
           });
 
         case 'createTicketType':
+          const ticketTypeData = data.payload || { name: data.name, code: data.code, description: data.description, transaction_id: data.transaction_id, require_attachment_on_create: data.require_attachment_on_create, company_id: data.company_id };
           return createJsonResponse({
             success: true,
-            data: createTicketType(data.payload)
+            data: createTicketType(ticketTypeData)
           });
 
         case 'updateTicketType':
+          const updateTicketTypeData = data.payload || { id: data.id, name: data.name, code: data.code, description: data.description, transaction_id: data.transaction_id, require_attachment_on_create: data.require_attachment_on_create, company_id: data.company_id };
           return createJsonResponse({
             success: true,
-            data: updateTicketType(data.payload)
+            data: updateTicketType(updateTicketTypeData)
           });
 
         case 'deleteTicketType':
+          const ticketTypeId = data.payload?.id || data.id;
+          if (!ticketTypeId) {
+            throw new Error('Ticket type ID is required for deletion');
+          }
           return createJsonResponse({
             success: true,
-            data: deleteTicketType(data.payload.id)
+            data: deleteTicketType(ticketTypeId)
+          });
+
+        case 'getTickets':
+          return createJsonResponse({
+            success: true,
+            data: getTickets(data)
+          });
+
+        case 'createTicket':
+          const ticketData = data.payload || {
+            title: data.title,
+            ticket_type_id: data.ticket_type_id,
+            requester_id: data.requester_id,
+            company_id: data.company_id,
+            custom_fields: data.custom_fields
+          };
+          return createJsonResponse({
+            success: true,
+            data: createTicket(ticketData)
+          });
+
+        case 'recordLogin':
+          const loginData = data.payload || {
+            userId: data.userId || data.user_id,
+            email: data.email,
+            ipAddress: data.ipAddress
+          };
+          return createJsonResponse({
+            success: true,
+            data: logLogin(loginData)
           });
 
         default:
@@ -243,20 +304,16 @@ function doPost(e) {
 /**
  * Handles OPTIONS requests for CORS preflight checks. This is essential for
  * allowing the frontend (e.g., on Vercel) to communicate with this API.
- * @returns {ContentService.TextOutput} - An empty response with CORS headers.
- */
-/**
- * Handles OPTIONS requests for CORS preflight checks. This is essential for
- * allowing the frontend (e.g., on Vercel) to communicate with this API.
- * Note: Google Apps Script handles CORS at the deployment level for Web Apps.
+ * Google Apps Script requires proper CORS handling for cross-origin requests.
  * @param {object} e - The event object from the OPTIONS request.
- * @returns {ContentService.TextOutput} - An empty response with proper MIME type.
+ * @returns {ContentService.TextOutput} - An empty response with CORS support.
  */
 function doOptions(e) {
-    return ContentService.createTextOutput()
-      .setMimeType(ContentService.MimeType.TEXT);
-    // Note: Google Apps Script doesn't support setHeader() method
-    // CORS is handled at the web app deployment level
+  // Google Apps Script doesn't support setHeader chaining
+  // For Web Apps, CORS is handled automatically when deployed with "Anyone" access
+  return ContentService
+    .createTextOutput('')
+    .setMimeType(ContentService.MimeType.TEXT);
 }
 
 /**
@@ -271,6 +328,11 @@ function doOptions(e) {
  * @returns {object} - Confirmation of the created ticket.
  */
 function createTicket(payload) {
+  // Validate payload exists
+  if (!payload) {
+    throw new Error('Payload is required');
+  }
+
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const ticketsSheet = ss.getSheetByName(SHEETS.TICKETS);
 
@@ -409,6 +471,11 @@ function createCompany(payload) {
       companiesSheet = initializeCompaniesSheet();
     }
 
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
+
     // Validate required fields
     if (!payload.name || !payload.code) {
       throw new Error('Company name and code are required');
@@ -455,6 +522,11 @@ function updateCompany(payload) {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
 
     if (!payload.id) {
       throw new Error('Company ID is required for update');
@@ -596,6 +668,11 @@ function createRole(payload) {
       rolesSheet = initializeRolesSheet();
     }
 
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
+
     if (!payload.name) {
       throw new Error('Role name is required');
     }
@@ -630,6 +707,11 @@ function updateRole(payload) {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const rolesSheet = ss.getSheetByName(SHEETS.ROLES);
+
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
 
     if (!payload.id || !payload.name) {
       throw new Error('Role ID and name are required');
@@ -773,6 +855,11 @@ function createDropdownList(payload) {
       optionsSheet = initializeDropdownOptionsSheet();
     }
 
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
+
     if (!payload.name) {
       throw new Error('Dropdown list name is required');
     }
@@ -822,6 +909,11 @@ function updateDropdownList(payload) {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
     const optionsSheet = ss.getSheetByName(SHEETS.DROPDOWN_OPTIONS);
+
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
 
     if (!payload.id || !payload.name) {
       throw new Error('Dropdown list ID and name are required');
@@ -973,6 +1065,11 @@ function createTicketType(payload) {
       ticketTypesSheet = initializeTicketTypesSheet();
     }
 
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
+
     if (!payload.name || !payload.code) {
       throw new Error('Ticket type name and code are required');
     }
@@ -1017,6 +1114,11 @@ function updateTicketType(payload) {
   try {
     const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
     const ticketTypesSheet = ss.getSheetByName(SHEETS.TICKET_TYPES);
+
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
 
     if (!payload.id || !payload.name || !payload.code) {
       throw new Error('Ticket type ID, name, and code are required');
@@ -1269,27 +1371,26 @@ function getSheetDataAsJSON(sheet) {
 
 /**
  * Creates a standard JSON response with proper error handling.
- * Note: Google Apps Script handles CORS at the web app deployment level.
+ * Google Apps Script Web Apps handle CORS automatically when deployed with "Anyone" access.
  * @param {object} response - The data to be stringified.
  * @returns {ContentService.TextOutput} - The final JSON response object.
  */
 function createJsonResponse(response) {
   try {
+    // Google Apps Script handles CORS automatically for Web Apps deployed with "Anyone" access
     const output = ContentService.createTextOutput(JSON.stringify(response))
       .setMimeType(ContentService.MimeType.JSON);
-
-    // Google Apps Script handles CORS at the deployment level for Web Apps
-    // No setHeader() method available in Apps Script
 
     return output;
   } catch (error) {
     Logger.log('createJsonResponse Error:', error);
-    // Fallback response if there's an issue
+    // Fallback response
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: 'Response creation failed',
       details: error.toString()
-    })).setMimeType(ContentService.MimeType.JSON);
+    }))
+    .setMimeType(ContentService.MimeType.JSON);
   }
 }
 
@@ -1337,7 +1438,7 @@ function pingAPI() {
     status: 'API is running',
     timestamp: new Date().toISOString(),
     spreadsheetId: SPREADSHEET_ID,
-    version: '2.4',
+    version: '3.0',
     availableEndpoints: [
       'getCompanies', 'createCompany', 'updateCompany', 'deleteCompany',
       'getRoles', 'createRole', 'updateRole', 'deleteRole',

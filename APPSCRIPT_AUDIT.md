@@ -6,7 +6,7 @@
 **File Audited**: `APPSCRIPT.txt` (1,931 lines of code - expanded with audit fixes)
 **Backend Architecture**: ⚠️ **PROOF OF CONCEPT** - Google Sheets + Apps Script Database
 **Spreadsheet ID**: `1EjFpr_yktSU6QAeBSAvcr6iWVtmaOCV1t5unvImmot4`
-**Deployed Web App URL**: `https://script.google.com/macros/s/AKfycbyU_9RfwP-w3xn3tNl4IFcSEv1MJJzJArpHbZwz3RLoVHLWCwn13MKGIki0K4nmK9amWg/exec`
+**Deployed Web App URL**: `https://script.google.com/macros/s/AKfycbyoHL6D9whNrh2lMujkbS576tA0AMLvXlOJFi8eKb0Lxwl5Hdl7MHiEcBWNPQDEI6zqYA/exec`
 
 ## Executive Summary
 
@@ -15,6 +15,41 @@ This audit applies the established superthink methodology to the Google Apps Scr
 ### 🚨 CRITICAL ISSUES IDENTIFIED AND RESOLVED
 
 ## Critical Issues Found & Fixes
+
+### 🚨 **CRITICAL GOOGLE APPS SCRIPT LIMITATION DISCOVERED**
+
+**Issue**: Google Apps Script does NOT support `setHeader()` method chaining
+**Impact**: Any code using `.setHeader().setHeader()` chaining will fail with "setHeader is not a function"
+**Claude AI Behavior**: Repeatedly recommended this invalid pattern despite documentation
+
+**❌ INVALID CODE PATTERN (Claude kept recommending):**
+```javascript
+function createJsonResponse(response) {
+  return ContentService.createTextOutput(JSON.stringify(response))
+    .setMimeType(ContentService.MimeType.JSON)
+    .setHeader('Access-Control-Allow-Origin', '*')
+    .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    .setHeader('Access-Control-Allow-Headers', 'Content-Type'); // ❌ FAILS
+}
+```
+
+**✅ CORRECT GOOGLE APPS SCRIPT PATTERN:**
+```javascript
+function createJsonResponse(response) {
+  // Google Apps Script handles CORS automatically for Web Apps with "Anyone" access
+  return ContentService.createTextOutput(JSON.stringify(response))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+```
+
+**📋 KEY LEARNINGS:**
+1. **Google Apps Script Web Apps handle CORS automatically** when deployed with "Who has access: Anyone"
+2. **setHeader() method does NOT support chaining** in Google Apps Script
+3. **Manual CORS headers are usually unnecessary** for Web App deployments
+4. **Claude AI consistently recommended invalid patterns** despite multiple corrections
+
+**⚠️ WARNING FOR FUTURE DEVELOPMENT:**
+When Claude recommends Google Apps Script code with `setHeader()` chaining, **reject the suggestion** and use the simple pattern above.
 
 ### 1. **doOptions Function Syntax Error** ✅ FIXED
 **Location**: Lines 248-253
@@ -468,6 +503,8 @@ const results = verifyAllFunctionsRuntimeSafety();
 - **`SUPERTHINK_AUDIT.md`** - Frontend audit methodology and results
 
 **Last Updated**: September 17, 2025 - **COMPLETE AUDIT FINISHED**
+**Recent Fix**: Payload validation errors resolved (Version 2.8)
+**New Documentation**: Issue #5 added to Claude AI common issues
 **Next Review**: Before any major feature development or production deployment
 **Maintainer**: Development Team
 **Documentation Status**: ✅ **Complete and Current** - All APPSCRIPT* files updated

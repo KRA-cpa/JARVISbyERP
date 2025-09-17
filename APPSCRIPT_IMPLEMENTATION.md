@@ -148,26 +148,36 @@ function generateTicketNumber(companyCode, typeCode) {
 }
 ```
 
-### CORS Implementation (Audit-Fixed)
+### CORS Implementation (Final - Post Multiple Fixes)
+
+**🚨 CRITICAL LESSON LEARNED:** Google Apps Script does NOT support `setHeader()` chaining!
+
+**❌ INVALID PATTERN (Claude AI kept recommending):**
+```javascript
+// THIS FAILS WITH "setHeader is not a function"
+return ContentService.createTextOutput(JSON.stringify(response))
+  .setMimeType(ContentService.MimeType.JSON)
+  .setHeader('Access-Control-Allow-Origin', '*')     // ❌ BREAKS HERE
+  .setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+```
+
+**✅ CORRECT IMPLEMENTATION:**
 ```javascript
 /**
  * Creates a standard JSON response with proper error handling.
- * Note: Google Apps Script handles CORS at the web app deployment level.
+ * Google Apps Script handles CORS automatically for Web Apps deployed with "Anyone" access.
  * @param {object} response - The data to be stringified.
  * @returns {ContentService.TextOutput} - The final JSON response object.
  */
 function createJsonResponse(response) {
   try {
+    // Google Apps Script handles CORS automatically - no manual headers needed
     const output = ContentService.createTextOutput(JSON.stringify(response))
       .setMimeType(ContentService.MimeType.JSON);
-
-    // Google Apps Script handles CORS at the deployment level for Web Apps
-    // No setHeader() method available in Apps Script
 
     return output;
   } catch (error) {
     Logger.log('createJsonResponse Error:', error);
-    // Fallback response if there's an issue
     return ContentService.createTextOutput(JSON.stringify({
       success: false,
       error: 'Response creation failed',
@@ -175,6 +185,22 @@ function createJsonResponse(response) {
     })).setMimeType(ContentService.MimeType.JSON);
   }
 }
+
+/**
+ * CORS is handled by deployment settings, not code.
+ * Web App deployment with "Who has access: Anyone" enables CORS automatically.
+ */
+function doOptions(e) {
+  return ContentService.createTextOutput('')
+    .setMimeType(ContentService.MimeType.TEXT);
+}
+```
+
+**📋 KEY REQUIREMENTS FOR CORS:**
+1. ✅ **Deploy as Web App** with "Who has access: Anyone"
+2. ✅ **Simple doOptions() function** (no manual headers)
+3. ✅ **Standard JSON responses** (no setHeader chaining)
+4. ❌ **DO NOT use setHeader() chaining** - Google Apps Script doesn't support it
 
 /**
  * Handles OPTIONS requests for CORS preflight checks.
