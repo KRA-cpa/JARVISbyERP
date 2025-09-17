@@ -12,6 +12,7 @@ const APIConnectionStatus = () => {
   });
   const [isChecking, setIsChecking] = useState(false);
   const [lastChecked, setLastChecked] = useState(null);
+  // Details hidden by default for cleaner UI
   const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {

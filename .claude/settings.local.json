@@ -16,7 +16,9 @@
       "WebFetch(domain:doc-0g-ak-sheets.googleusercontent.com)",
       "Bash(npm run build:*)",
       "Bash(curl:*)",
-      "Bash(cmd /c taskkill:*)"
+      "Bash(cmd /c taskkill:*)",
+      "Bash(tasklist)",
+      "Bash(cmd /c:*)"
     ],
     "deny": [],
     "ask": []
