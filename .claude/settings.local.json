@@ -8,7 +8,8 @@
       "Bash(findstr:*)",
       "Bash(taskkill:*)",
       "Bash(cmd //c taskkill:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(tail:*)"
     ],
     "deny": [],
     "ask": []
