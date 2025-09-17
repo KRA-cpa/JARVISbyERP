@@ -134,6 +134,38 @@ export const API_ENDPOINTS = {
 };
 
 /**
+ * Extract deployment ID from Google Apps Script URL
+ * @param {string} url - The full Apps Script URL
+ * @returns {string} The deployment ID or the original URL if extraction fails
+ */
+export const extractDeploymentId = (url) => {
+  try {
+    if (!url) return 'Not configured';
+
+    // Match pattern: https://script.google.com/macros/s/DEPLOYMENT_ID/exec
+    const match = url.match(/\/s\/([a-zA-Z0-9_-]+)\/exec/);
+    return match ? match[1] : url;
+  } catch (error) {
+    return url;
+  }
+};
+
+/**
+ * Get masked deployment information for display
+ */
+export const getDeploymentInfo = () => {
+  const config = getCurrentConfig();
+  const deploymentId = extractDeploymentId(config.baseURL);
+
+  return {
+    deploymentId,
+    environment: process.env.NODE_ENV || 'development',
+    mockMode: config.mockMode,
+    timeout: config.timeout
+  };
+};
+
+/**
  * API Connection Status Checker
  */
 export const checkAPIConnection = async () => {
@@ -232,7 +264,7 @@ export const getAPIHealthStatus = async () => {
       ? `Connected to Google Sheets API (${connection.responseTime}ms)`
       : `API Connection Failed: ${connection.error}`,
     details: {
-      baseURL: apiConfig.baseURL,
+      deploymentId: extractDeploymentId(apiConfig.baseURL),
       environment: process.env.NODE_ENV,
       mockMode: apiConfig.mockMode,
       ...connection
@@ -246,5 +278,7 @@ export default {
   checkAPIConnection,
   mockAPIResponses,
   getAPIBehavior,
-  getAPIHealthStatus
+  getAPIHealthStatus,
+  extractDeploymentId,
+  getDeploymentInfo
 };

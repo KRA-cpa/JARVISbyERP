@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getAPIHealthStatus, checkAPIConnection, apiConfig } from '../../config/apiConfig';
+import { getAPIHealthStatus, checkAPIConnection, apiConfig, extractDeploymentId } from '../../config/apiConfig';
 import { useToast } from '../shared/Toast';
 import Icons from '../shared/Icons';
 
@@ -122,12 +122,9 @@ const APIConnectionStatus = () => {
               </span>
             </div>
             <div className="flex justify-between items-center text-sm">
-              <span className="text-gray-600">Base URL:</span>
+              <span className="text-gray-600">Deployment ID:</span>
               <span className="font-mono text-gray-900 text-xs">
-                {apiConfig.baseURL.length > 50
-                  ? `${apiConfig.baseURL.substring(0, 50)}...`
-                  : apiConfig.baseURL
-                }
+                {extractDeploymentId(apiConfig.baseURL)}
               </span>
             </div>
             <div className="flex justify-between items-center text-sm">
