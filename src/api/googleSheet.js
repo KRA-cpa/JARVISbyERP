@@ -5,15 +5,16 @@
  */
 
 import { ValidationUtils } from './models';
+import { apiConfig } from '../config/apiConfig';
 
 // API Configuration
 const CONFIG = {
-  APPS_SCRIPT_URL: process.env.REACT_APP_GOOGLE_APPS_SCRIPT_URL || '',
+  APPS_SCRIPT_URL: apiConfig.baseURL,
   TIMEOUT: 30000,
   MAX_RETRIES: 3,
   RETRY_DELAY: 1000,
   CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
-  ENABLE_MOCK_DATA: process.env.NODE_ENV === 'development' && !process.env.REACT_APP_GOOGLE_APPS_SCRIPT_URL
+  ENABLE_MOCK_DATA: process.env.NODE_ENV === 'development' && !apiConfig.baseURL
 };
 
 // Simple in-memory cache

@@ -97,14 +97,110 @@ This document outlines the functional requirements for a dynamic ticketing and w
 5. **✅ Runtime Verification Suite** - Added verifyAllFunctionsRuntimeSafety() function
 6. **✅ Null Safety Improvements** - Enhanced data validation and error handling throughout
 
-**🚀 Backend Production Status**: ✅ **DEPLOYED & OPERATIONAL**
+**🚀 Backend Production Status**: ✅ **DEPLOYED & OPERATIONAL** (Updated September 17, 2025)
 - **Spreadsheet ID**: `1EjFpr_yktSU6QAeBSAvcr6iWVtmaOCV1t5unvImmot4`
-- **Web App URL**: `AKfycbyU_9RfwP-w3xn3tNl4IFcSEv1MJJzJArpHbZwz3RLoVHLWCwn13MKGIki0K4nmK9amWg`
+- **Current Deployment ID**: `AKfycbyeSHLU8sW3S87yEZ7BAGJWBdaMEvJfkz3OzjPjE8XaP0pOjmGxxYQWmUwvgoIvMQArXA` (v4.1)
+- **Full Web App URL**: `https://script.google.com/macros/s/AKfycbyeSHLU8sW3S87yEZ7BAGJWBdaMEvJfkz3OzjPjE8XaP0pOjmGxxYQWmUwvgoIvMQArXA/exec`
 - **Frontend Integration**: ✅ All 8 admin components connected to real API endpoints
 - **Health Monitoring**: ✅ APIConnectionStatus component providing real-time backend status
 - **Error Rate**: 0% (all 50+ functions pass runtime verification)
 - **Response Time**: ~150ms average API response time
 - **Concurrent Access**: ✅ LockService preventing race conditions in ticket numbering
+
+### **📋 EFFICIENT API TESTING METHODOLOGY**
+
+**🔧 CRITICAL NOTE**: Google Apps Script deployments use HTTP 302 redirects, which can cause issues with direct curl testing. Use the following efficient methods for testing the backend:
+
+#### **Method 1: Frontend Integration Testing (RECOMMENDED)**
+```javascript
+// Use the built-in APIConnectionStatus component
+// Located in: src/components/admin/APIConnectionStatus.js
+// This component automatically handles redirects and provides real-time status
+```
+
+#### **Method 2: Browser Developer Tools Testing**
+1. **Open browser to your deployed frontend** (https://jarvis-by-erp.vercel.app)
+2. **Open Developer Tools** (F12) → Network tab
+3. **Navigate to Admin Panel** - API calls will be visible
+4. **Check APIConnectionStatus component** - Shows real-time connectivity
+
+#### **Method 3: Manual API Testing (Advanced)**
+For direct API testing, use these curl commands with proper redirect handling:
+
+**GET Request Test:**
+```bash
+curl -L "https://script.google.com/macros/s/AKfycbyeSHLU8sW3S87yEZ7BAGJWBdaMEvJfkz3OzjPjE8XaP0pOjmGxxYQWmUwvgoIvMQArXA/exec?action=ping" --max-time 30
+```
+
+**POST Request Test (Handle 302 Redirects):**
+```bash
+# Note: Google Apps Script returns 302 redirects for POST requests
+# The actual API response occurs after the redirect
+curl -L -X POST "https://script.google.com/macros/s/AKfycbyeSHLU8sW3S87yEZ7BAGJWBdaMEvJfkz3OzjPjE8XaP0pOjmGxxYQWmUwvgoIvMQArXA/exec" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"ping"}' \
+  --max-time 30
+```
+
+#### **Method 4: Built-in Health Check (MOST RELIABLE)**
+The frontend includes a built-in health check system:
+
+**File: `src/config/apiConfig.js`** - `checkAPIConnection()` function
+**File: `src/components/admin/APIConnectionStatus.js`** - Real-time UI component
+
+**Expected Healthy Response:**
+```json
+{
+  "success": true,
+  "message": "API connection successful",
+  "serverTime": "2025-09-17T...",
+  "responseTime": 150,
+  "version": "4.1",
+  "features": [
+    "Enhanced payload validation",
+    "Custom fields management",
+    "Workflow steps management",
+    "Comprehensive error handling",
+    "Advanced audit logging"
+  ]
+}
+```
+
+#### **🚨 TROUBLESHOOTING GUIDELINES**
+
+**If API Tests Fail:**
+1. **Check Deployment Status**: Verify deployment ID matches current configuration
+2. **Browser Testing**: Use frontend APIConnectionStatus component first
+3. **Console Errors**: Check browser console for CORS or network errors
+4. **Configuration Mismatch**: Verify `src/config/apiConfig.js` has correct deployment URL
+5. **Google Apps Script Access**: Ensure deployment permissions set to "Anyone"
+
+**Common Issues & Solutions:**
+- **net::ERR_FAILED**: Usually configuration mismatch, check `src/api/googleSheet.js` imports
+- **CORS Errors**: Check if deployment includes `doOptions()` function for preflight requests
+- **302 Redirects**: Normal behavior, ensure curl uses `-L` flag to follow redirects
+- **Length Required (411)**: Add `Content-Length` header to POST requests
+
+#### **📊 TESTING CHECKLIST**
+
+**✅ Quick Health Check (2 minutes):**
+- [ ] Load frontend application
+- [ ] Check APIConnectionStatus component shows "Connected"
+- [ ] Verify version shows "4.1"
+- [ ] No console errors visible
+
+**✅ Full Integration Test (5 minutes):**
+- [ ] Navigate to Admin Panel
+- [ ] Test company management (load/create)
+- [ ] Test role management (load/create)
+- [ ] Test ticket type management (load/create)
+- [ ] Verify all operations work without errors
+
+**✅ Advanced API Test (10 minutes):**
+- [ ] Browser Network tab shows successful API calls
+- [ ] Response times under 500ms
+- [ ] All CRUD operations functional
+- [ ] Error handling works properly
 
 **📋 Backend Audit Documentation**:
 - **`APPSCRIPT_AUDIT.md`** - Complete function-by-function audit report with detailed findings
