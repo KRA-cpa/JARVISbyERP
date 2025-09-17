@@ -7,12 +7,12 @@
 import { ValidationUtils } from './models';
 import { apiConfig } from '../config/apiConfig';
 
-// API Configuration
+// API Configuration - Reduced retries to prevent resource exhaustion
 const CONFIG = {
   APPS_SCRIPT_URL: apiConfig.baseURL,
-  TIMEOUT: 30000,
-  MAX_RETRIES: 3,
-  RETRY_DELAY: 1000,
+  TIMEOUT: 15000, // Reduced timeout
+  MAX_RETRIES: 1, // Reduced retries to prevent flooding
+  RETRY_DELAY: 2000, // Increased delay between retries
   CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
   ENABLE_MOCK_DATA: process.env.NODE_ENV === 'development' && !apiConfig.baseURL
 };
@@ -56,47 +56,139 @@ class APICache {
 
 const cache = new APICache();
 
-// HTTP Client with retry logic
-class HTTPClient {
-  static async request(url, options = {}) {
-    const config = {
-      method: 'GET',
-      timeout: CONFIG.TIMEOUT,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-      },
-      ...options
-    };
+// Simple circuit breaker to prevent resource exhaustion
+class CircuitBreaker {
+  constructor() {
+    this.failureCount = 0;
+    this.failureThreshold = 5;
+    this.timeout = 30000; // 30 seconds
+    this.state = 'CLOSED'; // CLOSED, OPEN, HALF_OPEN
+    this.nextAttempt = Date.now();
+  }
 
-    let lastError;
-    for (let attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), config.timeout);
-
-        const response = await fetch(url, {
-          ...config,
-          signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        return data;
-      } catch (error) {
-        lastError = error;
-        if (attempt < CONFIG.MAX_RETRIES && error.name !== 'AbortError') {
-          await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY * attempt));
-          continue;
-        }
-        throw error;
+  async execute(fn) {
+    if (this.state === 'OPEN') {
+      if (Date.now() < this.nextAttempt) {
+        throw new Error('Circuit breaker is OPEN - too many failures');
+      } else {
+        this.state = 'HALF_OPEN';
       }
     }
+
+    try {
+      const result = await fn();
+      this.onSuccess();
+      return result;
+    } catch (error) {
+      this.onFailure();
+      throw error;
+    }
+  }
+
+  onSuccess() {
+    this.failureCount = 0;
+    this.state = 'CLOSED';
+  }
+
+  onFailure() {
+    this.failureCount++;
+    if (this.failureCount >= this.failureThreshold) {
+      this.state = 'OPEN';
+      this.nextAttempt = Date.now() + this.timeout;
+    }
+  }
+}
+
+const circuitBreaker = new CircuitBreaker();
+
+// Request queue to limit concurrent API calls
+class RequestQueue {
+  constructor(maxConcurrent = 3) {
+    this.maxConcurrent = maxConcurrent;
+    this.running = 0;
+    this.queue = [];
+  }
+
+  async add(fn) {
+    return new Promise((resolve, reject) => {
+      this.queue.push({
+        fn,
+        resolve,
+        reject
+      });
+      this.process();
+    });
+  }
+
+  async process() {
+    if (this.running >= this.maxConcurrent || this.queue.length === 0) {
+      return;
+    }
+
+    this.running++;
+    const { fn, resolve, reject } = this.queue.shift();
+
+    try {
+      const result = await fn();
+      resolve(result);
+    } catch (error) {
+      reject(error);
+    } finally {
+      this.running--;
+      this.process();
+    }
+  }
+}
+
+const requestQueue = new RequestQueue(2); // Limit to 2 concurrent requests
+
+// HTTP Client with retry logic, circuit breaker, and request queue
+class HTTPClient {
+  static async request(url, options = {}) {
+    return await requestQueue.add(async () => {
+      return await circuitBreaker.execute(async () => {
+      const config = {
+        method: 'GET',
+        timeout: CONFIG.TIMEOUT,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers
+        },
+        ...options
+      };
+
+      let lastError;
+      for (let attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), config.timeout);
+
+          const response = await fetch(url, {
+            ...config,
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          const data = await response.json();
+          return data;
+        } catch (error) {
+          lastError = error;
+          if (attempt < CONFIG.MAX_RETRIES && error.name !== 'AbortError') {
+            await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY * attempt));
+            continue;
+          }
+          throw error;
+        }
+      }
+
+      throw lastError;
+      });
+    });
   }
 }
 

@@ -28,7 +28,7 @@ export const useAPI = (apiCall, dependencies = []) => {
 
   useEffect(() => {
     fetchData();
-  }, [...dependencies, fetchData]);
+  }, [...dependencies]); // Remove fetchData from dependencies to prevent infinite loops
 
   return { data, loading, error, refetch: fetchData };
 };
