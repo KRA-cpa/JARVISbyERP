@@ -14,7 +14,7 @@ const CONFIG = {
   MAX_RETRIES: 1, // Reduced retries to prevent flooding
   RETRY_DELAY: 2000, // Increased delay between retries
   CACHE_DURATION: 5 * 60 * 1000, // 5 minutes
-  ENABLE_MOCK_DATA: process.env.NODE_ENV === 'development' && !apiConfig.baseURL
+  ENABLE_MOCK_DATA: apiConfig.mockMode
 };
 
 // Simple in-memory cache
@@ -157,6 +157,8 @@ class HTTPClient {
         ...options
       };
 
+      // Debug logging moved to after URL construction
+
       let lastError;
       for (let attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
         try {
@@ -175,6 +177,25 @@ class HTTPClient {
           }
 
           const data = await response.json();
+
+          // Enhanced debug logging for response
+          if (apiConfig.debugMode) {
+            const timestamp = new Date().toISOString();
+            console.log(`\n✅ [${timestamp}] API Response:`);
+            console.log(`   Status: ${response.status} ${response.statusText}`);
+            console.log(`   URL: ${url}`);
+            console.log(`   Success: ${data.success || 'undefined'}`);
+
+            if (data.data) {
+              console.log(`   Data Count: ${Array.isArray(data.data) ? data.data.length : 'single item'}`);
+              console.log(`   Data: ${JSON.stringify(data.data, null, 2)}`);
+            }
+
+            if (data.error) {
+              console.log(`   Error: ${data.error}`);
+            }
+          }
+
           return data;
         } catch (error) {
           lastError = error;
@@ -212,25 +233,78 @@ class BaseAPI {
     }
 
     try {
-      const url = new URL(CONFIG.APPS_SCRIPT_URL);
+      // Handle both absolute URLs (production) and relative paths (development)
+      let url;
+      let urlString;
 
-      // All API requests should be POST with action in body for Google Apps Script
-      // Only simple ping can be GET with query parameter
-      const isSimplePing = action === 'ping' && (!payload || Object.keys(payload).length === 0);
-
-      if (isSimplePing) {
-        // Simple GET ping with query parameter
-        url.searchParams.set('action', action);
+      if (CONFIG.APPS_SCRIPT_URL.startsWith('http')) {
+        // Absolute URL (production) - can use URL constructor
+        url = new URL(CONFIG.APPS_SCRIPT_URL);
+        urlString = CONFIG.APPS_SCRIPT_URL;
+      } else {
+        // Relative path (development) - use fetch directly without URL constructor
+        urlString = CONFIG.APPS_SCRIPT_URL;
+        url = null; // We'll build query params manually for relative URLs
       }
 
-      const options = isSimplePing
+      // GET requests for read operations, POST for write operations
+      const readActions = [
+        'ping', 'getCompanies', 'getTickets', 'getTicketTypes', 'getRoles',
+        'getDropdownLists', 'getCustomFields', 'getWorkflowSteps', 'getSystemHealth'
+      ];
+
+      const isGetRequest = readActions.includes(action);
+
+      if (isGetRequest) {
+        // GET request with query parameters
+        if (url) {
+          url.searchParams.set('action', action);
+          // Add any payload as query params for GET requests
+          if (payload && typeof payload === 'object') {
+            Object.entries(payload).forEach(([key, value]) => {
+              if (value !== undefined && value !== null) {
+                url.searchParams.set(key, String(value));
+              }
+            });
+          }
+          urlString = url.toString();
+        } else {
+          urlString += `?action=${encodeURIComponent(action)}`;
+          // Add any payload as query params for relative URLs
+          if (payload && typeof payload === 'object') {
+            const queryParams = Object.entries(payload)
+              .filter(([key, value]) => value !== undefined && value !== null)
+              .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(String(value))}`)
+              .join('&');
+            if (queryParams) {
+              urlString += `&${queryParams}`;
+            }
+          }
+        }
+      }
+
+      const options = isGetRequest
         ? { method: 'GET' }
         : {
             method: 'POST',
             body: JSON.stringify({ action, ...(payload || {}) })
           };
 
-      const response = await HTTPClient.request(url.toString(), options);
+      // Enhanced debug logging for development
+      if (apiConfig.debugMode) {
+        const timestamp = new Date().toISOString();
+        console.log(`\n🔗 [${timestamp}] API Request Details:`);
+        console.log(`   Action: ${action}`);
+        console.log(`   Method: ${options.method}`);
+
+        if (options.method === 'GET') {
+          console.log(`   GET URL: ${urlString}`);
+        } else if (options.method === 'POST' && options.body) {
+          console.log(`   POST Body: ${options.body}`);
+        }
+      }
+
+      const response = await HTTPClient.request(urlString, options);
 
       if (response.status === 'error') {
         throw new Error(response.error || 'API request failed');

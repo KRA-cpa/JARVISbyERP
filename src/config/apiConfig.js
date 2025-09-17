@@ -6,13 +6,13 @@
 // Environment-based API configuration
 const API_CONFIG = {
   development: {
-    // Vercel API Proxy (bypasses CORS issues)
+    // Local development proxy to avoid CORS issues
     baseURL: process.env.REACT_APP_API_BASE_URL_DEV || '/api/appscript-proxy',
     timeout: 30000,
     retryAttempts: 3,
     retryDelay: 1000,
     debugMode: true,
-    mockMode: false // Test real API using CLAUDE.md methodology
+    mockMode: false // Disable mock mode to test real API data fetching
   },
 
   production: {

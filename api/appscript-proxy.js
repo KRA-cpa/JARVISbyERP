@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Determine the method and build the request
+    // Determine the method and build the request (same as working local proxy)
     let requestOptions = {
       method: req.method,
       headers: {
@@ -24,29 +24,19 @@ export default async function handler(req, res) {
       },
     };
 
+    let targetUrl = GOOGLE_APPS_SCRIPT_URL;
+
     // For POST requests, forward the body
     if (req.method === 'POST' && req.body) {
       requestOptions.body = JSON.stringify(req.body);
     }
     // For GET requests, add query parameters to URL
     else if (req.method === 'GET' && Object.keys(req.query).length > 0) {
-      const url = new URL(GOOGLE_APPS_SCRIPT_URL);
-      Object.entries(req.query).forEach(([key, value]) => {
-        url.searchParams.set(key, value);
-      });
-      requestOptions = {
-        ...requestOptions,
-        method: 'GET',
-      };
+      targetUrl = `${GOOGLE_APPS_SCRIPT_URL}?${new URLSearchParams(req.query)}`;
     }
 
     // Make request to Google Apps Script
-    const response = await fetch(
-      req.method === 'GET' && Object.keys(req.query).length > 0
-        ? `${GOOGLE_APPS_SCRIPT_URL}?${new URLSearchParams(req.query)}`
-        : GOOGLE_APPS_SCRIPT_URL,
-      requestOptions
-    );
+    const response = await fetch(targetUrl, requestOptions);
 
     // Get response data
     const data = await response.text();
