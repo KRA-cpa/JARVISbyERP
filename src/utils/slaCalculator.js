@@ -24,7 +24,7 @@ import {
   format,
   parseISO
 } from 'date-fns';
-import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz';
+// Note: Using simplified timezone handling without date-fns-tz dependency
 
 // Philippine timezone configuration
 const PHILIPPINE_TIMEZONE = 'Asia/Manila';
@@ -127,7 +127,7 @@ export class SLACalculator {
         throw new Error('Failed to parse start date: ' + dateError.message);
       }
 
-      const philippineStart = utcToZonedTime(start, PHILIPPINE_TIMEZONE);
+      const philippineStart = this.toPhilippineTime(start);
 
       let dueDate;
       if (unit === 'hours') {
@@ -286,8 +286,8 @@ export class SLACalculator {
     }
 
     const due = typeof dueDate === 'string' ? parseISO(dueDate) : dueDate;
-    const now = utcToZonedTime(currentDate, PHILIPPINE_TIMEZONE);
-    const dueDatePhilippine = utcToZonedTime(due, PHILIPPINE_TIMEZONE);
+    const now = this.toPhilippineTime(currentDate);
+    const dueDatePhilippine = this.toPhilippineTime(due);
 
     // Check if overdue
     if (isAfter(now, dueDatePhilippine)) {
@@ -401,9 +401,23 @@ export class SLACalculator {
     if (!date) return '';
 
     const dateObj = typeof date === 'string' ? parseISO(date) : date;
-    const philippineDate = utcToZonedTime(dateObj, PHILIPPINE_TIMEZONE);
+    const philippineDate = this.toPhilippineTime(dateObj);
 
     return format(philippineDate, formatString);
+  }
+
+  /**
+   * Convert UTC time to Philippine time (UTC+8)
+   * @param {Date} date - Date to convert
+   * @returns {Date} Date adjusted to Philippine timezone
+   */
+  static toPhilippineTime(date) {
+    if (!date) return new Date();
+
+    const utcDate = new Date(date);
+    // Philippine time is UTC+8
+    const philippineTime = new Date(utcDate.getTime() + (8 * 60 * 60 * 1000));
+    return philippineTime;
   }
 
   /**
@@ -411,7 +425,7 @@ export class SLACalculator {
    * @returns {Date} Current date/time in Philippine timezone
    */
   static getCurrentPhilippineTime() {
-    return utcToZonedTime(new Date(), PHILIPPINE_TIMEZONE);
+    return this.toPhilippineTime(new Date());
   }
 
   /**

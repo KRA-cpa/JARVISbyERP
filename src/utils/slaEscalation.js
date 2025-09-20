@@ -6,7 +6,7 @@
  */
 
 import { addHours, addDays, isBefore, differenceInHours, differenceInDays } from 'date-fns';
-import { zonedTimeToUtc, utcToZonedTime } from 'date-fns-tz';
+// Note: Using simplified timezone handling without date-fns-tz dependency
 
 const PHILIPPINES_TZ = 'Asia/Manila';
 
@@ -95,13 +95,27 @@ export const DEFAULT_ESCALATION_RULES = {
  */
 export class SLAEscalationCalculator {
   /**
+   * Convert UTC time to Philippine time (UTC+8)
+   * @param {Date} date - Date to convert
+   * @returns {Date} Date adjusted to Philippine timezone
+   */
+  static toPhilippineTime(date) {
+    if (!date) return new Date();
+
+    const utcDate = new Date(date);
+    // Philippine time is UTC+8
+    const philippineTime = new Date(utcDate.getTime() + (8 * 60 * 60 * 1000));
+    return philippineTime;
+  }
+
+  /**
    * Calculate trigger time for escalation rule
    */
   static calculateTriggerTime(dueDate, escalationRule) {
     if (!dueDate || !escalationRule) return null;
 
-    const dueDatePhilippine = utcToZonedTime(new Date(dueDate), PHILIPPINES_TZ);
-    const now = utcToZonedTime(new Date(), PHILIPPINES_TZ);
+    const dueDatePhilippine = this.toPhilippineTime(new Date(dueDate));
+    const now = this.toPhilippineTime(new Date());
 
     switch (escalationRule.trigger) {
       case ESCALATION_TRIGGERS.PERCENTAGE:
@@ -146,7 +160,7 @@ export class SLAEscalationCalculator {
     const triggerTime = this.calculateTriggerTime(dueDate, escalationRule);
     if (!triggerTime) return false;
 
-    const now = utcToZonedTime(new Date(), PHILIPPINES_TZ);
+    const now = this.toPhilippineTime(new Date());
 
     // Check if trigger time has passed
     const shouldTriggerNow = isBefore(triggerTime, now) ||
