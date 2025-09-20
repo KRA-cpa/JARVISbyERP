@@ -12,6 +12,8 @@ import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import AdminPage from './pages/AdminPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
+import AdminTicketTypeCreatePage from './pages/AdminTicketTypeCreatePage';
+import AdminCustomFieldCreatePage from './pages/AdminCustomFieldCreatePage';
 
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
@@ -117,6 +119,25 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute requireAdmin={true}>
                 <AdminPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin Sub-Pages */}
+          <Route
+            path="/admin/ticket-types/create"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminTicketTypeCreatePage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/custom-fields/create"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminCustomFieldCreatePage />
               </ProtectedRoute>
             }
           />

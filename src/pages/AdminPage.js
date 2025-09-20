@@ -7,7 +7,7 @@ import DEV_CONFIG from '../config/development';
 import AdminCompanyManager from '../components/admin/AdminCompanyManager';
 import AdminRoleManager from '../components/admin/AdminRoleManager';
 import AdminDropdownManager from '../components/admin/AdminDropdownManager';
-import AdminTicketTypeManager from '../components/admin/AdminTicketTypeManager';
+import AdminTicketTypeList from '../components/admin/AdminTicketTypeList';
 import AdminCustomFieldManager from '../components/admin/AdminCustomFieldManager';
 import APIConnectionStatus from '../components/admin/APIConnectionStatus';
 
@@ -159,7 +159,7 @@ const AdminPage = () => {
       name: 'Ticket Types',
       icon: Icons.Workflow,
       description: 'Configure ticket types and transaction IDs',
-      component: AdminTicketTypeManager
+      component: AdminTicketTypeList
     },
     {
       id: 'custom-fields',

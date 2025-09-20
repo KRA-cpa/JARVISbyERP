@@ -35,6 +35,7 @@ const AdminWorkflowBuilder = () => {
     step_type: 'approval',
     approver_logic: 'any',
     sort_order: 1,
+    is_active: false,  // Start as inactive, require explicit activation
     // SLA configuration
     sla_duration: '',
     sla_unit: 'hours',
@@ -44,6 +45,10 @@ const AdminWorkflowBuilder = () => {
     external_app_url: '',
     completion_action_name: ''
   });
+
+  // Activation state for workflow steps
+  const [showStepActivationDialog, setShowStepActivationDialog] = useState(false);
+  const [pendingStepActivation, setPendingStepActivation] = useState(null);
 
   const [stepFormErrors, setStepFormErrors] = useState({});
   const [selectedApprovers, setSelectedApprovers] = useState([]);
@@ -77,6 +82,7 @@ const AdminWorkflowBuilder = () => {
       name: '',
       status_on_reach: 'pending_approval',
       step_type: 'approval',
+      is_active: false,
       approver_logic: 'any',
       sort_order: 1,
       sla_duration: '',
