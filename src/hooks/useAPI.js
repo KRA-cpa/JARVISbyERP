@@ -556,6 +556,237 @@ export const useSLADueTodayTickets = () => {
   );
 };
 
+/**
+ * Hook for getting escalation rules for a ticket type/step
+ */
+export const useSLAEscalationRules = (ticketTypeId, stepId) => {
+  return useAPIData(
+    ['sla_escalation_rules', ticketTypeId, stepId],
+    async () => {
+      if (!ticketTypeId) return [];
+
+      // TODO: Replace with actual API call
+      // For now, return mock escalation rules
+      const { DEFAULT_ESCALATION_RULES } = await import('../utils/slaEscalation');
+
+      // Return rules filtered by ticket type and step
+      return DEFAULT_ESCALATION_RULES.APPROVAL_24H.map(rule => ({
+        ...rule,
+        ticketTypeId,
+        stepId: stepId || 'all',
+        id: `${ticketTypeId}_${stepId || 'all'}_${rule.id}`
+      }));
+    },
+    {
+      enabled: !!ticketTypeId,
+      staleTime: 5 * 60 * 1000 // 5 minutes - escalation rules don't change often
+    }
+  );
+};
+
+/**
+ * Hook for managing escalation rule mutations
+ */
+export const useSLAEscalationMutations = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const createEscalationRule = async (ruleData) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // TODO: Replace with actual API call
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      return {
+        success: true,
+        rule: {
+          ...ruleData,
+          id: `rule_${Date.now()}`,
+          created_at: new Date().toISOString()
+        }
+      };
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateEscalationRule = async (ruleId, ruleData) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // TODO: Replace with actual API call
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      return {
+        success: true,
+        rule: {
+          ...ruleData,
+          id: ruleId,
+          updated_at: new Date().toISOString()
+        }
+      };
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteEscalationRule = async (ruleId) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // TODO: Replace with actual API call
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      return { success: true };
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const testEscalationRule = async (ruleId, ticketId) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // TODO: Replace with actual API call to test rule
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      return {
+        success: true,
+        testResults: {
+          ruleId,
+          ticketId,
+          triggered: true,
+          notificationsSent: 1,
+          timestamp: new Date().toISOString()
+        }
+      };
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    loading,
+    error,
+    createEscalationRule,
+    updateEscalationRule,
+    deleteEscalationRule,
+    testEscalationRule
+  };
+};
+
+/**
+ * Hook for SLA notification monitoring
+ */
+export const useSLANotificationMonitor = () => {
+  const [notifications, setNotifications] = useState([]);
+  const [isMonitoring, setIsMonitoring] = useState(true);
+  const [lastCheck, setLastCheck] = useState(new Date());
+
+  const processNotifications = useCallback(async () => {
+    if (!isMonitoring) return;
+
+    try {
+      // Get all active tickets
+      const tickets = await API.Tickets.getAll();
+      if (!tickets || tickets.length === 0) return;
+
+      // Filter active tickets with SLA
+      const activeTickets = tickets.filter(ticket =>
+        ticket.step_due_date &&
+        !['completed', 'closed', 'rejected'].includes(ticket.status)
+      );
+
+      // Process escalations for each ticket
+      const { SLAEscalationEngine } = await import('../utils/slaEscalation');
+      const escalationEngine = new SLAEscalationEngine();
+
+      const newNotifications = [];
+
+      for (const ticket of activeTickets) {
+        // Get escalation rules for this ticket
+        // TODO: Replace with actual API call
+        const escalationRules = [];
+
+        if (escalationRules.length > 0) {
+          const { getSLAStatus } = await import('../utils/slaCalculator');
+          const slaStatus = getSLAStatus(ticket.step_due_date);
+
+          const ticketEscalations = escalationEngine.processTicketEscalations(
+            ticket,
+            slaStatus,
+            escalationRules
+          );
+
+          if (ticketEscalations.length > 0) {
+            newNotifications.push(...ticketEscalations.map(esc => ({
+              ...esc.notification,
+              ticketId: ticket.id,
+              ruleId: esc.ruleId
+            })));
+          }
+        }
+      }
+
+      if (newNotifications.length > 0) {
+        setNotifications(prev => [...prev, ...newNotifications]);
+      }
+
+      setLastCheck(new Date());
+    } catch (err) {
+      console.error('SLA notification monitoring error:', err);
+    }
+  }, [isMonitoring]);
+
+  const clearNotifications = useCallback(() => {
+    setNotifications([]);
+  }, []);
+
+  const removeNotification = useCallback((id) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
+  // Set up monitoring interval
+  useEffect(() => {
+    if (!isMonitoring) return;
+
+    // Initial check
+    processNotifications();
+
+    // Set up periodic checks (every 5 minutes)
+    const interval = setInterval(processNotifications, 5 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [processNotifications, isMonitoring]);
+
+  return {
+    notifications,
+    isMonitoring,
+    setIsMonitoring,
+    lastCheck,
+    clearNotifications,
+    removeNotification,
+    processNotifications
+  };
+};
+
 export default {
   useAPI,
   useCompanies,
@@ -582,5 +813,9 @@ export default {
   useWorkflowStepSLA,
   useTicketDueDates,
   useSLAOverdueTickets,
-  useSLADueTodayTickets
+  useSLADueTodayTickets,
+  // SLA Escalation hooks
+  useSLAEscalationRules,
+  useSLAEscalationMutations,
+  useSLANotificationMonitor
 };

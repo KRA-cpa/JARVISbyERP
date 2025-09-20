@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../../contexts/UserContext';
-import { useCompanies, useTicketTypes, useUsers } from '../../hooks/useAPI';
+import { useCompanies, useTicketTypes, useUsers, useSLAStatus, useWorkflowStepSLA } from '../../hooks/useAPI';
 import { useToast } from '../shared/Toast';
 import WorkflowStep from './WorkflowStep';
 import Icons from '../shared/Icons';
@@ -11,6 +11,10 @@ const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
   const { data: ticketTypes } = useTicketTypes();
   const { data: users } = useUsers();
   const { ToastContainer, success, error: showError } = useToast();
+
+  // SLA data hooks
+  const { data: slaStatus } = useSLAStatus(ticket?.id);
+  const { data: stepSLA } = useWorkflowStepSLA(ticket?.current_step_id);
 
   const [activeTab, setActiveTab] = useState('details');
   const [newComment, setNewComment] = useState('');
@@ -86,6 +90,95 @@ const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
       case 'closed': return 'text-gray-600 bg-gray-50 border-gray-200';
       default: return 'text-gray-600 bg-gray-50 border-gray-200';
     }
+  };
+
+  // SLA Status Display Component
+  const SLAStatusDisplay = () => {
+    if (!slaStatus && !stepSLA) {
+      return (
+        <div className="border border-gray-200 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">SLA Status</span>
+            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+              <Icons.Clock size={12} className="mr-1" />
+              No SLA
+            </span>
+          </div>
+        </div>
+      );
+    }
+
+    if (!slaStatus) {
+      return (
+        <div className="border border-gray-200 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">SLA Status</span>
+            <div className="animate-pulse bg-gray-200 h-6 w-20 rounded"></div>
+          </div>
+        </div>
+      );
+    }
+
+    const colorMap = {
+      gray: 'bg-gray-100 text-gray-800 border-gray-200',
+      green: 'bg-green-100 text-green-800 border-green-200',
+      yellow: 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      red: 'bg-red-100 text-red-800 border-red-200'
+    };
+
+    const iconMap = {
+      no_sla: Icons.Clock,
+      on_time: Icons.Success,
+      due_today: Icons.Urgent,
+      overdue: Icons.Warning
+    };
+
+    const StatusIcon = iconMap[slaStatus.type] || Icons.Clock;
+
+    return (
+      <div className="border border-gray-200 rounded-lg p-3">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-gray-700">SLA Status</span>
+          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${colorMap[slaStatus.color]}`}>
+            <StatusIcon size={12} className="mr-1" />
+            {slaStatus.label}
+          </span>
+        </div>
+
+        {ticket.step_due_date && (
+          <div className="text-xs text-gray-500">
+            <div className="flex justify-between">
+              <span>Due:</span>
+              <span>
+                {(() => {
+                  // Format due date in Philippine timezone
+                  try {
+                    import('../../utils/slaCalculator').then(({ formatDatePhilippine }) => {
+                      return formatDatePhilippine(ticket.step_due_date);
+                    });
+                    return new Date(ticket.step_due_date).toLocaleString();
+                  } catch (e) {
+                    return new Date(ticket.step_due_date).toLocaleString();
+                  }
+                })()}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {stepSLA && (
+          <div className="text-xs text-gray-500 mt-1 pt-1 border-t border-gray-100">
+            <div className="flex justify-between">
+              <span>Step SLA:</span>
+              <span>
+                {stepSLA.duration} {stepSLA.unit}
+                {stepSLA.excludeWeekends && ' (business days)'}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const getAvailableActions = () => {
@@ -213,6 +306,9 @@ const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
               {ticket.priority || 'Normal'}
             </span>
           </div>
+
+          {/* SLA Status Section */}
+          <SLAStatusDisplay />
 
           <div>
             <label className="text-sm font-medium text-gray-700">Status</label>

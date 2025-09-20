@@ -32,6 +32,12 @@
    - Compilation error fixes and icon reference corrections
    - ESLint compliance and code quality standards
 
+5. **`SLA_IMPLEMENTATION.md`** - ⚠️ **MANDATORY REFERENCE**
+   - Complete SLA calculator implementation documentation
+   - Business rules for Philippine timezone and SLA calculations
+   - API integration points and component requirements
+   - Phase-by-phase implementation tracking and status
+
 **⚠️ CRITICAL DEVELOPMENT RULES:**
 - **NO COMPONENT CREATION** without consulting dependency mapping
 - **NO HOOK MODIFICATIONS** without reviewing audit documentation

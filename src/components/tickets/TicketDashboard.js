@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../../contexts/UserContext';
-import { useTickets, useCompanies, useTicketTypes } from '../../hooks/useAPI';
+import { useTickets, useCompanies, useTicketTypes, useSLAStatus } from '../../hooks/useAPI';
 import { useToast } from '../shared/Toast';
+import { useConfirmation, useInformation } from '../shared/ConfirmationModal';
 import Icons from '../shared/Icons';
 
 const TicketDashboard = () => {
@@ -11,6 +12,10 @@ const TicketDashboard = () => {
   const { data: ticketTypes } = useTicketTypes();
   const { ToastContainer, success, error: showError } = useToast();
 
+  // Modal hooks
+  const { confirm, ConfirmationModal } = useConfirmation();
+  const { showInfo, InformationModal } = useInformation();
+
   const [filters, setFilters] = useState({
     search: '',
     company: '',
@@ -18,7 +23,8 @@ const TicketDashboard = () => {
     priority: '',
     assignee: '',
     creator: '',
-    dateRange: 'all'
+    dateRange: 'all',
+    slaStatus: 'all' // New SLA filter
   });
 
   const [sortBy, setSortBy] = useState('created_date');
@@ -56,7 +62,28 @@ const TicketDashboard = () => {
       }
     })();
 
-    return searchMatch && companyMatch && statusMatch && priorityMatch && assigneeMatch && creatorMatch && dateMatch;
+    // SLA Status filtering
+    const slaMatch = (() => {
+      if (filters.slaStatus === 'all') return true;
+      if (!ticket.step_due_date && filters.slaStatus === 'no_sla') return true;
+      if (!ticket.step_due_date && filters.slaStatus !== 'no_sla') return false;
+
+      // Calculate SLA status for filtering (simplified)
+      const now = new Date();
+      const dueDate = new Date(ticket.step_due_date);
+      const isOverdue = now > dueDate;
+      const isDueToday = dueDate.toDateString() === now.toDateString();
+
+      switch (filters.slaStatus) {
+        case 'overdue': return isOverdue;
+        case 'due_today': return isDueToday && !isOverdue;
+        case 'on_time': return !isDueToday && !isOverdue;
+        case 'no_sla': return false; // Already handled above
+        default: return true;
+      }
+    })();
+
+    return searchMatch && companyMatch && statusMatch && priorityMatch && assigneeMatch && creatorMatch && dateMatch && slaMatch;
   }) || [];
 
   // Sort tickets
@@ -137,7 +164,13 @@ const TicketDashboard = () => {
       return;
     }
 
-    const confirmed = window.confirm(`${action} ${selectedTickets.length} selected tickets?`);
+    const confirmed = await confirm({
+      title: `${action} Tickets`,
+      message: `Are you sure you want to ${action.toLowerCase()} ${selectedTickets.length} selected ticket${selectedTickets.length !== 1 ? 's' : ''}?`,
+      type: action === 'Delete' ? 'error' : 'warning',
+      confirmText: action,
+      cancelText: 'Cancel'
+    });
     if (!confirmed) return;
 
     try {
@@ -170,6 +203,52 @@ const TicketDashboard = () => {
       case 'closed': return 'text-gray-600 bg-gray-50 border-gray-200';
       default: return 'text-gray-600 bg-gray-50 border-gray-200';
     }
+  };
+
+  // SLA Status Component for individual tickets
+  const SLAStatusBadge = ({ ticketId, stepDueDate }) => {
+    const [slaStatus, setSlaStatus] = useState(null);
+
+    useEffect(() => {
+      if (stepDueDate) {
+        // Calculate SLA status client-side for performance
+        import('../../utils/slaCalculator').then(({ getSLAStatus }) => {
+          const status = getSLAStatus(stepDueDate);
+          setSlaStatus(status);
+        });
+      }
+    }, [stepDueDate]);
+
+    if (!slaStatus) {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          No SLA
+        </span>
+      );
+    }
+
+    const colorMap = {
+      gray: 'bg-gray-100 text-gray-800',
+      green: 'bg-green-100 text-green-800',
+      yellow: 'bg-yellow-100 text-yellow-800',
+      red: 'bg-red-100 text-red-800'
+    };
+
+    const iconMap = {
+      no_sla: Icons.Clock,
+      on_time: Icons.Success,
+      due_today: Icons.Urgent,
+      overdue: Icons.Warning
+    };
+
+    const StatusIcon = iconMap[slaStatus.type] || Icons.Clock;
+
+    return (
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${colorMap[slaStatus.color]}`}>
+        <StatusIcon size={12} className="mr-1" />
+        {slaStatus.label}
+      </span>
+    );
   };
 
   const renderTicketRow = (ticket) => {
@@ -231,9 +310,14 @@ const TicketDashboard = () => {
                 <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(ticket.status)}`}>
                   {ticket.status || 'Open'}
                 </span>
+                <SLAStatusBadge ticketId={ticket.id} stepDueDate={ticket.step_due_date} />
 
                 <button
-                  onClick={() => window.alert(`View ticket details for ${ticket.id}`)}
+                  onClick={() => showInfo({
+                    title: 'Ticket Details',
+                    message: `Viewing details for ticket ${ticket.ticket_number || ticket.id}. Full ticket detail modal will be implemented in the next phase.`,
+                    type: 'info'
+                  })}
                   className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors duration-200"
                   title="View Details"
                 >
@@ -250,6 +334,8 @@ const TicketDashboard = () => {
   return (
     <>
       <ToastContainer />
+      <ConfirmationModal />
+      <InformationModal />
 
       <div className="space-y-6">
         {/* Header */}
@@ -276,7 +362,11 @@ const TicketDashboard = () => {
             </button>
             {hasPermission('canCreateTickets') && (
               <button
-                onClick={() => window.alert('Create New Ticket')}
+                onClick={() => showInfo({
+                  title: 'Create New Ticket',
+                  message: 'Ticket creation functionality will be implemented in Phase 6. This will include a comprehensive form builder with custom fields.',
+                  type: 'info'
+                })}
                 className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
               >
                 <Icons.Create size={16} />
@@ -383,6 +473,19 @@ const TicketDashboard = () => {
               <option value="today">Today</option>
               <option value="week">This Week</option>
               <option value="month">This Month</option>
+            </select>
+
+            <select
+              value={filters.slaStatus}
+              onChange={(e) => handleFilterChange('slaStatus', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              title="Filter by SLA status"
+            >
+              <option value="all">All SLA Status</option>
+              <option value="overdue">🔴 Overdue</option>
+              <option value="due_today">🟡 Due Today</option>
+              <option value="on_time">🟢 On Time</option>
+              <option value="no_sla">⚫ No SLA</option>
             </select>
 
             <button
