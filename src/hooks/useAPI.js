@@ -407,6 +407,155 @@ export const useCanUserApprove = (userId, stepId, ticketId = null) => {
   );
 };
 
+/**
+ * SLA-related hooks for monitoring due dates and status
+ */
+
+/**
+ * Hook for getting SLA status of a specific ticket
+ */
+export const useSLAStatus = (ticketId) => {
+  return useAPIData(
+    ['sla_status', ticketId],
+    async () => {
+      if (!ticketId) return null;
+
+      // Get ticket with current step and due date
+      const ticket = await API.Tickets.getById(ticketId);
+      if (!ticket || !ticket.current_step_id) return null;
+
+      // Get current workflow step
+      const step = await API.WorkflowSteps.getById(ticket.current_step_id);
+      if (!step) return null;
+
+      // Calculate SLA status using our SLA calculator
+      const { getSLAStatus } = await import('../utils/slaCalculator');
+      return getSLAStatus(ticket.step_due_date);
+    },
+    {
+      enabled: !!ticketId,
+      staleTime: 30 * 1000, // 30 seconds - SLA status changes frequently
+      refetchInterval: 60 * 1000 // Refresh every minute for real-time updates
+    }
+  );
+};
+
+/**
+ * Hook for getting SLA configuration of a workflow step
+ */
+export const useWorkflowStepSLA = (stepId) => {
+  return useAPIData(
+    ['workflow_step_sla', stepId],
+    async () => {
+      if (!stepId) return null;
+
+      const step = await API.WorkflowSteps.getById(stepId);
+      if (!step) return null;
+
+      // Extract SLA configuration using our SLA calculator
+      const { SLACalculator } = await import('../utils/slaCalculator');
+      return SLACalculator.getStepSLAConfig(step);
+    },
+    {
+      enabled: !!stepId,
+      staleTime: 5 * 60 * 1000 // 5 minutes - SLA configs don't change often
+    }
+  );
+};
+
+/**
+ * Hook for getting due dates of all tickets for a ticket type
+ */
+export const useTicketDueDates = (ticketTypeId) => {
+  return useAPIData(
+    ['ticket_due_dates', ticketTypeId],
+    async () => {
+      if (!ticketTypeId) return [];
+
+      // Get all tickets for this type
+      const tickets = await API.Tickets.getByTicketType(ticketTypeId);
+      if (!tickets || tickets.length === 0) return [];
+
+      // Calculate SLA status for each ticket
+      const { getSLAStatus } = await import('../utils/slaCalculator');
+
+      return tickets.map(ticket => ({
+        id: ticket.id,
+        ticket_number: ticket.ticket_number,
+        title: ticket.title,
+        step_due_date: ticket.step_due_date,
+        sla_status: getSLAStatus(ticket.step_due_date),
+        current_step_id: ticket.current_step_id
+      }));
+    },
+    {
+      enabled: !!ticketTypeId,
+      staleTime: 60 * 1000, // 1 minute
+      refetchInterval: 2 * 60 * 1000 // Refresh every 2 minutes
+    }
+  );
+};
+
+/**
+ * Hook for getting all overdue tickets across the system
+ */
+export const useSLAOverdueTickets = () => {
+  return useAPIData(
+    ['sla_overdue_tickets'],
+    async () => {
+      // Get all active tickets
+      const tickets = await API.Tickets.getAll();
+      if (!tickets || tickets.length === 0) return [];
+
+      // Filter for overdue tickets
+      const { getSLAStatus } = await import('../utils/slaCalculator');
+
+      const overdueTickets = tickets
+        .map(ticket => ({
+          ...ticket,
+          sla_status: getSLAStatus(ticket.step_due_date)
+        }))
+        .filter(ticket => ticket.sla_status.isOverdue);
+
+      return overdueTickets;
+    },
+    {
+      staleTime: 30 * 1000, // 30 seconds
+      refetchInterval: 60 * 1000 // Refresh every minute for real-time monitoring
+    }
+  );
+};
+
+/**
+ * Hook for getting all tickets due today
+ */
+export const useSLADueTodayTickets = () => {
+  return useAPIData(
+    ['sla_due_today_tickets'],
+    async () => {
+      // Get all active tickets
+      const tickets = await API.Tickets.getAll();
+      if (!tickets || tickets.length === 0) return [];
+
+      // Filter for tickets due today
+      const { getSLAStatus } = await import('../utils/slaCalculator');
+
+      const dueTodayTickets = tickets
+        .map(ticket => ({
+          ...ticket,
+          sla_status: getSLAStatus(ticket.step_due_date)
+        }))
+        .filter(ticket => ticket.sla_status.isDueToday);
+
+      return dueTodayTickets;
+    },
+    {
+      staleTime: 60 * 1000, // 1 minute
+      refetchInterval: 2 * 60 * 1000 // Refresh every 2 minutes
+    }
+  );
+};
+
 export default {
   useAPI,
   useCompanies,
@@ -427,5 +576,11 @@ export default {
   useTicketMutations,
   useSystemHealth,
   useAPITest,
-  useAPIConnection
+  useAPIConnection,
+  // SLA hooks
+  useSLAStatus,
+  useWorkflowStepSLA,
+  useTicketDueDates,
+  useSLAOverdueTickets,
+  useSLADueTodayTickets
 };

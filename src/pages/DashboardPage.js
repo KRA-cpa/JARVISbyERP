@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { useUser } from '../contexts/UserContext';
 import { useTickets, useCompanies, useTicketTypes } from '../hooks/useAPI';
 import { useToast } from '../components/shared/Toast';
+import { useInformation } from '../components/shared/ConfirmationModal';
 import Header from '../components/shared/Header';
 import Icons from '../components/shared/Icons';
 import { DetailedClock } from '../components/shared/LiveClock';
+import { SLASummaryWidgets, SLADetailedMetrics } from '../components/shared/SLAWidgets';
 import DEV_CONFIG from '../config/development';
 
 const DashboardPage = () => {
@@ -13,6 +15,9 @@ const DashboardPage = () => {
   const { data: companies } = useCompanies();
   const { data: ticketTypes } = useTicketTypes();
   const { ToastContainer, success } = useToast();
+
+  // Modal hooks
+  const { showInfo, InformationModal } = useInformation();
 
   const [selectedCompany, setSelectedCompany] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
@@ -161,7 +166,11 @@ const DashboardPage = () => {
             )}
 
             <button
-              onClick={() => window.alert(`View ticket details for ${ticket.id}`)}
+              onClick={() => showInfo({
+                title: 'Ticket Details',
+                message: `Detailed view for ticket ${ticket.ticket_number || ticket.id} will be available in the next phase.`,
+                type: 'info'
+              })}
               className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors duration-200"
               title="View Details"
             >
@@ -173,9 +182,18 @@ const DashboardPage = () => {
     );
   };
 
+  const handleSLAWidgetClick = (type) => {
+    showInfo({
+      title: `SLA ${type} Tickets`,
+      message: `This will show a filtered view of ${type.toLowerCase()} tickets. Full SLA management interface will be enhanced in the next update.`,
+      type: 'info'
+    });
+  };
+
   return (
     <>
       <ToastContainer />
+      <InformationModal />
 
       <div className="min-h-screen bg-gray-100">
         {/* Header */}
@@ -212,6 +230,21 @@ const DashboardPage = () => {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* SLA Summary Widgets */}
+            <div className="mb-8">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">SLA Overview</h3>
+              <SLASummaryWidgets
+                onOverdueClick={() => handleSLAWidgetClick('Overdue')}
+                onDueTodayClick={() => handleSLAWidgetClick('Due Today')}
+                onPerformanceClick={() => handleSLAWidgetClick('Performance')}
+              />
+            </div>
+
+            {/* SLA Detailed Metrics */}
+            <div className="mb-8">
+              <SLADetailedMetrics />
             </div>
 
             {/* Dashboard Stats */}
@@ -375,7 +408,11 @@ const DashboardPage = () => {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button
-                      onClick={() => window.alert('Create New Ticket - Phase 6 Implementation')}
+                      onClick={() => showInfo({
+                        title: 'Create New Ticket',
+                        message: 'New ticket creation interface will be implemented in Phase 6.',
+                        type: 'info'
+                      })}
                       className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
                     >
                       <Icons.Create size={16} />
@@ -383,7 +420,11 @@ const DashboardPage = () => {
                     </button>
                     {hasPermission('canViewReports') && (
                       <button
-                        onClick={() => window.alert('View Reports - Future Phase')}
+                        onClick={() => showInfo({
+                          title: 'View Reports',
+                          message: 'Advanced reporting features will be implemented in a future phase.',
+                          type: 'info'
+                        })}
                         className="px-4 py-2 bg-gray-600 text-white text-sm font-medium rounded-lg hover:bg-gray-700 transition-colors duration-200 flex items-center space-x-2"
                       >
                         <Icons.Dashboard size={16} />
@@ -439,7 +480,11 @@ const DashboardPage = () => {
                   {filteredTickets.length > 10 && (
                     <div className="text-center pt-4">
                       <button
-                        onClick={() => window.alert('View All Tickets - Full list implementation coming in Phase 6')}
+                        onClick={() => showInfo({
+                          title: 'View All Tickets',
+                          message: `Full list view for all ${filteredTickets.length} tickets will be implemented in Phase 6.`,
+                          type: 'info'
+                        })}
                         className="px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
                       >
                         View All {filteredTickets.length} Tickets
@@ -455,7 +500,11 @@ const DashboardPage = () => {
                   </p>
                   {hasPermission('canCreateTickets') && (
                     <button
-                      onClick={() => window.alert('Create First Ticket - Implementation in progress')}
+                      onClick={() => showInfo({
+                        title: 'Create First Ticket',
+                        message: 'Ticket creation functionality is currently in development and will be available soon.',
+                        type: 'info'
+                      })}
                       className="px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
                     >
                       Create First Ticket
