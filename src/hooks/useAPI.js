@@ -242,6 +242,63 @@ export const useDropdownMutations = () => {
   return { createList, updateList, deleteList, loading, error };
 };
 
+// Custom Fields hooks
+export const useCustomFields = (ticketTypeId = null) => {
+  return useAPI(() => API.CustomFields.getAll(ticketTypeId), [ticketTypeId]);
+};
+
+export const useCustomField = (id) => {
+  return useAPI(() => API.CustomFields.getById(id), [id]);
+};
+
+export const useCustomFieldMutations = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const createField = async (fieldData) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await API.CustomFields.create(fieldData);
+      return result;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateField = async (id, fieldData) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await API.CustomFields.update(id, fieldData);
+      return result;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteField = async (id) => {
+    try {
+      setLoading(true);
+      setError(null);
+      await API.CustomFields.delete(id);
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { createField, updateField, deleteField, loading, error };
+};
+
 // Tickets hooks
 export const useTickets = (filters = {}) => {
   return useAPI(() => API.Tickets.getAll(filters), [JSON.stringify(filters)]);
