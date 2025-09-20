@@ -15,7 +15,7 @@ import { API } from '../../api/googleSheet';
  * - Field ordering and grouping
  */
 const AdminCustomFieldManager = () => {
-  const { showToast } = useToast();
+  const { success, error, warning, ToastContainer } = useToast();
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
@@ -102,8 +102,8 @@ const AdminCustomFieldManager = () => {
     try {
       const fields = await API.CustomFields.getAll();
       setCustomFields(fields || []);
-    } catch (error) {
-      console.error('Failed to load custom fields:', error);
+    } catch (err) {
+      console.error('Failed to load custom fields:', err);
       setCustomFields([]);
     } finally {
       setCustomFieldsLoading(false);
@@ -197,19 +197,19 @@ const AdminCustomFieldManager = () => {
 
       if (editingField) {
         await API.CustomFields.update(editingField.id, fieldData);
-        showToast('success', 'Success', 'Custom field updated successfully');
+        success('Custom field updated successfully');
         setShowEditForm(false);
         setEditingField(null);
       } else {
         await API.CustomFields.create(fieldData);
-        showToast('success', 'Success', 'Custom field created successfully');
+        success('Custom field created successfully');
         setShowCreateForm(false);
       }
 
       resetForm();
       loadCustomFields();
-    } catch (error) {
-      showToast('error', 'Error', error.message || 'Failed to save custom field');
+    } catch (err) {
+      error(err.message || 'Failed to save custom field');
     } finally {
       setLoading(false);
     }
@@ -218,7 +218,7 @@ const AdminCustomFieldManager = () => {
   // Handle create
   const handleCreateField = () => {
     if (!selectedTicketType) {
-      showToast('warning', 'Select Ticket Type', 'Please select a ticket type first');
+      warning('Please select a ticket type first');
       return;
     }
     resetForm();
@@ -255,12 +255,12 @@ const AdminCustomFieldManager = () => {
 
     try {
       await API.CustomFields.delete(deletingField.id);
-      showToast('success', 'Success', 'Custom field deleted successfully');
+      success('Custom field deleted successfully');
       setShowDeleteConfirm(false);
       setDeletingField(null);
       loadCustomFields();
-    } catch (error) {
-      showToast('error', 'Error', error.message || 'Failed to delete custom field');
+    } catch (err) {
+      error(err.message || 'Failed to delete custom field');
     } finally {
       setLoading(false);
     }
@@ -275,10 +275,10 @@ const AdminCustomFieldManager = () => {
         ...field,
         is_hidden: !field.is_hidden
       });
-      showToast('success', 'Success', `Field ${!field.is_hidden ? 'hidden' : 'shown'} successfully`);
+      success(`Field ${!field.is_hidden ? 'hidden' : 'shown'} successfully`);
       loadCustomFields();
-    } catch (error) {
-      showToast('error', 'Error', error.message || 'Failed to update field visibility');
+    } catch (err) {
+      error(err.message || 'Failed to update field visibility');
     } finally {
       setLoading(false);
     }
@@ -297,8 +297,8 @@ const AdminCustomFieldManager = () => {
         });
         loadCustomFields();
       }
-    } catch (error) {
-      showToast('error', 'Error', error.message || 'Failed to reorder field');
+    } catch (err) {
+      error(err.message || 'Failed to reorder field');
     } finally {
       setLoading(false);
     }
@@ -347,7 +347,9 @@ const AdminCustomFieldManager = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <ToastContainer />
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -856,6 +858,7 @@ const AdminCustomFieldManager = () => {
       )}
 
     </div>
+    </>
   );
 };
 

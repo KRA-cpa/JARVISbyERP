@@ -15,7 +15,7 @@ import { API } from '../../api/googleSheet';
  * - Step type configuration (approval, task, external)
  */
 const AdminWorkflowBuilder = () => {
-  const { showToast } = useToast();
+  const { success, error, warning, ToastContainer } = useToast();
   const [loading, setLoading] = useState(false);
   const [selectedTicketType, setSelectedTicketType] = useState('');
   const [showStepForm, setShowStepForm] = useState(false);
@@ -167,10 +167,10 @@ const AdminWorkflowBuilder = () => {
 
       if (editingStep) {
         await API.WorkflowSteps.update(editingStep.id, stepData);
-        showToast('success', 'Success', 'Workflow step updated successfully');
+        success('Workflow step updated successfully');
       } else {
         createdStep = await API.WorkflowSteps.create(stepData);
-        showToast('success', 'Success', 'Workflow step created successfully');
+        success('Workflow step created successfully');
       }
 
       // Update step approvers for approval steps
@@ -186,8 +186,8 @@ const AdminWorkflowBuilder = () => {
       setShowStepForm(false);
       setEditingStep(null);
       refetchSteps();
-    } catch (error) {
-      showToast('error', 'Error', error.message || 'Failed to save workflow step');
+    } catch (err) {
+      error(err.message || 'Failed to save workflow step');
     } finally {
       setLoading(false);
     }
@@ -196,7 +196,7 @@ const AdminWorkflowBuilder = () => {
   // Handle create new step
   const handleCreateStep = () => {
     if (!selectedTicketType) {
-      showToast('warning', 'Warning', 'Please select a ticket type first');
+      warning('Please select a ticket type first');
       return;
     }
 
@@ -251,12 +251,12 @@ const AdminWorkflowBuilder = () => {
 
     try {
       await API.WorkflowSteps.delete(deletingStep.id);
-      showToast('success', 'Success', 'Workflow step deleted successfully');
+      success('Workflow step deleted successfully');
       setShowDeleteConfirm(false);
       setDeletingStep(null);
       refetchSteps();
-    } catch (error) {
-      showToast('error', 'Error', error.message || 'Failed to delete workflow step');
+    } catch (err) {
+      error(err.message || 'Failed to delete workflow step');
     } finally {
       setLoading(false);
     }
@@ -265,7 +265,7 @@ const AdminWorkflowBuilder = () => {
   // Handle SLA testing
   const handleTestSLA = async () => {
     if (!stepFormData.sla_duration) {
-      showToast('warning', 'Warning', 'Please enter SLA duration before testing');
+      warning('Please enter SLA duration before testing');
       return;
     }
 
@@ -281,9 +281,9 @@ const AdminWorkflowBuilder = () => {
       const results = SLACalculator.simulateSLA(testConfig);
       setSlaTestResults(results);
       setShowSLATest(true);
-    } catch (error) {
-      showToast('error', 'Error', 'Failed to test SLA configuration');
-      console.error('SLA test error:', error);
+    } catch (err) {
+      error('Failed to test SLA configuration');
+      console.error('SLA test error:', err);
     }
   };
 
@@ -346,7 +346,9 @@ const AdminWorkflowBuilder = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <ToastContainer />
+      <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -915,6 +917,7 @@ const AdminWorkflowBuilder = () => {
         </div>
       )}
     </div>
+    </>
   );
 };
 
