@@ -8,7 +8,7 @@ import AdminCompanyManager from '../components/admin/AdminCompanyManager';
 import AdminRoleManager from '../components/admin/AdminRoleManager';
 import AdminDropdownManager from '../components/admin/AdminDropdownManager';
 import AdminTicketTypeList from '../components/admin/AdminTicketTypeList';
-import AdminCustomFieldManager from '../components/admin/AdminCustomFieldManager';
+import AdminCustomFieldList from '../components/admin/AdminCustomFieldList';
 import APIConnectionStatus from '../components/admin/APIConnectionStatus';
 
 const AdminPage = () => {
@@ -166,7 +166,7 @@ const AdminPage = () => {
       name: 'Custom Fields',
       icon: Icons.Edit,
       description: 'Build dynamic form fields for ticket types',
-      component: AdminCustomFieldManager
+      component: AdminCustomFieldList
     }
   ];
 
