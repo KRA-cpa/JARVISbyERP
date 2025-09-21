@@ -49,6 +49,12 @@ const AdminCompanyManager = () => {
       return false;
     }
 
+    // Check if editing a locked company's code
+    if (editingCompany && editingCompany.code_locked && formData.code !== editingCompany.code) {
+      setFormError('Cannot change code for locked company. Contact admin to unlock.');
+      return false;
+    }
+
     // Check for duplicate codes
     const existingCompany = companies?.find(c =>
       c.code.toUpperCase() === formData.code.toUpperCase() &&
@@ -168,14 +174,25 @@ const AdminCompanyManager = () => {
               ...prev,
               code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')
             }))}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+              editingCompany?.code_locked ? 'border-gray-300 bg-gray-100 text-gray-500' : 'border-gray-300'
+            }`}
             placeholder="Enter company code (e.g., MAIN, DEV)"
             maxLength={10}
-            disabled={isSubmitting}
+            disabled={isSubmitting || editingCompany?.code_locked}
           />
-          <p className="text-xs text-gray-500 mt-1">
-            2-10 characters, uppercase letters and numbers only. Used in ticket numbering.
-          </p>
+          {editingCompany?.code_locked ? (
+            <div className="flex items-center mt-1">
+              <Icons.Warning size={14} className="text-orange-500 mr-1" />
+              <p className="text-xs text-orange-600">
+                Code is locked (tickets exist). Contact admin to unlock.
+              </p>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-500 mt-1">
+              2-10 characters, uppercase letters and numbers only. Used in ticket numbering.
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-4">
@@ -236,13 +253,32 @@ const AdminCompanyManager = () => {
                   <div className="flex items-center space-x-3">
                     <Icons.Company size={20} className="text-gray-400" />
                     <div>
-                      <h4 className="text-sm font-medium text-gray-900">{company.name}</h4>
-                      <p className="text-sm text-gray-500">Code: {company.code}</p>
+                      <div className="flex items-center space-x-2">
+                        <h4 className="text-sm font-medium text-gray-900">{company.name}</h4>
+                        {company.code_locked && (
+                          <div className="flex items-center" title="Code locked - tickets exist">
+                            <Icons.Warning size={14} className="text-orange-500" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <p className="text-sm text-gray-500">Code: {company.code}</p>
+                        {company.code_locked && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
+                            Locked
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                   {company.created_at && (
                     <p className="text-xs text-gray-400 mt-1">
                       Created: {new Date(company.created_at).toLocaleDateString()}
+                      {company.code_locked && company.code_locked_at && (
+                        <span className="ml-2">
+                          • Locked: {new Date(company.code_locked_at).toLocaleDateString()}
+                        </span>
+                      )}
                     </p>
                   )}
                 </div>

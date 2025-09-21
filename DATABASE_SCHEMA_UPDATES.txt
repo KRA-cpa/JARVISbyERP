@@ -1,0 +1,136 @@
+# DATABASE SCHEMA UPDATES
+# Multi-Company Workflow & Company Code Locking Implementation
+# Generated: September 21, 2025
+
+## REQUIRED CHANGES ANALYSIS
+
+### 1. COMPANY CODE LOCKING
+# Table: companies
+# Current: id|name|code
+# Enhanced: id|name|code|code_locked|code_locked_at|code_locked_reason|ticket_count
+
+### 2. MULTI-COMPANY WORKFLOWS
+# Table: workflow_steps
+# Current: id|ticket_type_id|name|status_on_reach|step_type|approver_logic|sort_order|next_ticket_type_id|external_app_url|completion_action_name
+# Enhanced: id|ticket_type_id|company_id|name|status_on_reach|step_type|approver_logic|sort_order|next_ticket_type_id|external_app_url|completion_action_name
+
+## UPDATED TABLE SCHEMAS (Text-to-Column Format)
+
+# companies (ENHANCED)
+id|name|code|code_locked|code_locked_at|code_locked_reason|ticket_count
+
+# workflow_steps (ENHANCED)
+id|ticket_type_id|company_id|name|status_on_reach|step_type|approver_logic|sort_order|next_ticket_type_id|external_app_url|completion_action_name
+
+# dropdown_lists (ENHANCED)
+id|name|company_id
+
+# step_slas (NO CHANGES)
+step_id|duration|unit|exclude_weekends
+
+# step_approvers (NO CHANGES)
+step_id|role_id
+
+# step_conditions (NO CHANGES)
+id|step_id|custom_field_id|operator|value
+
+# user_role_assignments (NO CHANGES - Already has company_id)
+user_id|ticket_type_id|role_id|validity_end_date|company_id
+
+# user_preferences (NEW TABLE)
+user_id|dark_mode|timezone|language|email_notifications|desktop_notifications|dashboard_layout|items_per_page|auto_refresh|refresh_interval|created_at|updated_at
+
+## COLUMN DEFINITIONS
+
+### companies additions:
+# code_locked: boolean - TRUE when company code is locked (after first ticket creation)
+# code_locked_at: timestamp - When the code was locked (ISO format)
+# code_locked_reason: string - Reason for locking (e.g., "first_ticket_created", "admin_override")
+# ticket_count: number - Count of tickets created for this company (for lock trigger)
+
+### workflow_steps addition:
+# company_id: string - Required field linking workflow step to specific company
+# Note: No NULL values allowed - every workflow step must belong to a company
+
+### dropdown_lists addition:
+# company_id: string - Required field linking dropdown list to specific company
+# Note: Makes dropdown lists company-specific, prevents option pollution across companies
+
+### user_preferences columns:
+# user_id: string - Primary key, user's unique identifier (from Firebase Auth)
+# dark_mode: boolean - User's dark mode preference (true/false)
+# timezone: string - User's timezone (e.g., 'Asia/Manila', 'UTC', 'America/New_York')
+# language: string - User's language preference (ISO code, e.g., 'en', 'es', 'fr')
+# email_notifications: boolean - Whether user wants email notifications
+# desktop_notifications: boolean - Whether user wants browser notifications
+# dashboard_layout: string - Dashboard layout preference ('grid', 'list', 'table')
+# items_per_page: number - Number of items to display per page (10, 20, 50, 100)
+# auto_refresh: boolean - Whether to automatically refresh data
+# refresh_interval: number - Auto-refresh interval in milliseconds (10000, 30000, 60000, 300000, 0=disabled)
+# created_at: timestamp - When the preferences were first created
+# updated_at: timestamp - When the preferences were last updated
+
+## MIGRATION NOTES
+
+1. EXISTING DATA HANDLING:
+   - Current workflow_steps have no company_id
+   - Need to either:
+     a) Assign all existing steps to a "default" company, OR
+     b) Delete existing workflow_steps and require recreation
+
+2. COMPANY CODE LOCKING:
+   - All existing companies start with code_locked = FALSE
+   - code_locked_at and code_locked_reason start as NULL
+   - ticket_count starts at 0 and will be populated by counting existing tickets
+
+3. WORKFLOW STEP VALIDATION:
+   - New constraint: workflow_steps.company_id cannot be NULL
+   - New constraint: combination of (ticket_type_id, company_id, sort_order) should be unique
+
+## APPS SCRIPT CHANGES REQUIRED
+
+### New API Endpoints:
+# Companies.lock(id, reason)
+# Companies.unlock(id, reason)
+# Companies.checkLockStatus(id)
+# WorkflowSteps.copyFromCompany(ticketTypeId, sourceCompanyId, targetCompanyId)
+# WorkflowSteps.getByCompany(ticketTypeId, companyId)
+# DropdownLists.getByCompany(companyId)
+# DropdownLists.copyFromCompany(sourceCompanyId, targetCompanyId)
+# TicketTypes.validateNameUniqueness(name, companyId, excludeId)
+# UserPreferences.get(userId) - GET endpoint for retrieving user preferences
+# UserPreferences.update(userId, preferences) - POST endpoint for updating user preferences
+
+### Modified API Endpoints:
+# WorkflowSteps.getAll() - Must now filter by company_id
+# WorkflowSteps.create() - Must require company_id
+# Companies.update() - Must validate code_locked status
+
+## IMPACT ASSESSMENT
+
+### HIGH IMPACT CHANGES:
+1. workflow_steps.company_id addition - BREAKS EXISTING WORKFLOW QUERIES
+2. Company code locking validation - PREVENTS CODE CHANGES
+
+### MEDIUM IMPACT CHANGES:
+1. New API endpoints required for copying workflows
+2. Frontend UI updates for company selection and copying
+
+### LOW IMPACT CHANGES:
+1. Company table additions (non-breaking for existing queries)
+2. Additional validation logic
+
+## ROLLBACK PLAN
+
+If changes need to be rolled back:
+1. Remove company_id column from workflow_steps
+2. Remove locking columns from companies
+3. Revert Apps Script to previous validation logic
+
+## TESTING REQUIREMENTS
+
+1. Test company code locking triggers
+2. Test workflow copying between companies
+3. Test validation of company-specific workflows
+4. Test migration of existing data
+5. Verify all existing functionality still works

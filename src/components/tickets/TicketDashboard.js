@@ -367,10 +367,10 @@ const TicketDashboard = () => {
                   message: 'Ticket creation functionality will be implemented in Phase 6. This will include a comprehensive form builder with custom fields.',
                   type: 'info'
                 })}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
               >
-                <Icons.Create size={16} />
-                <span>New Ticket</span>
+                <Icons.Create size={20} />
+                <span>Create New Ticket</span>
               </button>
             )}
           </div>

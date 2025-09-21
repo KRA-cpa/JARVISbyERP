@@ -398,7 +398,7 @@ The Google Sheet will contain the following sheets (tables), with the first row 
 
 | Sheet Name | Columns | Description |
 | ----- | ----- | ----- |
-| **`companies` (New)** | `id`, `name`, `code` | Defines each company/tenant in the system. |
+| **`companies` (Enhanced)** | `id`, `name`, `code`, `code_locked`, `code_locked_at`, `code_locked_reason`, `ticket_count` | Defines each company/tenant in the system. Code locking prevents changes after first ticket creation. |
 | **`roles` (New)** | `id`, `name`, `company_id` | Defines available roles. `company_id` is NULL for global roles. |
 | **`tickets`** | `id`, `ticket_number`, `title`, `ticket_type_id`, `requester_id`, `status`, `current_step_id`, `step_due_date`, `created_at`, `updated_at`, `company_id` | Tracks every ticket created. |
 | **`ticket_history`** | `id`, `ticket_id`, `user_id`, `action`, `comment`, `timestamp` | Audit log of all actions on a ticket. |
@@ -406,7 +406,7 @@ The Google Sheet will contain the following sheets (tables), with the first row 
 | **`comment_requirements`** | `ticket_type_id`, `require_on_approve`, `require_on_return`, `require_on_reject`, `require_on_cancel` | Rules for mandatory comments. |
 | **`custom_fields`** | `id`, `ticket_type_id`, `name`, `label`, `type`, `is_required`, `is_hidden`, `sort_order`, `dropdown_list_id`, `depends_on_field_id` | Defines all possible custom fields. |
 | **`custom_field_values`** | `id`, `ticket_id`, `custom_field_id`, `text_value`, `number_value`, `date_value`, `start_date_value`, `end_date_value`, `dropdown_option_id` | Stores the data for custom fields. Date range fields use start_date_value and end_date_value. |
-| **`workflow_steps`** | `id`, `ticket_type_id`, `name`, `status_on_reach`, `step_type`, `approver_logic`, `sort_order`, `next_ticket_type_id`, `external_app_url`, `completion_action_name` | Defines the approval/task steps. |
+| **`workflow_steps` (Enhanced)** | `id`, `ticket_type_id`, `company_id`, `name`, `status_on_reach`, `step_type`, `approver_logic`, `sort_order`, `next_ticket_type_id`, `external_app_url`, `completion_action_name` | Defines the approval/task steps. Each step is company-specific with explicit assignment required. |
 | **`step_approvers`** | `step_id`, `role_id` | Links roles to workflow steps. |
 | **`user_role_assignments`** | `user_id`, `ticket_type_id`, `role_id`, `validity_end_date`, `company_id` | Assigns roles to users for specific ticket types and companies. |
 | **`step_slas`** | `step_id`, `duration`, `unit`, `exclude_weekends` | Defines the SLA for each step. |
@@ -421,6 +421,35 @@ The Google Sheet will contain the following sheets (tables), with the first row 
 | **`admin_action_logs`** | `id`, `admin_user_id`, `action_type`, `target_entity`, `target_id`, `details`, `timestamp` | Logs all configuration changes made in the Admin Panel and all user logins. |
 
 ### **3.0 Functional Requirements**
+
+#### **3.0.1 Core Multi-Company Design Principles**
+
+**🎯 EXPLICIT ASSIGNMENT PRINCIPLE**
+The system operates on explicit assignment rather than defaults or fallbacks:
+
+* **No Default Workflows:** Every company-ticket type combination requires explicit workflow assignment
+* **Copy-Based Setup:** Companies configure by copying from existing setups rather than inheriting defaults
+* **Independent Ownership:** Each company owns their workflow copy and can modify without affecting others
+
+**🔄 WORKFLOW ASSIGNMENT ARCHITECTURE**
+```
+Ticket Type: "Purchase Request"
+├── Company A: Manager → Finance (2 steps, 24h SLA)
+├── Company B: Manager → Dept Head → Finance (3 steps, 48h SLA)
+└── Company C: [Must explicitly choose to copy from A or B]
+```
+
+**📋 ADMIN CONFIGURATION FLOW**
+1. **First Company Setup:** Company A creates workflows for ticket type
+2. **Subsequent Companies:** Must choose to either:
+   - Create workflows from scratch, OR
+   - Copy existing workflows from Company A (or any other company)
+3. **Customization:** After copying, companies can modify their workflows independently
+
+**🔐 DATA INTEGRITY PRINCIPLES**
+* **Company Code Locking:** Automatic after first ticket creation
+* **Workflow Independence:** Changes to Company A workflows don't affect Company B
+* **Explicit Validation:** System validates company-specific configurations separately
 
 #### **3.1 User & Permissions Management**
 
@@ -449,13 +478,19 @@ The Google Sheet will contain the following sheets (tables), with the first row 
 
 Administrators will have access to a dedicated UI to configure the entire system without writing code.
 
-* **Company Management:** Full CRUD for companies, including setting their name and code.  
-* **Role Management:** Full CRUD for roles, including defining them as global or company-specific.  
-* **Ticket Type Management:**  
-  * Full CRUD for ticket types. The "Transaction ID" is the unique business identifier for the ticket type.  
-  * Each ticket type will have a short **Code** for ticket numbering.  
-  * Configuration for requiring attachments on creation.  
-  * Configuration for requiring comments on actions (Approve, Return, Reject, Cancel).  
+* **Company Management:** Full CRUD for companies, including setting their name and code.
+  * **Company Code Locking:** Company codes are automatically locked after the first ticket is created to prevent breaking existing ticket numbers. Admin override capability available with audit logging.
+  * **Data Integrity Protection:** Prevents changes to company codes that would invalidate the ticket numbering format (`COMPANYCODE-TYPECODE-YEAR-SEQUENCE`).
+* **Role Management:** Full CRUD for roles, including defining them as global or company-specific.
+* **Ticket Type Management:**
+  * Full CRUD for ticket types. The "Transaction ID" is the unique business identifier for the ticket type.
+  * Each ticket type will have a short **Code** for ticket numbering.
+  * Configuration for requiring attachments on creation.
+  * Configuration for requiring comments on actions (Approve, Return, Reject, Cancel).
+  * **Duplicate Prevention:** Ticket type names must be unique within each company (case-insensitive). Prevents user confusion from similar names like "Purchase Request" vs "purchase request".
+  * **Multi-Company Ticket Types:** Ticket types are designed to serve multiple companies with explicit workflow assignments per company.
+  * **Copy-Based Configuration:** No default workflows - each company must explicitly assign workflows by either creating new ones or copying from existing company setups.
+  * **Workflow Independence:** Each company owns their workflow copy and can customize independently without affecting other companies.  
 * **Custom Field Builder:**  
   * Admins can add, hide, and reorder fields for any ticket type. Fields used in existing tickets can be hidden but not deleted.  
   * Supported field types: `text`, `paragraph`, `date`, `amount`, `dropdown`, `file`.  
@@ -520,4 +555,5 @@ MANDATORY NOTICES:
 2. Consider create mapping of all dependencies connection before creating/updating the components.
 3. update dependecy documentation as each component is created/updated/read/updated/audited.
 4. Read first md files before you update.
+5. **ALWAYS READ FILES FIRST BEFORE UPDATING** - Use Read tool to understand current content and context before making any modifications to prevent overwriting important information.
 

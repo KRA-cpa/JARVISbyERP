@@ -24,7 +24,7 @@ const AdminTicketTypeCreatePage = () => {
 
   // API data
   const { data: companies, loading: companiesLoading } = useCompanies();
-  const { refetch: refetchTicketTypes } = useTicketTypes();
+  const { data: existingTicketTypes, refetch: refetchTicketTypes } = useTicketTypes();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -52,6 +52,16 @@ const AdminTicketTypeCreatePage = () => {
   const [formErrors, setFormErrors] = useState({});
   const [draftSaved, setDraftSaved] = useState(false);
 
+  // Check for duplicate ticket type names (case-insensitive)
+  const checkDuplicateName = (name) => {
+    if (!name?.trim() || !existingTicketTypes) return false;
+
+    const trimmedName = name.trim().toLowerCase();
+    return existingTicketTypes.some(ticketType =>
+      ticketType.name.toLowerCase() === trimmedName
+    );
+  };
+
   // Validate form
   const validateForm = () => {
     const errors = {};
@@ -68,6 +78,8 @@ const AdminTicketTypeCreatePage = () => {
 
     if (!formData.name.trim()) {
       errors.name = 'Name is required';
+    } else if (checkDuplicateName(formData.name)) {
+      errors.name = 'A ticket type with this name already exists (case-insensitive)';
     }
 
     setFormErrors(errors);
@@ -150,13 +162,26 @@ const AdminTicketTypeCreatePage = () => {
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
+    const newValue = type === 'checkbox' ? checked : value;
+
     setFormData(prev => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: newValue
     }));
 
-    // Clear error when user starts typing
-    if (formErrors[name]) {
+    // Real-time validation for name field to check duplicates
+    if (name === 'name' && newValue?.trim()) {
+      if (checkDuplicateName(newValue)) {
+        setFormErrors(prev => ({
+          ...prev,
+          name: 'A ticket type with this name already exists (case-insensitive)'
+        }));
+      } else {
+        // Clear name error if no duplicate found
+        setFormErrors(prev => ({ ...prev, name: '' }));
+      }
+    } else if (formErrors[name]) {
+      // Clear error when user starts typing in other fields
       setFormErrors(prev => ({ ...prev, [name]: '' }));
     }
 

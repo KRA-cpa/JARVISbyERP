@@ -6,6 +6,7 @@ import DEV_CONFIG from './config/development';
 
 // Context Providers
 import { UserProvider, useUser } from './contexts/UserContext';
+import { DarkModeProvider } from './contexts/DarkModeContext';
 
 // Pages
 import LoginPage from './pages/LoginPage';
@@ -181,13 +182,24 @@ const AppRoutes = () => {
   );
 };
 
+// Wrapper to provide user context to DarkModeProvider
+const AppWithProviders = () => {
+  const { user } = useUser();
+
+  return (
+    <DarkModeProvider user={user}>
+      <AppRoutes />
+    </DarkModeProvider>
+  );
+};
+
 // Main App Component
 function App() {
   return (
     <ErrorBoundary130>
       <ErrorBoundary>
         <UserProvider>
-          <AppRoutes />
+          <AppWithProviders />
         </UserProvider>
       </ErrorBoundary>
     </ErrorBoundary130>

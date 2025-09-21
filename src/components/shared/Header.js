@@ -4,6 +4,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../../config/firebase';
 import Icons from './Icons';
 import { HeaderClock } from './LiveClock';
+import DarkModeToggle from './DarkModeToggle';
 
 const Header = ({ user, userRole, notifications = [] }) => {
   const location = useLocation();
@@ -78,6 +79,9 @@ const Header = ({ user, userRole, notifications = [] }) => {
 
             {/* Live Clock */}
             <HeaderClock className="hidden sm:flex" />
+
+            {/* Dark Mode Toggle */}
+            <DarkModeToggle size="sm" className="hidden sm:flex" />
 
             {/* Notifications */}
             <div className="relative">

@@ -389,11 +389,56 @@ class CompanyAPI extends BaseAPI {
     return response.data;
   }
 
+  async lock(id, reason = 'first_ticket_created') {
+    const response = await this.makeRequest('lockCompany', { id, reason });
+    return response.data;
+  }
+
+  async unlock(id, reason = 'admin_override') {
+    const response = await this.makeRequest('unlockCompany', { id, reason });
+    return response.data;
+  }
+
+  async checkLockStatus(id) {
+    const response = await this.makeRequest('checkCompanyLockStatus', { id });
+    return response.data;
+  }
+
   getMockData(action) {
     const mockCompanies = [
-      { id: '1', name: 'Main Office', code: 'MAIN', created_at: '2025-01-01T00:00:00.000Z', updated_at: '2025-01-01T00:00:00.000Z' },
-      { id: '2', name: 'Production Division', code: 'PROD', created_at: '2025-01-01T00:00:00.000Z', updated_at: '2025-01-01T00:00:00.000Z' },
-      { id: '3', name: 'Sales Department', code: 'SALES', created_at: '2025-01-01T00:00:00.000Z', updated_at: '2025-01-01T00:00:00.000Z' }
+      {
+        id: '1',
+        name: 'Main Office',
+        code: 'MAIN',
+        code_locked: true,
+        code_locked_at: '2025-01-15T10:30:00.000Z',
+        code_locked_reason: 'first_ticket_created',
+        ticket_count: 25,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      },
+      {
+        id: '2',
+        name: 'Production Division',
+        code: 'PROD',
+        code_locked: false,
+        code_locked_at: null,
+        code_locked_reason: null,
+        ticket_count: 0,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      },
+      {
+        id: '3',
+        name: 'Sales Department',
+        code: 'SALES',
+        code_locked: true,
+        code_locked_at: '2025-01-20T14:15:00.000Z',
+        code_locked_reason: 'first_ticket_created',
+        ticket_count: 8,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      }
     ];
 
     switch (action) {
@@ -406,6 +451,37 @@ class CompanyAPI extends BaseAPI {
         return { status: 'success', data: { ...mockCompanies[0], id: Date.now().toString() } };
       case 'deleteCompany':
         return { status: 'success', data: { deleted: true } };
+      case 'lockCompany':
+        return {
+          status: 'success',
+          data: {
+            locked: true,
+            locked_at: new Date().toISOString(),
+            reason: 'first_ticket_created',
+            message: 'Company code locked successfully'
+          }
+        };
+      case 'unlockCompany':
+        return {
+          status: 'success',
+          data: {
+            unlocked: true,
+            unlocked_at: new Date().toISOString(),
+            reason: 'admin_override',
+            message: 'Company code unlocked successfully'
+          }
+        };
+      case 'checkCompanyLockStatus':
+        return {
+          status: 'success',
+          data: {
+            id: '1',
+            code_locked: true,
+            code_locked_at: '2025-01-15T10:30:00.000Z',
+            code_locked_reason: 'first_ticket_created',
+            ticket_count: 25
+          }
+        };
       default:
         return super.getMockData(action);
     }
@@ -477,8 +553,10 @@ class DropdownAPI extends BaseAPI {
     super('dropdowns');
   }
 
-  async getLists() {
-    const response = await this.makeRequest('getDropdownLists');
+  async getLists(companyId = null) {
+    const response = await this.makeRequest('getDropdownLists', {
+      company_id: companyId
+    });
     return response.data || [];
   }
 
@@ -498,6 +576,7 @@ class DropdownAPI extends BaseAPI {
 
     const response = await this.makeRequest('createDropdownList', {
       name: data.name.trim(),
+      company_id: data.company_id || null,
       options: data.options
     });
     return response.data;
@@ -522,6 +601,7 @@ class DropdownAPI extends BaseAPI {
       {
         id: '1',
         name: 'Priority Levels',
+        company_id: '1',
         created_at: '2025-01-01T00:00:00.000Z',
         updated_at: '2025-01-01T00:00:00.000Z',
         options: [
@@ -534,6 +614,7 @@ class DropdownAPI extends BaseAPI {
       {
         id: '2',
         name: 'Departments',
+        company_id: '1',
         created_at: '2025-01-01T00:00:00.000Z',
         updated_at: '2025-01-01T00:00:00.000Z',
         options: [
@@ -542,12 +623,34 @@ class DropdownAPI extends BaseAPI {
           { id: '7', label: 'Finance', value: 'finance', parent_option_id: '' },
           { id: '8', label: 'Operations', value: 'operations', parent_option_id: '' }
         ]
+      },
+      {
+        id: '3',
+        name: 'Global Categories',
+        company_id: null,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z',
+        options: [
+          { id: '9', label: 'Software', value: 'software', parent_option_id: '' },
+          { id: '10', label: 'Hardware', value: 'hardware', parent_option_id: '' },
+          { id: '11', label: 'Service', value: 'service', parent_option_id: '' }
+        ]
       }
     ];
 
     switch (action) {
       case 'getDropdownLists':
-        return { status: 'success', data: mockLists };
+        // Filter by company_id if provided
+        const { company_id } = arguments[1] || {};
+        let filteredLists = mockLists;
+        if (company_id !== undefined) {
+          filteredLists = mockLists.filter(list =>
+            company_id === null
+              ? list.company_id === null
+              : list.company_id === company_id || list.company_id === null
+          );
+        }
+        return { status: 'success', data: filteredLists };
       case 'getDropdownOptions':
         return { status: 'success', data: mockLists[0].options };
       case 'createDropdownList':
@@ -783,6 +886,49 @@ class UserAPI extends BaseAPI {
     return response.data;
   }
 
+  // Bulk role assignment method for the dialog
+  async assignRole(assignmentData) {
+    const response = await this.makeRequest('bulkAssignRole', {
+      user_email: assignmentData.user_email,
+      company_id: assignmentData.company_id,
+      ticket_type_id: assignmentData.ticket_type_id,
+      role_id: assignmentData.role_id,
+      validity_end_date: assignmentData.validity_end_date,
+      notify_user: assignmentData.notify_user,
+      create_audit_log: assignmentData.create_audit_log
+    });
+    return response.data;
+  }
+
+  async replaceUserRoles(assignmentData) {
+    const response = await this.makeRequest('replaceUserRoles', {
+      user_email: assignmentData.user_email,
+      company_id: assignmentData.company_id,
+      ticket_type_id: assignmentData.ticket_type_id,
+      role_id: assignmentData.role_id,
+      validity_end_date: assignmentData.validity_end_date,
+      notify_user: assignmentData.notify_user,
+      create_audit_log: assignmentData.create_audit_log
+    });
+    return response.data;
+  }
+
+  async getPreferences(userId) {
+    const response = await this.makeRequest('getUserPreferences', {
+      user_id: userId
+    });
+    return response.data || {};
+  }
+
+  async updatePreferences(userId, preferences) {
+    const response = await this.makeRequest('updateUserPreferences', {
+      user_id: userId,
+      preferences: preferences
+    });
+    cache.invalidate('user_preferences');
+    return response.data;
+  }
+
   getMockData(action) {
     const mockUser = {
       id: 'user123',
@@ -807,6 +953,59 @@ class UserAPI extends BaseAPI {
       case 'assignUserRole':
       case 'removeUserRole':
         return { status: 'success', data: { success: true } };
+      case 'bulkAssignRole':
+        return {
+          success: true,
+          message: 'Role assigned successfully',
+          data: {
+            assignment_id: `assign_${Date.now()}`,
+            user_email: 'user@example.com',
+            role_assigned: true,
+            notification_sent: true,
+            audit_log_created: true,
+            timestamp: new Date().toISOString()
+          }
+        };
+      case 'replaceUserRoles':
+        return {
+          success: true,
+          message: 'User roles replaced successfully',
+          data: {
+            replacement_id: `replace_${Date.now()}`,
+            user_email: 'user@example.com',
+            roles_replaced: 3,
+            new_roles_assigned: 2,
+            notification_sent: true,
+            audit_log_created: true,
+            timestamp: new Date().toISOString()
+          }
+        };
+      case 'getUserPreferences':
+        return {
+          success: true,
+          data: {
+            dark_mode: false,
+            timezone: 'Asia/Manila',
+            language: 'en',
+            email_notifications: true,
+            desktop_notifications: true,
+            dashboard_layout: 'grid',
+            items_per_page: 20,
+            auto_refresh: true,
+            refresh_interval: 30000,
+            updated_at: '2025-01-15T10:30:00.000Z'
+          }
+        };
+      case 'updateUserPreferences':
+        return {
+          success: true,
+          message: 'User preferences updated successfully',
+          data: {
+            user_id: 'user123',
+            updated_at: new Date().toISOString(),
+            preferences_updated: Object.keys(arguments[1] || {}).length
+          }
+        };
       default:
         return super.getMockData(action);
     }
@@ -843,6 +1042,46 @@ class SystemAPI extends BaseAPI {
     return response.data;
   }
 
+  async exportConfiguration(params) {
+    const response = await this.makeRequest('exportConfiguration', {
+      company_id: params.company_id,
+      ticket_type_ids: params.ticket_type_ids,
+      include_workflows: params.include_workflows,
+      include_custom_fields: params.include_custom_fields,
+      include_sla_rules: params.include_sla_rules,
+      include_roles: params.include_roles,
+      include_dropdowns: params.include_dropdowns
+    });
+    return response;
+  }
+
+  async importConfiguration(params) {
+    const response = await this.makeRequest('importConfiguration', {
+      source_company_id: params.source_company_id,
+      target_company_id: params.target_company_id,
+      ticket_type_ids: params.ticket_type_ids,
+      include_workflows: params.include_workflows,
+      include_custom_fields: params.include_custom_fields,
+      include_sla_rules: params.include_sla_rules,
+      include_roles: params.include_roles,
+      include_dropdowns: params.include_dropdowns,
+      overwrite_existing: params.overwrite_existing
+    });
+    cache.invalidate('workflow_steps');
+    cache.invalidate('custom_fields');
+    cache.invalidate('roles');
+    cache.invalidate('dropdown_lists');
+    return response;
+  }
+
+  async createConfigurationBackup(params) {
+    const response = await this.makeRequest('createConfigurationBackup', {
+      company_id: params.company_id,
+      backup_name: params.backup_name
+    });
+    return response;
+  }
+
   getMockData(action) {
     switch (action) {
       case 'ping':
@@ -874,6 +1113,67 @@ class SystemAPI extends BaseAPI {
             details: 'All API endpoints working correctly'
           }
         };
+      case 'exportConfiguration':
+        return {
+          success: true,
+          message: 'Configuration exported successfully',
+          data: {
+            export_id: `export_${Date.now()}`,
+            company_id: '1',
+            timestamp: new Date().toISOString(),
+            workflows: [
+              { id: 'step_1', name: 'Manager Approval', step_type: 'approval' },
+              { id: 'step_2', name: 'Finance Review', step_type: 'approval' }
+            ],
+            custom_fields: [
+              { id: 'field_1', name: 'item_description', type: 'paragraph' },
+              { id: 'field_2', name: 'estimated_cost', type: 'amount' }
+            ],
+            sla_rules: [
+              { step_id: 'step_1', duration: 24, unit: 'hours' },
+              { step_id: 'step_2', duration: 48, unit: 'hours' }
+            ],
+            roles: [
+              { id: 'role_1', name: 'Manager', permissions: ['approve', 'view'] },
+              { id: 'role_2', name: 'Finance', permissions: ['approve', 'edit'] }
+            ],
+            dropdowns: [
+              { id: 'dropdown_1', name: 'Vendor Categories', options: ['IT', 'Office', 'Facilities'] }
+            ]
+          }
+        };
+      case 'importConfiguration':
+        return {
+          success: true,
+          message: 'Configuration imported successfully',
+          data: {
+            import_id: `import_${Date.now()}`,
+            source_company_id: '1',
+            target_company_id: '2',
+            imported_items: {
+              workflows: 2,
+              custom_fields: 2,
+              sla_rules: 2,
+              roles: 2,
+              dropdowns: 1
+            },
+            conflicts_resolved: 0,
+            backup_created: true,
+            timestamp: new Date().toISOString()
+          }
+        };
+      case 'createConfigurationBackup':
+        return {
+          success: true,
+          message: 'Configuration backup created successfully',
+          data: {
+            backup_id: `backup_${Date.now()}`,
+            company_id: '2',
+            backup_name: `pre-import-${new Date().toISOString().split('T')[0]}`,
+            created_at: new Date().toISOString(),
+            size_kb: 45.7
+          }
+        };
       default:
         return super.getMockData(action);
     }
@@ -886,9 +1186,10 @@ class WorkflowStepsAPI extends BaseAPI {
     super('workflow_steps');
   }
 
-  async getByTicketType(ticketTypeId) {
+  async getByTicketType(ticketTypeId, companyId = null) {
     const response = await this.makeRequest('getWorkflowSteps', {
-      ticket_type_id: ticketTypeId
+      ticket_type_id: ticketTypeId,
+      company_id: companyId
     });
     return response.data || [];
   }
@@ -905,6 +1206,10 @@ class WorkflowStepsAPI extends BaseAPI {
       throw new Error('Ticket type ID is required');
     }
 
+    if (!data.company_id) {
+      throw new Error('Company ID is required');
+    }
+
     if (!data.name?.trim()) {
       throw new Error('Step name is required');
     }
@@ -915,6 +1220,7 @@ class WorkflowStepsAPI extends BaseAPI {
 
     const response = await this.makeRequest('createWorkflowStep', {
       ticket_type_id: data.ticket_type_id,
+      company_id: data.company_id,
       name: data.name.trim(),
       status_on_reach: data.status_on_reach || 'in_progress',
       step_type: data.step_type,
@@ -968,6 +1274,40 @@ class WorkflowStepsAPI extends BaseAPI {
     return response.data;
   }
 
+  // Copy workflow steps from one company to another
+  async copyFromCompany(ticketTypeId, sourceCompanyId, targetCompanyId) {
+    if (!ticketTypeId || !sourceCompanyId || !targetCompanyId) {
+      throw new Error('Ticket type ID, source company ID, and target company ID are required');
+    }
+
+    const response = await this.makeRequest('copyWorkflowSteps', {
+      ticket_type_id: ticketTypeId,
+      source_company_id: sourceCompanyId,
+      target_company_id: targetCompanyId
+    });
+    cache.invalidate('workflow_steps');
+    return response.data;
+  }
+
+  // Create default workflow steps for a company
+  async createDefaultForCompany(ticketTypeId, companyId) {
+    if (!ticketTypeId || !companyId) {
+      throw new Error('Ticket type ID and company ID are required');
+    }
+
+    const response = await this.makeRequest('createDefaultWorkflow', {
+      ticket_type_id: ticketTypeId,
+      company_id: companyId
+    });
+    cache.invalidate('workflow_steps');
+    return response.data;
+  }
+
+  // Get workflows by company and ticket type
+  async getByCompany(ticketTypeId, companyId) {
+    return this.getByTicketType(ticketTypeId, companyId);
+  }
+
   getMockData(action, params = {}) {
     if (action === 'getWorkflowSteps') {
       const ticketTypeId = params.ticket_type_id;
@@ -977,6 +1317,7 @@ class WorkflowStepsAPI extends BaseAPI {
           {
             id: 'step_pr_1',
             ticket_type_id: 'purchase_request',
+            company_id: '1',
             name: 'Manager Approval',
             status_on_reach: 'pending_approval',
             step_type: 'approval',
@@ -989,6 +1330,7 @@ class WorkflowStepsAPI extends BaseAPI {
           {
             id: 'step_pr_2',
             ticket_type_id: 'purchase_request',
+            company_id: '1',
             name: 'Finance Review',
             status_on_reach: 'pending_finance',
             step_type: 'approval',
@@ -1013,6 +1355,7 @@ class WorkflowStepsAPI extends BaseAPI {
           {
             id: 'step_it_1',
             ticket_type_id: 'it_request',
+            company_id: '1',
             name: 'IT Manager Review',
             status_on_reach: 'pending_it_approval',
             step_type: 'approval',
@@ -1025,6 +1368,7 @@ class WorkflowStepsAPI extends BaseAPI {
           {
             id: 'step_it_2',
             ticket_type_id: 'it_request',
+            company_id: '1',
             name: 'Implementation',
             status_on_reach: 'in_implementation',
             step_type: 'task',
@@ -1035,9 +1379,60 @@ class WorkflowStepsAPI extends BaseAPI {
         ]
       };
 
+      // Filter by company_id if provided
+      let steps = mockSteps[ticketTypeId] || [];
+      const { company_id } = params;
+
+      if (company_id !== undefined) {
+        steps = steps.filter(step =>
+          company_id === null
+            ? step.company_id === null
+            : step.company_id === company_id
+        );
+      }
+
       return {
         success: true,
-        data: mockSteps[ticketTypeId] || []
+        data: steps
+      };
+    }
+
+    if (action === 'copyWorkflowSteps') {
+      return {
+        success: true,
+        data: {
+          copied: true,
+          source_company_id: params.source_company_id,
+          target_company_id: params.target_company_id,
+          ticket_type_id: params.ticket_type_id,
+          steps_copied: 2
+        }
+      };
+    }
+
+    if (action === 'createDefaultWorkflow') {
+      return {
+        success: true,
+        message: 'Default workflow created successfully',
+        data: {
+          created_steps: 2,
+          ticket_type_id: params.ticket_type_id,
+          company_id: params.company_id,
+          steps: [
+            {
+              id: `step_${params.ticket_type_id}_${params.company_id}_1`,
+              name: 'Initial Review',
+              step_type: 'approval',
+              sort_order: 1
+            },
+            {
+              id: `step_${params.ticket_type_id}_${params.company_id}_2`,
+              name: 'Final Approval',
+              step_type: 'approval',
+              sort_order: 2
+            }
+          ]
+        }
       };
     }
 
@@ -1243,6 +1638,9 @@ class TicketTypesAPI extends BaseAPI {
       throw new Error('Name is required');
     }
 
+    // Check for duplicate names (case-insensitive)
+    await this.validateNameUniqueness(data.name.trim());
+
     const response = await this.makeRequest('createTicketType', {
       transaction_id: data.transaction_id.trim(),
       code: data.code.toUpperCase().trim(),
@@ -1258,6 +1656,11 @@ class TicketTypesAPI extends BaseAPI {
   async update(id, data) {
     if (!id) {
       throw new Error('Ticket type ID is required');
+    }
+
+    // Check for duplicate names if name is being updated (case-insensitive)
+    if (data.name?.trim()) {
+      await this.validateNameUniqueness(data.name.trim(), id);
     }
 
     const response = await this.makeRequest('updateTicketType', {
@@ -1278,6 +1681,23 @@ class TicketTypesAPI extends BaseAPI {
     return response.data;
   }
 
+  // Validate ticket type name uniqueness (case-insensitive)
+  async validateNameUniqueness(name, excludeId = null) {
+    if (!name?.trim()) return;
+
+    const existingTicketTypes = await this.getAll();
+    const trimmedName = name.trim().toLowerCase();
+
+    const duplicate = existingTicketTypes.find(ticketType =>
+      ticketType.name.toLowerCase() === trimmedName &&
+      ticketType.id !== excludeId
+    );
+
+    if (duplicate) {
+      throw new Error(`A ticket type with the name "${name}" already exists (case-insensitive)`);
+    }
+  }
+
   getMockData(action, params = {}) {
     const mockTicketTypes = [
       {
@@ -1289,6 +1709,30 @@ class TicketTypesAPI extends BaseAPI {
         is_active: true,
         require_attachment_on_create: true,
         company_id: null,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'tt_2',
+        transaction_id: 'TR002',
+        code: 'IT',
+        name: 'IT Request',
+        description: 'Request for IT support',
+        is_active: true,
+        require_attachment_on_create: false,
+        company_id: null,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'tt_3',
+        transaction_id: 'TR003',
+        code: 'LV',
+        name: 'Leave Request',
+        description: 'Request for time off',
+        is_active: true,
+        require_attachment_on_create: false,
+        company_id: '1',
         created_at: '2025-01-01T00:00:00.000Z',
         updated_at: '2025-01-01T00:00:00.000Z'
       }
@@ -1386,7 +1830,257 @@ class StepApprovalsAPI extends BaseAPI {
   }
 }
 
+// SLA API
+class SLAAPI extends BaseAPI {
+  constructor() {
+    super('sla');
+  }
+
+  async getCompanyRules(companyId, ticketTypeId) {
+    const response = await this.makeRequest('getCompanySLARules', {
+      company_id: companyId,
+      ticket_type_id: ticketTypeId
+    });
+    return response.data || [];
+  }
+
+  async createCompanyRule(ruleData) {
+    const response = await this.makeRequest('createCompanySLARule', {
+      company_id: ruleData.company_id,
+      ticket_type_id: ruleData.ticket_type_id,
+      step_name: ruleData.step_name,
+      duration: ruleData.duration,
+      unit: ruleData.unit,
+      exclude_weekends: ruleData.exclude_weekends,
+      exclude_holidays: ruleData.exclude_holidays,
+      escalation_enabled: ruleData.escalation_enabled,
+      escalation_delay: ruleData.escalation_delay,
+      escalation_unit: ruleData.escalation_unit,
+      escalation_recipients: ruleData.escalation_recipients,
+      warning_threshold: ruleData.warning_threshold,
+      business_hours_start: ruleData.business_hours_start,
+      business_hours_end: ruleData.business_hours_end,
+      business_days: ruleData.business_days,
+      timezone: ruleData.timezone
+    });
+    cache.invalidate('sla');
+    return response.data;
+  }
+
+  async updateCompanyRule(ruleId, ruleData) {
+    const response = await this.makeRequest('updateCompanySLARule', {
+      rule_id: ruleId,
+      ...ruleData
+    });
+    cache.invalidate('sla');
+    return response.data;
+  }
+
+  async deleteCompanyRule(ruleId) {
+    const response = await this.makeRequest('deleteCompanySLARule', {
+      rule_id: ruleId
+    });
+    cache.invalidate('sla');
+    return response.data;
+  }
+
+  getMockData(action, params = {}) {
+    const mockSLARules = [
+      {
+        id: 'sla_1',
+        company_id: '1',
+        ticket_type_id: 'tt_1',
+        step_name: 'Manager Approval',
+        duration: 24,
+        unit: 'hours',
+        exclude_weekends: false,
+        exclude_holidays: true,
+        escalation_enabled: true,
+        escalation_delay: 4,
+        escalation_unit: 'hours',
+        escalation_recipients: ['manager@company.com', 'supervisor@company.com'],
+        warning_threshold: 75,
+        business_hours_start: '09:00',
+        business_hours_end: '17:00',
+        business_days: [1, 2, 3, 4, 5],
+        timezone: 'Asia/Manila',
+        created_at: '2025-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'sla_2',
+        company_id: '1',
+        ticket_type_id: 'tt_1',
+        step_name: 'Finance Review',
+        duration: 48,
+        unit: 'business_hours',
+        exclude_weekends: true,
+        exclude_holidays: true,
+        escalation_enabled: false,
+        warning_threshold: 80,
+        business_hours_start: '09:00',
+        business_hours_end: '17:00',
+        business_days: [1, 2, 3, 4, 5],
+        timezone: 'Asia/Manila',
+        created_at: '2025-01-01T00:00:00.000Z'
+      }
+    ];
+
+    switch (action) {
+      case 'getCompanySLARules':
+        return {
+          success: true,
+          data: mockSLARules.filter(rule =>
+            rule.company_id === params.company_id &&
+            rule.ticket_type_id === params.ticket_type_id
+          )
+        };
+      case 'createCompanySLARule':
+        return {
+          success: true,
+          message: 'SLA rule created successfully',
+          data: {
+            id: `sla_${Date.now()}`,
+            ...params,
+            created_at: new Date().toISOString()
+          }
+        };
+      case 'updateCompanySLARule':
+        return {
+          success: true,
+          message: 'SLA rule updated successfully',
+          data: {
+            id: params.rule_id,
+            updated_at: new Date().toISOString()
+          }
+        };
+      case 'deleteCompanySLARule':
+        return {
+          success: true,
+          message: 'SLA rule deleted successfully',
+          data: { deleted: true }
+        };
+      default:
+        return super.getMockData(action, params);
+    }
+  }
+}
+
 // Main API object
+// Ticket Links API
+class TicketLinksAPI extends BaseAPI {
+  constructor() {
+    super('ticket_links');
+  }
+
+  async getAll(criteria = {}) {
+    const response = await this.makeRequest('getTicketLinks', {
+      ticket_number: criteria.ticketNumber,
+      company_id: criteria.companyId,
+      ticket_type_id: criteria.ticketTypeId,
+      status: criteria.status,
+      include_linked: criteria.includeLinked
+    });
+    return response.data || [];
+  }
+
+  async create(linkData) {
+    const response = await this.makeRequest('createTicketLink', {
+      parent_ticket_number: linkData.parent_ticket_number,
+      child_ticket_number: linkData.child_ticket_number,
+      link_type: linkData.link_type,
+      description: linkData.description,
+      enforce_blocking_rules: linkData.enforce_blocking_rules,
+      sync_status: linkData.sync_status,
+      notify_on_update: linkData.notify_on_update
+    });
+    cache.invalidate('ticket_links');
+    return response.data;
+  }
+
+  async delete(linkId) {
+    const response = await this.makeRequest('deleteTicketLink', {
+      link_id: linkId
+    });
+    cache.invalidate('ticket_links');
+    return response.data;
+  }
+
+  async validateDependencies() {
+    const response = await this.makeRequest('validateTicketDependencies');
+    return response.data;
+  }
+
+  getMockData(action, params = {}) {
+    const mockLinks = [
+      {
+        id: 'link_1',
+        parent_ticket_number: 'ABC-PR-2025-0001',
+        child_ticket_number: 'XYZ-IT-2025-0010',
+        link_type: 'blocks',
+        description: 'Purchase request must be approved before IT setup',
+        enforce_blocking_rules: true,
+        sync_status: false,
+        notify_on_update: true,
+        created_at: '2025-01-15T08:00:00.000Z'
+      },
+      {
+        id: 'link_2',
+        parent_ticket_number: 'DEF-BUD-2025-0005',
+        child_ticket_number: 'ABC-PR-2025-0001',
+        link_type: 'depends_on',
+        description: 'Purchase depends on budget approval',
+        enforce_blocking_rules: true,
+        sync_status: true,
+        notify_on_update: true,
+        created_at: '2025-01-14T10:30:00.000Z'
+      }
+    ];
+
+    switch (action) {
+      case 'getTicketLinks':
+        return {
+          success: true,
+          data: mockLinks.filter(link => {
+            if (params.ticket_number &&
+                !link.parent_ticket_number.includes(params.ticket_number) &&
+                !link.child_ticket_number.includes(params.ticket_number)) {
+              return false;
+            }
+            return true;
+          })
+        };
+      case 'createTicketLink':
+        return {
+          success: true,
+          message: 'Ticket link created successfully',
+          data: {
+            id: `link_${Date.now()}`,
+            ...params,
+            created_at: new Date().toISOString()
+          }
+        };
+      case 'deleteTicketLink':
+        return {
+          success: true,
+          message: 'Ticket link deleted successfully',
+          data: { deleted: true }
+        };
+      case 'validateTicketDependencies':
+        return {
+          success: true,
+          data: {
+            total_links: 5,
+            circular_dependencies: [],
+            orphaned_tickets: [],
+            validation_passed: true
+          }
+        };
+      default:
+        return super.getMockData(action, params);
+    }
+  }
+}
+
 export const API = {
   Companies: new CompanyAPI(),
   Roles: new RoleAPI(),
@@ -1397,7 +2091,9 @@ export const API = {
   Users: new UserAPI(),
   System: new SystemAPI(),
   WorkflowSteps: new WorkflowStepsAPI(),
-  StepApprovals: new StepApprovalsAPI()
+  StepApprovals: new StepApprovalsAPI(),
+  SLA: new SLAAPI(),
+  TicketLinks: new TicketLinksAPI()
 };
 
 // Individual API exports for backward compatibility
@@ -1411,6 +2107,8 @@ export const userAPI = API.Users;
 export const systemAPI = API.System;
 export const workflowStepsAPI = API.WorkflowSteps;
 export const stepApprovalsAPI = API.StepApprovals;
+export const slaAPI = API.SLA;
+export const ticketLinksAPI = API.TicketLinks;
 
 // Utility functions
 export const APIUtils = {

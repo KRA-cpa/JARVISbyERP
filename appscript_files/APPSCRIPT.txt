@@ -35,7 +35,8 @@ const SHEETS = {
     TICKET_LINKS: "ticket_links",
     SEQUENCE_COUNTERS: "sequence_counters",
     TICKET_ACTION_LOGS: "ticket_action_logs",
-    ADMIN_ACTION_LOGS: "admin_action_logs"
+    ADMIN_ACTION_LOGS: "admin_action_logs",
+    USER_PREFERENCES: "user_preferences"
 };
 
 /**
@@ -110,6 +111,16 @@ function doGet(e) {
           return createJsonResponse({
             success: true,
             data: getTickets(params)
+          });
+
+        case 'getUserPreferences':
+          const userId = params.user_id;
+          if (!userId) {
+            throw new Error('User ID is required for getting preferences');
+          }
+          return createJsonResponse({
+            success: true,
+            data: getUserPreferences(userId)
           });
 
         default:
@@ -284,6 +295,18 @@ function doPost(e) {
           return createJsonResponse({
             success: true,
             data: logLogin(loginData)
+          });
+
+        case 'updateUserPreferences':
+          const preferencesPayload = data.payload || data;
+          const prefUserId = preferencesPayload.user_id;
+          const preferences = preferencesPayload.preferences || preferencesPayload;
+          if (!prefUserId) {
+            throw new Error('User ID is required for updating preferences');
+          }
+          return createJsonResponse({
+            success: true,
+            data: updateUserPreferences(prefUserId, preferences)
           });
 
         default:
@@ -1203,6 +1226,213 @@ function deleteTicketType(ticketTypeId) {
     return { message: 'Ticket type deleted successfully' };
   } catch (error) {
     Logger.log(`Error deleting ticket type: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * =================================================================================
+ * USER PREFERENCES FUNCTIONS
+ * =================================================================================
+ */
+
+/**
+ * Retrieves user preferences by user ID.
+ * @param {string} userId - The user's ID.
+ * @returns {object} - The user's preferences or default preferences.
+ */
+function getUserPreferences(userId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let preferencesSheet;
+
+    try {
+      preferencesSheet = ss.getSheetByName(SHEETS.USER_PREFERENCES);
+    } catch (error) {
+      // If sheet doesn't exist, initialize it
+      preferencesSheet = initializeUserPreferencesSheet();
+    }
+
+    const data = preferencesSheet.getDataRange().getValues();
+
+    // Look for existing user preferences
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === userId) {
+        // Found existing preferences, return them
+        return {
+          user_id: data[i][0],
+          dark_mode: data[i][1] || false,
+          timezone: data[i][2] || 'Asia/Manila',
+          language: data[i][3] || 'en',
+          email_notifications: data[i][4] !== false, // Default to true
+          desktop_notifications: data[i][5] !== false, // Default to true
+          dashboard_layout: data[i][6] || 'grid',
+          items_per_page: data[i][7] || 20,
+          auto_refresh: data[i][8] !== false, // Default to true
+          refresh_interval: data[i][9] || 30000,
+          created_at: data[i][10],
+          updated_at: data[i][11]
+        };
+      }
+    }
+
+    // If no preferences found, return default preferences
+    const defaultPreferences = {
+      user_id: userId,
+      dark_mode: false,
+      timezone: 'Asia/Manila',
+      language: 'en',
+      email_notifications: true,
+      desktop_notifications: true,
+      dashboard_layout: 'grid',
+      items_per_page: 20,
+      auto_refresh: true,
+      refresh_interval: 30000,
+      created_at: null,
+      updated_at: null
+    };
+
+    Logger.log(`No existing preferences found for user ${userId}, returning defaults`);
+    return defaultPreferences;
+
+  } catch (error) {
+    Logger.log(`Error getting user preferences: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Updates or creates user preferences.
+ * @param {string} userId - The user's ID.
+ * @param {object} preferences - The preferences to update.
+ * @returns {object} - The updated preferences.
+ */
+function updateUserPreferences(userId, preferences) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let preferencesSheet;
+
+    try {
+      preferencesSheet = ss.getSheetByName(SHEETS.USER_PREFERENCES);
+    } catch (error) {
+      // If sheet doesn't exist, initialize it
+      preferencesSheet = initializeUserPreferencesSheet();
+    }
+
+    const data = preferencesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+    let existingPrefs = null;
+
+    // Look for existing user preferences
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === userId) {
+        rowIndex = i + 1; // Sheet rows are 1-indexed
+        existingPrefs = {
+          dark_mode: data[i][1] || false,
+          timezone: data[i][2] || 'Asia/Manila',
+          language: data[i][3] || 'en',
+          email_notifications: data[i][4] !== false,
+          desktop_notifications: data[i][5] !== false,
+          dashboard_layout: data[i][6] || 'grid',
+          items_per_page: data[i][7] || 20,
+          auto_refresh: data[i][8] !== false,
+          refresh_interval: data[i][9] || 30000,
+          created_at: data[i][10],
+          updated_at: data[i][11]
+        };
+        break;
+      }
+    }
+
+    const now = new Date();
+    const updatedPrefs = {
+      user_id: userId,
+      dark_mode: preferences.dark_mode !== undefined ? preferences.dark_mode : (existingPrefs?.dark_mode || false),
+      timezone: preferences.timezone || existingPrefs?.timezone || 'Asia/Manila',
+      language: preferences.language || existingPrefs?.language || 'en',
+      email_notifications: preferences.email_notifications !== undefined ? preferences.email_notifications : (existingPrefs?.email_notifications !== false),
+      desktop_notifications: preferences.desktop_notifications !== undefined ? preferences.desktop_notifications : (existingPrefs?.desktop_notifications !== false),
+      dashboard_layout: preferences.dashboard_layout || existingPrefs?.dashboard_layout || 'grid',
+      items_per_page: preferences.items_per_page || existingPrefs?.items_per_page || 20,
+      auto_refresh: preferences.auto_refresh !== undefined ? preferences.auto_refresh : (existingPrefs?.auto_refresh !== false),
+      refresh_interval: preferences.refresh_interval || existingPrefs?.refresh_interval || 30000,
+      created_at: existingPrefs?.created_at || now,
+      updated_at: now
+    };
+
+    const rowData = [
+      updatedPrefs.user_id,
+      updatedPrefs.dark_mode,
+      updatedPrefs.timezone,
+      updatedPrefs.language,
+      updatedPrefs.email_notifications,
+      updatedPrefs.desktop_notifications,
+      updatedPrefs.dashboard_layout,
+      updatedPrefs.items_per_page,
+      updatedPrefs.auto_refresh,
+      updatedPrefs.refresh_interval,
+      updatedPrefs.created_at,
+      updatedPrefs.updated_at
+    ];
+
+    if (rowIndex > -1) {
+      // Update existing row
+      preferencesSheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
+      Logger.log(`Updated preferences for user ${userId}`);
+    } else {
+      // Create new row
+      preferencesSheet.appendRow(rowData);
+      Logger.log(`Created new preferences for user ${userId}`);
+    }
+
+    // Log the admin action
+    logAdminAction('UPDATE_USER_PREFERENCES', userId, {
+      updatedFields: Object.keys(preferences),
+      preferences: updatedPrefs
+    });
+
+    return updatedPrefs;
+
+  } catch (error) {
+    Logger.log(`Error updating user preferences: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Initializes the user_preferences sheet with proper headers.
+ * @returns {Sheet} - The initialized preferences sheet.
+ */
+function initializeUserPreferencesSheet() {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const preferencesSheet = ss.insertSheet(SHEETS.USER_PREFERENCES);
+
+    // Set up headers
+    const headers = [
+      'user_id',
+      'dark_mode',
+      'timezone',
+      'language',
+      'email_notifications',
+      'desktop_notifications',
+      'dashboard_layout',
+      'items_per_page',
+      'auto_refresh',
+      'refresh_interval',
+      'created_at',
+      'updated_at'
+    ];
+
+    preferencesSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    preferencesSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    preferencesSheet.setFrozenRows(1);
+
+    Logger.log('Initialized user_preferences sheet');
+    return preferencesSheet;
+
+  } catch (error) {
+    Logger.log(`Error initializing user preferences sheet: ${error.message}`);
     throw error;
   }
 }

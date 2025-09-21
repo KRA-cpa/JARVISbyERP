@@ -926,6 +926,70 @@ Config (3) → Context (1) → Firebase/Google Sheets
 
 ---
 
+### ⚠️ Phase 8.6: Company Code Locking & Data Integrity (PRIORITY: HIGH)
+- [ ] **Company Code Locking Mechanism** - Prevent company code changes after first ticket creation
+  - [ ] Database schema enhancement: `code_locked`, `code_locked_at`, `code_locked_reason`, `ticket_count`
+  - [ ] Backend validation to prevent code changes when locked
+  - [ ] Auto-lock trigger on first ticket creation
+  - [ ] Admin override capability with audit logging
+- [ ] **Frontend UI Updates**
+  - [ ] Lock status display in AdminCompanyManager
+  - [ ] Disable code editing for locked companies
+  - [ ] Admin unlock controls with confirmation
+  - [ ] Warning messages about lock implications
+- [ ] **API Endpoints**
+  - [ ] `API.Companies.lock(id, reason)`
+  - [ ] `API.Companies.unlock(id, reason)`
+  - [ ] `API.Companies.checkLockStatus(id)`
+
+**Estimated Effort:** 8-12 hours | **Risk:** Low | **Dependencies:** None
+**Justification:** Critical data integrity protection for ticket numbering system
+
+### ⚠️ Phase 8.7: Copy-Based Multi-Company Workflows (PRIORITY: MEDIUM)
+- [ ] **Database Schema Updates**
+  - [ ] Add `company_id` to `workflow_steps` table (REQUIRED field)
+  - [ ] Migrate existing workflow steps to assign to companies
+  - [ ] Update validation to require company assignment
+- [ ] **Workflow Copying System**
+  - [ ] Copy workflows between companies for same ticket type
+  - [ ] Copy associated SLAs and approver assignments
+  - [ ] Independent workflow ownership per company
+  - [ ] Admin interface to select source company for copying
+- [ ] **Explicit Assignment Interface**
+  - [ ] Company selection for workflow assignment
+  - [ ] "Copy from existing company" workflow setup
+  - [ ] No default/fallback workflows - explicit choice required
+- [ ] **API Endpoints**
+  - [ ] `API.WorkflowSteps.copyFromCompany(ticketTypeId, sourceCompanyId, targetCompanyId)`
+  - [ ] `API.StepSLAs.copyFromCompany(ticketTypeId, sourceCompanyId, targetCompanyId)`
+  - [ ] `API.StepApprovers.copyFromCompany(ticketTypeId, sourceCompanyId, targetCompanyId)`
+  - [ ] `API.WorkflowSteps.getByCompany(ticketTypeId, companyId)`
+
+**Estimated Effort:** 24-30 hours total (Schema: 4h, Copying: 12-16h, UI: 8-10h)
+**Risk:** Medium-High (schema changes affect existing workflows)
+**Dependencies:** Phase 8.6 (for company code stability)
+**Business Impact:** Explicit workflow management with easy company-to-company copying
+
+### ⚠️ Phase 8.8: Enhanced Validation & Data Quality (PRIORITY: MEDIUM)
+- [ ] **Ticket Type Duplicate Prevention**
+  - [ ] Case-insensitive name validation within companies
+  - [ ] Frontend real-time duplicate checking
+  - [ ] Backend validation blocking save/activation
+  - [ ] Clear error messages for duplicate attempts
+- [ ] **Dropdown Lists Per-Company**
+  - [ ] Add `company_id` to `dropdown_lists` table
+  - [ ] Company-specific dropdown management interface
+  - [ ] Dropdown copying between companies
+  - [ ] Migration of existing global dropdowns
+- [ ] **Ticket Type Uniqueness Fix**
+  - [ ] Fix validation to allow same transaction_id/code across companies
+  - [ ] Implement company-scoped uniqueness validation
+  - [ ] Update validation in AdminTicketTypeCreatePage
+
+**Estimated Effort:** 14-18 hours total (Duplicates: 4-6h, Dropdowns: 8-12h, Uniqueness: 2-4h)
+**Risk:** Low-Medium | **Dependencies:** Phase 8.7 completion
+**Business Impact:** Improved user experience, prevents configuration errors
+
 ### Phase 9: Reporting & Audit Features
 - [ ] **Report Configuration** - Admin-defined report layouts
 - [ ] **Data Export** - CSV generation and download
@@ -938,4 +1002,15 @@ Config (3) → Context (1) → Firebase/Google Sheets
 - [ ] **Performance Optimization** - Bundle analysis and optimization
 - [ ] **Deployment Setup** - Vercel configuration and environment variables
 
-*Last Updated: September 17, 2025*
+**📋 Phase Priority Order:**
+1. **Phase 8.6** (Company Code Locking) - Immediate data integrity protection
+2. **Phase 8.7** (Ticket Type Copying) - Operational efficiency improvement
+3. **Phase 9** (Reporting) - Analytics and monitoring
+4. **Phase 10** (Testing & Deployment) - Production readiness
+
+**📊 Documentation:**
+- **Detailed Analysis:** `SUPERTHINK_ANALYSIS_TICKET_TYPE_COMPANY_FEATURES.md`
+- **Implementation Guide:** Technical specifications and API contracts documented
+- **Risk Assessment:** High/Medium/Low risk categorization with mitigation strategies
+
+*Last Updated: September 21, 2025*

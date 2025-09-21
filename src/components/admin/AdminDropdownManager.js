@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { useDropdownLists } from '../../hooks/useAPI';
+import { useDropdownLists, useCompanies } from '../../hooks/useAPI';
 import { dropdownAPI } from '../../api/googleSheet';
 import { useToast } from '../shared/Toast';
 import Icons from '../shared/Icons';
 
 const AdminDropdownManager = () => {
-  const { data: dropdownLists, loading, error, refetch } = useDropdownLists();
+  const [selectedCompany, setSelectedCompany] = useState('1'); // Default to first company
+  const { data: companies } = useCompanies();
+  const { data: dropdownLists, loading, error, refetch } = useDropdownLists(selectedCompany === 'global' ? null : selectedCompany);
   const { ToastContainer, success, error: showError } = useToast();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingList, setEditingList] = useState(null);
@@ -13,6 +15,7 @@ const AdminDropdownManager = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
+    company_id: '1',
     options: []
   });
   const [newOption, setNewOption] = useState({
@@ -30,6 +33,7 @@ const AdminDropdownManager = () => {
       setFormData({
         name: '',
         description: '',
+        company_id: selectedCompany,
         options: []
       });
       setNewOption({
@@ -48,10 +52,21 @@ const AdminDropdownManager = () => {
       setFormData({
         name: editingList.name || '',
         description: editingList.description || '',
+        company_id: editingList.company_id || selectedCompany,
         options: editingList.options || []
       });
     }
-  }, [editingList]);
+  }, [editingList, selectedCompany]);
+
+  // Update form company when selected company filter changes
+  useEffect(() => {
+    if (!editingList) {
+      setFormData(prev => ({
+        ...prev,
+        company_id: selectedCompany
+      }));
+    }
+  }, [selectedCompany, editingList]);
 
   const validateForm = () => {
     if (!formData.name.trim()) {
@@ -101,6 +116,7 @@ const AdminDropdownManager = () => {
       const listData = {
         name: formData.name.trim(),
         description: formData.description.trim(),
+        company_id: formData.company_id === 'global' ? null : formData.company_id,
         options: formData.options
       };
 
@@ -290,7 +306,7 @@ const AdminDropdownManager = () => {
         )}
 
         {/* Basic Information */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               List Name *
@@ -317,6 +333,25 @@ const AdminDropdownManager = () => {
               placeholder="Brief description"
               disabled={isSubmitting}
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Company
+            </label>
+            <select
+              value={formData.company_id}
+              onChange={(e) => setFormData(prev => ({ ...prev, company_id: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              disabled={isSubmitting}
+            >
+              <option value="global">Global (All Companies)</option>
+              {companies?.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.name} ({company.code})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -454,9 +489,16 @@ const AdminDropdownManager = () => {
                         {list.description && (
                           <p className="text-sm text-gray-500">{list.description}</p>
                         )}
-                        <p className="text-xs text-gray-400">
-                          {list.options?.length || 0} options
-                        </p>
+                        <div className="flex items-center space-x-4 text-xs text-gray-400">
+                          <span>{list.options?.length || 0} options</span>
+                          <span>•</span>
+                          <span>
+                            {list.company_id
+                              ? companies?.find(c => c.id === list.company_id)?.name || 'Unknown Company'
+                              : 'Global'
+                            }
+                          </span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -542,15 +584,33 @@ const AdminDropdownManager = () => {
           <h2 className="text-2xl font-bold text-gray-900">Dropdown List Management</h2>
           <p className="text-gray-600">Manage dropdown options and hierarchical data</p>
         </div>
-        {!showCreateForm && !editingList && (
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center sm:justify-start space-x-2"
-          >
-            <Icons.Create size={16} />
-            <span>Add List</span>
-          </button>
-        )}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          {/* Company Filter */}
+          <div className="flex items-center space-x-2">
+            <Icons.Company size={16} className="text-gray-500" />
+            <select
+              value={selectedCompany}
+              onChange={(e) => setSelectedCompany(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+            >
+              <option value="global">Global Lists</option>
+              {companies?.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.name} ({company.code})
+                </option>
+              ))}
+            </select>
+          </div>
+          {!showCreateForm && !editingList && (
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center justify-center sm:justify-start space-x-2"
+            >
+              <Icons.Create size={16} />
+              <span>Add List</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Form */}

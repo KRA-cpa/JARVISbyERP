@@ -185,8 +185,8 @@ export const useRoleMutations = () => {
 };
 
 // Dropdown hooks
-export const useDropdownLists = () => {
-  return useAPI(() => API.Dropdowns.getLists());
+export const useDropdownLists = (companyId = null) => {
+  return useAPI(() => API.Dropdowns.getLists(companyId), [companyId]);
 };
 
 export const useDropdownOptions = (listId) => {
@@ -425,10 +425,10 @@ export const useAPIConnection = () => {
 /**
  * Hook for workflow steps data
  */
-export const useWorkflowSteps = (ticketTypeId) => {
+export const useWorkflowSteps = (ticketTypeId, companyId = null) => {
   return useAPIData(
-    ['workflow_steps', ticketTypeId],
-    () => API.WorkflowSteps.getByTicketType(ticketTypeId),
+    ['workflow_steps', ticketTypeId, companyId],
+    () => API.WorkflowSteps.getByTicketType(ticketTypeId, companyId),
     {
       enabled: !!ticketTypeId,
       staleTime: 5 * 60 * 1000 // 5 minutes
