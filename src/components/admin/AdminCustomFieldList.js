@@ -52,8 +52,14 @@ const AdminCustomFieldList = () => {
 
   // Handle create navigation
   const handleCreateCustomField = () => {
-    const params = selectedTicketType ? `?ticketType=${selectedTicketType}` : '';
-    navigate(`/admin/custom-fields/create${params}`);
+    if (!selectedTicketType) {
+      warning('Please select a ticket type first, or you can choose one on the creation page.');
+      // Still allow navigation to create page where they can select ticket type
+      navigate('/admin/custom-fields/create');
+    } else {
+      const params = `?ticketType=${selectedTicketType}`;
+      navigate(`/admin/custom-fields/create${params}`);
+    }
   };
 
   // Handle edit navigation
@@ -170,9 +176,7 @@ const AdminCustomFieldList = () => {
           </div>
           <button
             onClick={handleCreateCustomField}
-            disabled={!selectedTicketType}
-            className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            title={!selectedTicketType ? 'Please select a ticket type first' : 'Add custom field'}
+            className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
             <Icons.Plus size={16} className="mr-2" />
             Add Custom Field
@@ -217,17 +221,49 @@ const AdminCustomFieldList = () => {
           </div>
         </div>
 
-        {/* Field Type Guide */}
+        {/* Field Type Guide and Quick Start */}
         {!selectedTicketType && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h4 className="text-sm font-medium text-gray-900 mb-3">Available Field Types</h4>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {fieldTypes.map((type) => (
-                <div key={type.value} className="flex items-center space-x-2 text-sm">
-                  <type.icon size={16} className="text-gray-500" />
-                  <span className="text-gray-700">{type.label}</span>
+          <div className="space-y-6">
+            {/* Quick Start Card */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
+              <div className="flex items-start space-x-4">
+                <div className="flex-shrink-0">
+                  <Icons.Info size={24} className="text-blue-600" />
                 </div>
-              ))}
+                <div className="flex-1">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Get Started with Custom Fields</h3>
+                  <p className="text-sm text-gray-700 mb-4">
+                    Select a ticket type above to manage its custom fields, or create a new field and choose the ticket type during creation.
+                  </p>
+                  <button
+                    onClick={handleCreateCustomField}
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Icons.Plus size={16} className="mr-2" />
+                    Create Your First Custom Field
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Field Type Guide */}
+            <div className="bg-white border border-gray-200 rounded-lg p-6">
+              <h4 className="text-sm font-medium text-gray-900 mb-3">Available Field Types</h4>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {fieldTypes.map((type) => (
+                  <div key={type.value} className="flex items-center space-x-3 p-2 rounded-md hover:bg-gray-50">
+                    <type.icon size={20} className="text-gray-500 flex-shrink-0" />
+                    <div>
+                      <span className="text-sm font-medium text-gray-900">{type.label}</span>
+                      {type.value === 'daterange' && (
+                        <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                          NEW
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}

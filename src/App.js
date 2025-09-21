@@ -142,6 +142,15 @@ const AppRoutes = () => {
             }
           />
 
+          <Route
+            path="/admin/custom-fields/:id/edit"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminCustomFieldCreatePage />
+              </ProtectedRoute>
+            }
+          />
+
           {/* Unauthorized Access Page */}
           <Route
             path="/unauthorized"
