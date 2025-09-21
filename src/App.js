@@ -18,6 +18,7 @@ import AdminCustomFieldCreatePage from './pages/AdminCustomFieldCreatePage';
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
 import ErrorBoundary from './components/shared/ErrorBoundary';
+import ErrorBoundary130, { useError130Detection } from './components/shared/ErrorBoundary130';
 import DevPanel from './components/shared/DevPanel';
 
 // Smart Redirect Component for Root Route
@@ -90,6 +91,9 @@ const PublicRoute = ({ children }) => {
 
 // App Routes Component (needs to be inside UserProvider)
 const AppRoutes = () => {
+  // Global Error #130 detection hook
+  useError130Detection();
+
   return (
     <Router>
       <div className="App">
@@ -180,11 +184,13 @@ const AppRoutes = () => {
 // Main App Component
 function App() {
   return (
-    <ErrorBoundary>
-      <UserProvider>
-        <AppRoutes />
-      </UserProvider>
-    </ErrorBoundary>
+    <ErrorBoundary130>
+      <ErrorBoundary>
+        <UserProvider>
+          <AppRoutes />
+        </UserProvider>
+      </ErrorBoundary>
+    </ErrorBoundary130>
   );
 }
 

@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import Header from '../components/shared/Header';
 import Icons from '../components/shared/Icons';
+import ErrorBoundary130, { validateComponentReferences } from '../components/shared/ErrorBoundary130';
 import { useToast } from '../components/shared/Toast';
 import { useTicketTypes, useDropdownLists, useCustomFields } from '../hooks/useAPI';
 import { API } from '../api/googleSheet';
@@ -173,7 +174,7 @@ const AdminCustomFieldCreatePage = () => {
   };
 
   // Get selected field type details
-  const selectedFieldType = fieldTypes.find(type => type.value === formData.type);
+  const selectedFieldType = fieldTypes?.find(type => type.value === formData.type) || null;
 
   // Auto-save draft functionality
   const saveDraft = () => {
@@ -195,13 +196,37 @@ const AdminCustomFieldCreatePage = () => {
     }
   }, [preSelectedTicketType]);
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Header user={user} />
-      <ToastContainer />
+  // Development-time component validation to prevent Error #130
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      // Validate all icon references
+      const requiredIcons = [
+        'Home', 'ChevronRight', 'CheckCircle', 'ArrowLeft', 'Save', 'Plus',
+        'Edit', 'Document', 'Calendar', 'DateRange', 'Currency', 'List',
+        'Attachment', 'Info', 'Warning', 'Error'
+      ];
 
-      <div className="py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      // Hook validation using already-available hook results
+      validateComponentReferences('AdminCustomFieldCreatePage', {
+        icons: requiredIcons,
+        hooks: [
+          { name: 'useToast', expectedMethods: ['success', 'error', 'warning', 'ToastContainer'], hookResult: { success, error: showError, warning, ToastContainer } },
+          { name: 'useTicketTypes', expectedMethods: ['data', 'loading', 'error'], hookResult: { data: ticketTypes, loading: ticketTypesLoading } },
+          { name: 'useDropdownLists', expectedMethods: ['data', 'loading', 'error'], hookResult: { data: dropdownLists, loading: dropdownListsLoading } },
+          { name: 'useCustomFields', expectedMethods: ['data', 'loading', 'error', 'refetch'], hookResult: { data: customFields, refetch: refetchCustomFields } }
+        ]
+      });
+    }
+  }, [success, showError, warning, ToastContainer, ticketTypes, ticketTypesLoading, dropdownLists, dropdownListsLoading, customFields, refetchCustomFields]);  // Include dependencies
+
+  return (
+    <ErrorBoundary130>
+      <div className="min-h-screen bg-gray-50">
+        <Header user={user} />
+        <ToastContainer />
+
+        <div className="py-6">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Breadcrumb */}
           <nav className="flex mb-6" aria-label="Breadcrumb">
             <ol className="inline-flex items-center space-x-1 md:space-x-3">
@@ -333,7 +358,9 @@ const AdminCustomFieldCreatePage = () => {
                           Field Type *
                         </label>
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                          {fieldTypes.map((fieldType) => (
+                          {fieldTypes?.map((fieldType) => {
+                            if (!fieldType || !fieldType.icon) return null;
+                            return (
                             <div
                               key={fieldType.value}
                               className={`relative rounded-lg border p-4 cursor-pointer transition-colors ${
@@ -344,10 +371,20 @@ const AdminCustomFieldCreatePage = () => {
                               onClick={() => setFormData(prev => ({ ...prev, type: fieldType.value }))}
                             >
                               <div className="flex items-start">
-                                <fieldType.icon
-                                  size={20}
-                                  className={formData.type === fieldType.value ? 'text-blue-600' : 'text-gray-400'}
-                                />
+                                {(() => {
+                                  const IconComponent = fieldType.icon;
+                                  return IconComponent ? (
+                                    <IconComponent
+                                      size={20}
+                                      className={formData.type === fieldType.value ? 'text-blue-600' : 'text-gray-400'}
+                                    />
+                                  ) : (
+                                    <Icons.Info
+                                      size={20}
+                                      className="text-gray-400"
+                                    />
+                                  );
+                                })()}
                                 <div className="ml-3 flex-1">
                                   <h4 className={`text-sm font-medium ${
                                     formData.type === fieldType.value ? 'text-blue-900' : 'text-gray-900'
@@ -373,7 +410,8 @@ const AdminCustomFieldCreatePage = () => {
                                 className="sr-only"
                               />
                             </div>
-                          ))}
+                            );
+                          }) || []}
                         </div>
                       </div>
 
@@ -513,7 +551,14 @@ const AdminCustomFieldCreatePage = () => {
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Field Preview</h3>
                   <div className="space-y-3">
                     <div className="flex items-center space-x-3">
-                      <selectedFieldType.icon size={20} className="text-blue-600" />
+                      {(() => {
+                        const IconComponent = selectedFieldType.icon;
+                        return IconComponent ? (
+                          <IconComponent size={20} className="text-blue-600" />
+                        ) : (
+                          <Icons.Info size={20} className="text-blue-600" />
+                        );
+                      })()}
                       <div>
                         <h4 className="text-sm font-medium text-gray-900">{selectedFieldType.label}</h4>
                         <p className="text-xs text-gray-500">{selectedFieldType.description}</p>
@@ -622,9 +667,10 @@ const AdminCustomFieldCreatePage = () => {
               </div>
             </div>
           </div>
+          </div>
         </div>
       </div>
-    </div>
+    </ErrorBoundary130>
   );
 };
 
