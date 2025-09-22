@@ -1,6 +1,6 @@
 # DATABASE SCHEMA UPDATES
-# Multi-Company Workflow & Company Code Locking Implementation
-# Generated: September 21, 2025
+# Multi-Company Workflow, Company Code Locking & Comprehensive Audit Fields
+# Generated: September 22, 2025 - Updated with comprehensive audit trail support
 
 ## REQUIRED CHANGES ANALYSIS
 
@@ -14,49 +14,133 @@
 # Current: id|ticket_type_id|name|status_on_reach|step_type|approver_logic|sort_order|next_ticket_type_id|external_app_url|completion_action_name
 # Enhanced: id|ticket_type_id|company_id|name|status_on_reach|step_type|approver_logic|sort_order|next_ticket_type_id|external_app_url|completion_action_name
 
-## UPDATED TABLE SCHEMAS (Text-to-Column Format)
+## UPDATED TABLE SCHEMAS WITH COMPREHENSIVE AUDIT FIELDS (Text-to-Column Format)
 
-# companies (ENHANCED)
-id|name|code|code_locked|code_locked_at|code_locked_reason|ticket_count
+### CORE ENTITY TABLES (Enhanced with Audit Fields)
 
-# workflow_steps (ENHANCED)
-id|ticket_type_id|company_id|name|status_on_reach|step_type|approver_logic|sort_order|next_ticket_type_id|external_app_url|completion_action_name
+# companies (ENHANCED WITH AUDIT FIELDS)
+id|name|code|code_locked|code_locked_at|code_locked_reason|ticket_count|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
 
-# dropdown_lists (ENHANCED)
-id|name|company_id
+# roles (ENHANCED WITH AUDIT FIELDS)
+id|name|company_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
 
-# step_slas (NO CHANGES)
-step_id|duration|unit|exclude_weekends
+# ticket_types (ENHANCED WITH AUDIT FIELDS)
+id|transaction_id|code|name|description|is_active|require_attachment_on_create|company_id|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
 
-# step_approvers (NO CHANGES)
-step_id|role_id
+# tickets (ENHANCED WITH AUDIT FIELDS)
+id|ticket_number|title|ticket_type_id|requester_id|status|current_step_id|step_due_date|company_id|is_active|created_at|created_by|updated_at|updated_by|deleted_at|deleted_by|deletion_reason
 
-# step_conditions (NO CHANGES)
-id|step_id|custom_field_id|operator|value
+# custom_fields (ENHANCED WITH AUDIT FIELDS)
+id|ticket_type_id|name|label|type|is_required|is_hidden|sort_order|dropdown_list_id|depends_on_field_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
 
-# user_role_assignments (NO CHANGES - Already has company_id)
-user_id|ticket_type_id|role_id|validity_end_date|company_id
+# workflow_steps (ENHANCED WITH AUDIT FIELDS)
+id|ticket_type_id|company_id|name|status_on_reach|step_type|approver_logic|sort_order|next_ticket_type_id|external_app_url|completion_action_name|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
 
-# user_preferences (NEW TABLE)
-user_id|dark_mode|timezone|language|email_notifications|desktop_notifications|dashboard_layout|items_per_page|auto_refresh|refresh_interval|created_at|updated_at
+# dropdown_lists (ENHANCED WITH AUDIT FIELDS)
+id|name|company_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
 
-## COLUMN DEFINITIONS
+# dropdown_options (ENHANCED WITH AUDIT FIELDS)
+id|dropdown_list_id|label|value|parent_option_id|sort_order|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
 
-### companies additions:
+### RELATIONSHIP & CONFIGURATION TABLES (Enhanced with Audit Fields)
+
+# user_role_assignments (ENHANCED WITH AUDIT FIELDS)
+id|user_id|ticket_type_id|role_id|validity_end_date|company_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+# step_slas (ENHANCED WITH AUDIT FIELDS)
+id|step_id|duration|unit|exclude_weekends|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+# step_approvers (ENHANCED WITH AUDIT FIELDS)
+id|step_id|role_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+# step_conditions (ENHANCED WITH AUDIT FIELDS)
+id|step_id|custom_field_id|operator|value|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+# comment_requirements (ENHANCED WITH AUDIT FIELDS)
+id|ticket_type_id|require_on_approve|require_on_return|require_on_reject|require_on_cancel|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+### DATA & TRANSACTION TABLES (Enhanced with Audit Fields)
+
+# custom_field_values (ENHANCED WITH AUDIT FIELDS)
+id|ticket_id|custom_field_id|text_value|number_value|date_value|dropdown_option_id|is_active|created_at|created_by|updated_at|updated_by|deleted_at|deleted_by|deletion_reason
+
+# ticket_attachments (ENHANCED WITH AUDIT FIELDS)
+id|ticket_id|uploader_id|file_name|file_url|file_size|mime_type|is_active|created_at|created_by|updated_at|updated_by|deleted_at|deleted_by|deletion_reason
+
+# ticket_links (ENHANCED WITH AUDIT FIELDS)
+id|parent_ticket_id|child_ticket_id|link_type|is_active|created_at|created_by|updated_at|updated_by|deleted_at|deleted_by|deletion_reason
+
+# report_configurations (ENHANCED WITH AUDIT FIELDS)
+id|ticket_type_id|field_name|display_name|field_type|sort_order|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+### SYSTEM & AUDIT TABLES (Enhanced with Audit Fields)
+
+# user_preferences (ENHANCED WITH AUDIT FIELDS)
+id|user_id|dark_mode|timezone|language|email_notifications|desktop_notifications|dashboard_layout|items_per_page|auto_refresh|refresh_interval|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+# sequence_counters (ENHANCED WITH AUDIT FIELDS)
+id|sequence_name|last_number|company_id|ticket_type_code|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+### AUDIT LOG TABLES (READ-ONLY - No Audit Fields Needed)
+
+# ticket_history (IMMUTABLE LOG)
+id|ticket_id|user_id|action|comment|timestamp
+
+# ticket_action_logs (IMMUTABLE LOG)
+id|ticket_id|user_id|action_type|details|timestamp
+
+# admin_action_logs (IMMUTABLE LOG)
+id|admin_user_id|action_type|target_entity|target_id|details|timestamp
+
+## COMPREHENSIVE AUDIT FIELD DEFINITIONS
+
+### STANDARD AUDIT FIELDS (Applied to All Applicable Tables)
+
+#### **Creation Tracking:**
+# created_at: timestamp (ISO 8601) - When the record was first created
+# created_by: string - User ID who created the record (Firebase Auth ID)
+
+#### **Update Tracking:**
+# updated_at: timestamp (ISO 8601) - When the record was last modified
+# updated_by: string - User ID who last updated the record (Firebase Auth ID)
+
+#### **Active Status:**
+# is_active: boolean - TRUE for active records, FALSE for soft-deleted/deactivated records
+
+#### **Deactivation Tracking (for Configuration/Master Data):**
+# deactivated_at: timestamp (ISO 8601) - When the record was deactivated (NULL if active)
+# deactivated_by: string - User ID who deactivated the record (NULL if active)
+# deactivation_reason: string - Reason for deactivation (e.g., "obsolete", "duplicate", "admin_request")
+
+#### **Deletion Tracking (for Transaction Data):**
+# deleted_at: timestamp (ISO 8601) - When the record was deleted (NULL if not deleted)
+# deleted_by: string - User ID who deleted the record (NULL if not deleted)
+# deletion_reason: string - Reason for deletion (e.g., "user_request", "data_cleanup", "mistake")
+
+### TABLE-SPECIFIC FIELD DEFINITIONS
+
+#### **companies table additions:**
 # code_locked: boolean - TRUE when company code is locked (after first ticket creation)
 # code_locked_at: timestamp - When the code was locked (ISO format)
 # code_locked_reason: string - Reason for locking (e.g., "first_ticket_created", "admin_override")
 # ticket_count: number - Count of tickets created for this company (for lock trigger)
+# + All standard audit fields (is_active, created_at, created_by, updated_at, updated_by, deactivated_at, deactivated_by, deactivation_reason)
 
-### workflow_steps addition:
-# company_id: string - Required field linking workflow step to specific company
+#### **workflow_steps table additions:**
+# company_id: string - REQUIRED field linking workflow step to specific company
 # Note: No NULL values allowed - every workflow step must belong to a company
+# + All standard audit fields (is_active, created_at, created_by, updated_at, updated_by, deactivated_at, deactivated_by, deactivation_reason)
 
-### dropdown_lists addition:
-# company_id: string - Required field linking dropdown list to specific company
+#### **dropdown_lists table additions:**
+# company_id: string - REQUIRED field linking dropdown list to specific company
 # Note: Makes dropdown lists company-specific, prevents option pollution across companies
+# + All standard audit fields (is_active, created_at, created_by, updated_at, updated_by, deactivated_at, deactivated_by, deactivation_reason)
 
-### user_preferences columns:
+#### **tickets table additions:**
+# Note: Tickets use deletion tracking instead of deactivation (transaction data)
+# + Standard audit fields (is_active, created_at, created_by, updated_at, updated_by, deleted_at, deleted_by, deletion_reason)
+
+#### **user_preferences table columns:**
 # user_id: string - Primary key, user's unique identifier (from Firebase Auth)
 # dark_mode: boolean - User's dark mode preference (true/false)
 # timezone: string - User's timezone (e.g., 'Asia/Manila', 'UTC', 'America/New_York')
@@ -67,8 +151,36 @@ user_id|dark_mode|timezone|language|email_notifications|desktop_notifications|da
 # items_per_page: number - Number of items to display per page (10, 20, 50, 100)
 # auto_refresh: boolean - Whether to automatically refresh data
 # refresh_interval: number - Auto-refresh interval in milliseconds (10000, 30000, 60000, 300000, 0=disabled)
-# created_at: timestamp - When the preferences were first created
-# updated_at: timestamp - When the preferences were last updated
+# + All standard audit fields (is_active, created_at, created_by, updated_at, updated_by, deactivated_at, deactivated_by, deactivation_reason)
+
+#### **Enhanced ID Fields:**
+# Note: Many tables now include an auto-incrementing 'id' field as primary key for better audit trail support
+# The original composite keys remain for business logic, but 'id' provides unique record identification
+
+### AUDIT FIELD BEHAVIOR RULES
+
+#### **Creation Rules:**
+1. created_at: Set to current timestamp (Philippine Time - UTC+8) when record is inserted
+2. created_by: Set to current user's Firebase Auth ID from request context
+3. is_active: Defaults to TRUE for new records
+4. All other audit fields: Set to NULL on creation
+
+#### **Update Rules:**
+1. updated_at: Set to current timestamp on every update operation
+2. updated_by: Set to current user's Firebase Auth ID from request context
+3. Original created_at/created_by: Never modified after creation
+4. Deactivation/deletion fields: Only set during specific deactivation/deletion operations
+
+#### **Soft Delete vs Deactivation:**
+- **Configuration/Master Data**: Use deactivation (deactivated_at, deactivated_by, deactivation_reason)
+  - Examples: companies, roles, ticket_types, custom_fields, workflow_steps, dropdown_lists
+- **Transaction Data**: Use deletion (deleted_at, deleted_by, deletion_reason)
+  - Examples: tickets, custom_field_values, ticket_attachments, ticket_links
+
+#### **Query Behavior:**
+- Default queries should filter WHERE is_active = TRUE
+- Admin interfaces may show deactivated/deleted records with special indicators
+- Audit reports should include all records regardless of status
 
 ## MIGRATION NOTES
 
@@ -100,6 +212,9 @@ user_id|dark_mode|timezone|language|email_notifications|desktop_notifications|da
 # TicketTypes.validateNameUniqueness(name, companyId, excludeId)
 # UserPreferences.get(userId) - GET endpoint for retrieving user preferences
 # UserPreferences.update(userId, preferences) - POST endpoint for updating user preferences
+# SLAStatistics.getPerformanceByCompany(companyId) - Company-specific SLA performance metrics
+# SLAStatistics.getPerformanceByTicketType(ticketTypeId, companyId) - Per-company ticket type SLA performance
+# SLAStatistics.getGlobalPerformance() - System-wide SLA performance across all companies
 
 ### Modified API Endpoints:
 # WorkflowSteps.getAll() - Must now filter by company_id
@@ -119,6 +234,42 @@ user_id|dark_mode|timezone|language|email_notifications|desktop_notifications|da
 ### LOW IMPACT CHANGES:
 1. Company table additions (non-breaking for existing queries)
 2. Additional validation logic
+
+## FRONTEND MODEL CONSISTENCY UPDATE (September 22, 2025)
+
+### ✅ CRITICAL CONSISTENCY ISSUES RESOLVED:
+
+#### **Issues Discovered:**
+- RoleModel missing audit fields specified in schema above
+- DropdownListModel missing company_id and audit fields
+- DropdownOptionModel missing sort_order and audit fields
+- TicketModel missing deletion tracking audit fields
+
+#### **✅ Fixes Applied to src/api/models.js:**
+
+**RoleModel Enhanced:**
+- Added: is_active, created_at, created_by, updated_at, updated_by
+- Added: deactivated_at, deactivated_by, deactivation_reason
+- Added: isActive(), getAuditInfo(), getStatusInfo() methods
+
+**DropdownListModel Enhanced:**
+- Added: company_id (makes dropdowns company-specific)
+- Added: Complete audit field set for deactivation tracking
+- Updated: create() method now requires companyId parameter
+
+**DropdownOptionModel Enhanced:**
+- Added: sort_order for proper display ordering
+- Added: Complete audit field set for deactivation tracking
+- Added: Audit utility methods for status management
+
+**TicketModel Enhanced:**
+- Added: deleted_at, deleted_by, deletion_reason (deletion tracking)
+- Added: is_active, created_by, updated_by (standard audit fields)
+- Note: Uses deletion tracking instead of deactivation (transaction data)
+
+#### **Status:**
+✅ **Frontend Consistency**: All data models now match DATABASE_SCHEMA_UPDATES.txt specification
+⚠️ **Backend Schema Gap**: Google Sheets structure still needs updating from 4 to 15 columns per table
 
 ## ROLLBACK PLAN
 

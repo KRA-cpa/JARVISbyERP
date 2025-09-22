@@ -466,7 +466,71 @@ export const useCanUserApprove = (userId, stepId, ticketId = null) => {
 
 /**
  * SLA-related hooks for monitoring due dates and status
+ * Enhanced with per-company SLA performance tracking - Phase 8.95
  */
+
+/**
+ * Hook for getting SLA performance statistics by company
+ * @param {string} companyId - Optional company ID filter
+ * @returns {Object} Company-specific SLA performance data
+ */
+export const useSLAPerformanceByCompany = (companyId = null) => {
+  return useAPIData(
+    ['sla_performance_company', companyId],
+    async () => {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}?action=getSLAPerformanceByCompany${companyId ? `&company_id=${companyId}` : ''}`);
+      if (!response.ok) throw new Error('Failed to fetch SLA performance by company');
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || 'Failed to fetch SLA performance data');
+      return result.data;
+    },
+    { staleTime: 5 * 60 * 1000 } // Cache for 5 minutes
+  );
+};
+
+/**
+ * Hook for getting SLA performance statistics by ticket type and company
+ * @param {string} ticketTypeId - Optional ticket type ID filter
+ * @param {string} companyId - Optional company ID filter
+ * @returns {Object} Ticket type and company-specific SLA performance matrix
+ */
+export const useSLAPerformanceByTicketType = (ticketTypeId = null, companyId = null) => {
+  return useAPIData(
+    ['sla_performance_ticket_type', ticketTypeId, companyId],
+    async () => {
+      const params = new URLSearchParams({
+        action: 'getSLAPerformanceByTicketType'
+      });
+      if (ticketTypeId) params.append('ticket_type_id', ticketTypeId);
+      if (companyId) params.append('company_id', companyId);
+
+      const response = await fetch(`${process.env.REACT_APP_API_URL}?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch SLA performance by ticket type');
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || 'Failed to fetch SLA performance data');
+      return result.data;
+    },
+    { staleTime: 5 * 60 * 1000 } // Cache for 5 minutes
+  );
+};
+
+/**
+ * Hook for getting global SLA performance across all companies
+ * @returns {Object} System-wide SLA performance metrics
+ */
+export const useGlobalSLAPerformance = () => {
+  return useAPIData(
+    ['global_sla_performance'],
+    async () => {
+      const response = await fetch(`${process.env.REACT_APP_API_URL}?action=getGlobalSLAPerformance`);
+      if (!response.ok) throw new Error('Failed to fetch global SLA performance');
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || 'Failed to fetch global SLA performance data');
+      return result.data;
+    },
+    { staleTime: 5 * 60 * 1000 } // Cache for 5 minutes
+  );
+};
 
 /**
  * Hook for getting SLA status of a specific ticket
@@ -871,6 +935,10 @@ export default {
   useTicketDueDates,
   useSLAOverdueTickets,
   useSLADueTodayTickets,
+  // Per-Company SLA Performance hooks (Phase 8.95)
+  useSLAPerformanceByCompany,
+  useSLAPerformanceByTicketType,
+  useGlobalSLAPerformance,
   // SLA Escalation hooks
   useSLAEscalationRules,
   useSLAEscalationMutations,

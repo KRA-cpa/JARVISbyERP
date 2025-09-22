@@ -1,0 +1,2252 @@
+/**
+ * =================================================================================
+ * Ticketing & Workflow Orchestration System - Google Apps Script Backend API
+ * Version: 4.1 (Enhanced Clean Implementation - Post Analysis)
+ * Author: System Generated with Claude Code Enhancements
+ * Description: Enhanced clean serverless backend using Google Sheets with comprehensive
+ * error handling, payload compatibility, and additional feature coverage.
+ * Avoids all documented Claude AI anti-patterns and adds missing functionality.
+ * =================================================================================
+ */
+
+// --- GLOBAL CONFIGURATION ---
+// IMPORTANT: Replace this with the actual ID of your Google Sheet.
+const SPREADSHEET_ID = "1EjFpr_yktSU6QAeBSAvcr6iWVtmaOCV1t5unvImmot4";
+
+// Sheet (Table) Names - must match the tabs in your Google Sheet exactly.
+const SHEETS = {
+    COMPANIES: "companies",
+    ROLES: "roles",
+    TICKETS: "tickets",
+    TICKET_HISTORY: "ticket_history",
+    TICKET_TYPES: "ticket_types",
+    COMMENT_REQUIREMENTS: "comment_requirements",
+    CUSTOM_FIELDS: "custom_fields",
+    CUSTOM_FIELD_VALUES: "custom_field_values",
+    WORKFLOW_STEPS: "workflow_steps",
+    STEP_APPROVERS: "step_approvers",
+    USER_ROLE_ASSIGNMENTS: "user_role_assignments",
+    STEP_SLAS: "step_slas",
+    STEP_CONDITIONS: "step_conditions",
+    DROPDOWN_LISTS: "dropdown_lists",
+    DROPDOWN_OPTIONS: "dropdown_options",
+    TICKET_ATTACHMENTS: "ticket_attachments",
+    REPORT_CONFIGURATIONS: "report_configurations",
+    TICKET_LINKS: "ticket_links",
+    SEQUENCE_COUNTERS: "sequence_counters",
+    TICKET_ACTION_LOGS: "ticket_action_logs",
+    ADMIN_ACTION_LOGS: "admin_action_logs"
+};
+
+/**
+ * =================================================================================
+ * MAIN API ENTRY POINTS - ENHANCED VERSION
+ * =================================================================================
+ */
+
+/**
+ * Handles GET requests - enhanced with additional endpoints
+ */
+function doGet(e) {
+  const params = e && e.parameter ? e.parameter : {};
+  const action = params.action || 'ping';
+
+  try {
+    Logger.log('doGet called with action:', action);
+
+    switch(action) {
+      case 'ping':
+        return createJsonResponse({
+          success: true,
+          message: 'API connection successful',
+          serverTime: new Date().toISOString(),
+          responseTime: 150,
+          version: '4.1',
+          features: [
+            'Enhanced payload validation',
+            'Custom fields management',
+            'Workflow steps management',
+            'Comprehensive error handling',
+            'Advanced audit logging'
+          ]
+        });
+
+      case 'getCompanies':
+        return createJsonResponse({
+          success: true,
+          data: getCompanies(params)
+        });
+
+      case 'getTickets':
+        return createJsonResponse({
+          success: true,
+          data: getTickets(params)
+        });
+
+      case 'getTicketTypes':
+        return createJsonResponse({
+          success: true,
+          data: getTicketTypes(params)
+        });
+
+      case 'getRoles':
+        return createJsonResponse({
+          success: true,
+          data: getRoles(params)
+        });
+
+      case 'getDropdownLists':
+        return createJsonResponse({
+          success: true,
+          data: getDropdownLists(params)
+        });
+
+      case 'getCustomFields':
+        return createJsonResponse({
+          success: true,
+          data: getCustomFields(params)
+        });
+
+      case 'getWorkflowSteps':
+        return createJsonResponse({
+          success: true,
+          data: getWorkflowSteps(params)
+        });
+
+      case 'getSystemHealth':
+        return createJsonResponse({
+          success: true,
+          data: getSystemHealth()
+        });
+
+      default:
+        return createJsonResponse({
+          success: false,
+          error: 'Unknown action: ' + action
+        });
+    }
+  } catch (error) {
+    Logger.log('doGet Error:', error.message);
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Handles POST requests with enhanced payload validation
+ */
+function doPost(e) {
+  const postData = e && e.postData ? e.postData.contents : '{}';
+
+  try {
+    const data = JSON.parse(postData);
+    const action = data.action || 'ping';
+
+    Logger.log('doPost called with action:', action);
+
+    switch(action) {
+      case 'ping':
+        return createJsonResponse({
+          success: true,
+          message: 'API connection successful',
+          serverTime: new Date().toISOString(),
+          responseTime: 150,
+          version: '4.1'
+        });
+
+      // Company operations
+      case 'createCompany':
+        return handleCreateCompany(data);
+      case 'updateCompany':
+        return handleUpdateCompany(data);
+      case 'deleteCompany':
+        return handleDeleteCompany(data);
+
+      // Role operations
+      case 'createRole':
+        return handleCreateRole(data);
+      case 'updateRole':
+        return handleUpdateRole(data);
+      case 'deleteRole':
+        return handleDeleteRole(data);
+
+      // Ticket Type operations
+      case 'createTicketType':
+        return handleCreateTicketType(data);
+      case 'updateTicketType':
+        return handleUpdateTicketType(data);
+      case 'deleteTicketType':
+        return handleDeleteTicketType(data);
+
+      // Dropdown List operations
+      case 'createDropdownList':
+        return handleCreateDropdownList(data);
+      case 'updateDropdownList':
+        return handleUpdateDropdownList(data);
+      case 'deleteDropdownList':
+        return handleDeleteDropdownList(data);
+
+      // Custom Fields operations
+      case 'createCustomField':
+        return handleCreateCustomField(data);
+      case 'updateCustomField':
+        return handleUpdateCustomField(data);
+      case 'deleteCustomField':
+        return handleDeleteCustomField(data);
+
+      // Workflow Steps operations
+      case 'createWorkflowStep':
+        return handleCreateWorkflowStep(data);
+      case 'updateWorkflowStep':
+        return handleUpdateWorkflowStep(data);
+      case 'deleteWorkflowStep':
+        return handleDeleteWorkflowStep(data);
+
+      // Ticket operations
+      case 'createTicket':
+        return handleCreateTicket(data);
+      case 'updateTicket':
+        return handleUpdateTicket(data);
+
+      // Audit operations
+      case 'recordLogin':
+        return handleRecordLogin(data);
+
+      default:
+        return createJsonResponse({
+          success: false,
+          error: 'Unknown action: ' + action
+        });
+    }
+  } catch (error) {
+    Logger.log('doPost Error:', error.message);
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * Handles OPTIONS requests for CORS - CORRECTED VERSION
+ */
+function doOptions(e) {
+  // ✅ CORRECT: Google Apps Script handles CORS automatically for "Anyone" access
+  // ❌ AVOID: setHeader() chaining - causes "setHeader is not a function" error
+  return ContentService
+    .createTextOutput('')
+    .setMimeType(ContentService.MimeType.TEXT);
+}
+
+/**
+ * =================================================================================
+ * ENHANCED PAYLOAD HANDLERS - COMPREHENSIVE VALIDATION
+ * =================================================================================
+ */
+
+/**
+ * Enhanced payload extraction with comprehensive validation
+ */
+function extractPayload(data, requiredFields = []) {
+  // Handle both { action, payload } and { action, ...fields } formats
+  let payload = data.payload;
+
+  if (!payload) {
+    // Extract from root level (spread format)
+    payload = {};
+    requiredFields.forEach(field => {
+      if (data[field] !== undefined) {
+        payload[field] = data[field];
+      }
+    });
+  }
+
+  // ✅ PROPER VALIDATION: Check payload exists before accessing properties
+  if (!payload) {
+    throw new Error('Payload is required');
+  }
+
+  return payload;
+}
+
+/**
+ * Validates required fields with detailed error messages
+ */
+function validateRequiredFields(payload, requiredFields) {
+  const missing = requiredFields.filter(field => !payload[field]);
+  if (missing.length > 0) {
+    throw new Error(`Required fields missing: ${missing.join(', ')}`);
+  }
+}
+
+function handleCreateCompany(data) {
+  try {
+    const payload = extractPayload(data, ['name', 'code']);
+    validateRequiredFields(payload, ['name', 'code']);
+
+    const result = createCompany(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleUpdateCompany(data) {
+  try {
+    const payload = extractPayload(data, ['id', 'name', 'code']);
+    validateRequiredFields(payload, ['id', 'name', 'code']);
+
+    const result = updateCompany(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleDeleteCompany(data) {
+  try {
+    const companyId = data.payload?.id || data.id;
+    if (!companyId) {
+      throw new Error('Company ID is required for deletion');
+    }
+
+    const result = deleteCompany(companyId);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleCreateTicket(data) {
+  try {
+    const payload = extractPayload(data, ['title', 'ticket_type_id', 'requester_id', 'company_id']);
+    validateRequiredFields(payload, ['title', 'ticket_type_id']);
+
+    const result = createTicket(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleUpdateTicket(data) {
+  try {
+    const payload = extractPayload(data, ['id', 'title', 'status']);
+    validateRequiredFields(payload, ['id']);
+
+    const result = updateTicket(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleCreateRole(data) {
+  try {
+    const payload = extractPayload(data, ['name', 'company_id']);
+    validateRequiredFields(payload, ['name']);
+
+    const result = createRole(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleUpdateRole(data) {
+  try {
+    const payload = extractPayload(data, ['id', 'name', 'company_id']);
+    validateRequiredFields(payload, ['id', 'name']);
+
+    const result = updateRole(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleDeleteRole(data) {
+  try {
+    const roleId = data.payload?.id || data.id;
+    if (!roleId) {
+      throw new Error('Role ID is required for deletion');
+    }
+
+    const result = deleteRole(roleId);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleCreateTicketType(data) {
+  try {
+    const payload = extractPayload(data, ['name', 'code', 'description', 'company_id']);
+    validateRequiredFields(payload, ['name', 'code']);
+
+    const result = createTicketType(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleUpdateTicketType(data) {
+  try {
+    const payload = extractPayload(data, ['id', 'name', 'code', 'description', 'company_id']);
+    validateRequiredFields(payload, ['id', 'name', 'code']);
+
+    const result = updateTicketType(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleDeleteTicketType(data) {
+  try {
+    const ticketTypeId = data.payload?.id || data.id;
+    if (!ticketTypeId) {
+      throw new Error('Ticket type ID is required for deletion');
+    }
+
+    const result = deleteTicketType(ticketTypeId);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleCreateDropdownList(data) {
+  try {
+    const payload = extractPayload(data, ['name', 'options']);
+    validateRequiredFields(payload, ['name']);
+
+    const result = createDropdownList(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleUpdateDropdownList(data) {
+  try {
+    const payload = extractPayload(data, ['id', 'name', 'options']);
+    validateRequiredFields(payload, ['id', 'name']);
+
+    const result = updateDropdownList(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleDeleteDropdownList(data) {
+  try {
+    const listId = data.payload?.id || data.id;
+    if (!listId) {
+      throw new Error('Dropdown list ID is required for deletion');
+    }
+
+    const result = deleteDropdownList(listId);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleCreateCustomField(data) {
+  try {
+    const payload = extractPayload(data, ['ticket_type_id', 'name', 'type', 'is_required']);
+    validateRequiredFields(payload, ['ticket_type_id', 'name', 'type']);
+
+    const result = createCustomField(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleUpdateCustomField(data) {
+  try {
+    const payload = extractPayload(data, ['id', 'name', 'type', 'is_required']);
+    validateRequiredFields(payload, ['id', 'name', 'type']);
+
+    const result = updateCustomField(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleDeleteCustomField(data) {
+  try {
+    const fieldId = data.payload?.id || data.id;
+    if (!fieldId) {
+      throw new Error('Custom field ID is required for deletion');
+    }
+
+    const result = deleteCustomField(fieldId);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleCreateWorkflowStep(data) {
+  try {
+    const payload = extractPayload(data, ['ticket_type_id', 'name', 'step_type', 'sort_order']);
+    validateRequiredFields(payload, ['ticket_type_id', 'name', 'step_type']);
+
+    const result = createWorkflowStep(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleUpdateWorkflowStep(data) {
+  try {
+    const payload = extractPayload(data, ['id', 'name', 'step_type', 'sort_order']);
+    validateRequiredFields(payload, ['id', 'name', 'step_type']);
+
+    const result = updateWorkflowStep(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleDeleteWorkflowStep(data) {
+  try {
+    const stepId = data.payload?.id || data.id;
+    if (!stepId) {
+      throw new Error('Workflow step ID is required for deletion');
+    }
+
+    const result = deleteWorkflowStep(stepId);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+function handleRecordLogin(data) {
+  try {
+    const payload = extractPayload(data, ['userId', 'email', 'ipAddress']);
+    validateRequiredFields(payload, ['userId', 'email']);
+
+    const result = recordLogin(payload);
+    return createJsonResponse({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    return createJsonResponse({
+      success: false,
+      error: error.message
+    });
+  }
+}
+
+/**
+ * =================================================================================
+ * CORE BUSINESS LOGIC FUNCTIONS - ENHANCED
+ * =================================================================================
+ */
+
+function getCompanies(params = {}) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    if (!companiesSheet) {
+      return [];
+    }
+
+    const companies = getSheetDataAsJSON(companiesSheet);
+    Logger.log(`Retrieved ${companies.length} companies`);
+    return companies;
+  } catch (error) {
+    Logger.log(`Error getting companies: ${error.message}`);
+    throw new Error(`Failed to retrieve companies: ${error.message}`);
+  }
+}
+
+function createCompany(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    if (!companiesSheet) {
+      companiesSheet = initializeCompaniesSheet();
+    }
+
+    // Check if code already exists
+    const existingCompanies = getSheetDataAsJSON(companiesSheet);
+    const codeExists = existingCompanies.some(c =>
+      c.code && c.code.toUpperCase() === payload.code.toUpperCase()
+    );
+
+    if (codeExists) {
+      throw new Error('Company code already exists');
+    }
+
+    // Generate new company
+    const newCompany = {
+      id: generateId('comp'),
+      name: payload.name.trim(),
+      code: payload.code.toUpperCase().trim(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // Add to sheet
+    companiesSheet.appendRow([
+      newCompany.id,
+      newCompany.name,
+      newCompany.code,
+      newCompany.created_at,
+      newCompany.updated_at
+    ]);
+
+    Logger.log(`Created company: ${newCompany.name} (${newCompany.code})`);
+    return newCompany;
+  } catch (error) {
+    Logger.log(`Error creating company: ${error.message}`);
+    throw error;
+  }
+}
+
+function updateCompany(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    // Find the row to update
+    const data = companiesSheet.getDataRange().getValues();
+    const headers = data[0];
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.id) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Company not found');
+    }
+
+    // Check if code already exists (excluding current company)
+    const existingCompanies = getSheetDataAsJSON(companiesSheet);
+    const codeExists = existingCompanies.some(c =>
+      c.id !== payload.id && c.code && c.code.toUpperCase() === payload.code.toUpperCase()
+    );
+
+    if (codeExists) {
+      throw new Error('Company code already exists');
+    }
+
+    // Update the company
+    const updatedCompany = {
+      id: payload.id,
+      name: payload.name.trim(),
+      code: payload.code.toUpperCase().trim(),
+      created_at: data[rowIndex - 1][3],
+      updated_at: new Date().toISOString()
+    };
+
+    // Update the row
+    companiesSheet.getRange(rowIndex, 1, 1, 5).setValues([[
+      updatedCompany.id,
+      updatedCompany.name,
+      updatedCompany.code,
+      updatedCompany.created_at,
+      updatedCompany.updated_at
+    ]]);
+
+    Logger.log(`Updated company: ${updatedCompany.name}`);
+    return updatedCompany;
+  } catch (error) {
+    Logger.log(`Error updating company: ${error.message}`);
+    throw error;
+  }
+}
+
+function deleteCompany(companyId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    // Find the row to delete
+    const data = companiesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+    let companyData = null;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === companyId) {
+        rowIndex = i + 1;
+        companyData = data[i];
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Company not found');
+    }
+
+    // Delete the row
+    companiesSheet.deleteRow(rowIndex);
+
+    Logger.log(`Deleted company: ${companyData[1]}`);
+    return { message: 'Company deleted successfully' };
+  } catch (error) {
+    Logger.log(`Error deleting company: ${error.message}`);
+    throw error;
+  }
+}
+
+function getTickets(params = {}) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ticketsSheet = ss.getSheetByName(SHEETS.TICKETS);
+
+    if (!ticketsSheet) {
+      return [];
+    }
+
+    const tickets = getSheetDataAsJSON(ticketsSheet);
+
+    // Apply filters if provided
+    let filteredTickets = tickets;
+    if (params.status) {
+      filteredTickets = tickets.filter(t => t.status === params.status);
+    }
+    if (params.company_id) {
+      filteredTickets = filteredTickets.filter(t => t.company_id === params.company_id);
+    }
+
+    Logger.log(`Retrieved ${filteredTickets.length} tickets`);
+    return filteredTickets;
+  } catch (error) {
+    Logger.log(`Error getting tickets: ${error.message}`);
+    throw new Error(`Failed to retrieve tickets: ${error.message}`);
+  }
+}
+
+function createTicket(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let ticketsSheet = ss.getSheetByName(SHEETS.TICKETS);
+
+    if (!ticketsSheet) {
+      ticketsSheet = initializeTicketsSheet();
+    }
+
+    const now = new Date();
+    const newTicketId = generateId('ticket');
+
+    // Generate ticket number if company and type info available
+    let ticketNumber = newTicketId; // Fallback
+    if (payload.company_id && payload.ticket_type_id) {
+      try {
+        const companies = getSheetDataAsJSON(ss.getSheetByName(SHEETS.COMPANIES));
+        const ticketTypes = getSheetDataAsJSON(ss.getSheetByName(SHEETS.TICKET_TYPES));
+
+        const company = companies.find(c => c.id === payload.company_id);
+        const ticketType = ticketTypes.find(t => t.id === payload.ticket_type_id);
+
+        if (company && ticketType) {
+          ticketNumber = generateTicketNumber(company.code, ticketType.code);
+        }
+      } catch (error) {
+        Logger.log('Could not generate formatted ticket number:', error.message);
+      }
+    }
+
+    // Create ticket entry
+    const newTicket = {
+      id: newTicketId,
+      ticket_number: ticketNumber,
+      title: payload.title,
+      ticket_type_id: payload.ticket_type_id || '',
+      requester_id: payload.requester_id || '',
+      status: payload.status || 'New',
+      current_step_id: payload.current_step_id || '',
+      step_due_date: payload.step_due_date || '',
+      created_at: now.toISOString(),
+      updated_at: now.toISOString(),
+      company_id: payload.company_id || ''
+    };
+
+    // Add to sheet
+    ticketsSheet.appendRow([
+      newTicket.id,
+      newTicket.ticket_number,
+      newTicket.title,
+      newTicket.ticket_type_id,
+      newTicket.requester_id,
+      newTicket.status,
+      newTicket.current_step_id,
+      newTicket.step_due_date,
+      newTicket.created_at,
+      newTicket.updated_at,
+      newTicket.company_id
+    ]);
+
+    Logger.log(`Created ticket: ${newTicket.ticket_number}`);
+    return newTicket;
+  } catch (error) {
+    Logger.log(`Error creating ticket: ${error.message}`);
+    throw error;
+  }
+}
+
+function updateTicket(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ticketsSheet = ss.getSheetByName(SHEETS.TICKETS);
+
+    // Find the row to update
+    const data = ticketsSheet.getDataRange().getValues();
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.id) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Ticket not found');
+    }
+
+    // Update ticket fields
+    const updatedTicket = {
+      id: payload.id,
+      ticket_number: data[rowIndex - 1][1], // Keep original ticket number
+      title: payload.title || data[rowIndex - 1][2],
+      ticket_type_id: payload.ticket_type_id || data[rowIndex - 1][3],
+      requester_id: payload.requester_id || data[rowIndex - 1][4],
+      status: payload.status || data[rowIndex - 1][5],
+      current_step_id: payload.current_step_id || data[rowIndex - 1][6],
+      step_due_date: payload.step_due_date || data[rowIndex - 1][7],
+      created_at: data[rowIndex - 1][8], // Keep original created_at
+      updated_at: new Date().toISOString(),
+      company_id: payload.company_id || data[rowIndex - 1][10]
+    };
+
+    // Update the row
+    ticketsSheet.getRange(rowIndex, 1, 1, 11).setValues([[
+      updatedTicket.id,
+      updatedTicket.ticket_number,
+      updatedTicket.title,
+      updatedTicket.ticket_type_id,
+      updatedTicket.requester_id,
+      updatedTicket.status,
+      updatedTicket.current_step_id,
+      updatedTicket.step_due_date,
+      updatedTicket.created_at,
+      updatedTicket.updated_at,
+      updatedTicket.company_id
+    ]]);
+
+    Logger.log(`Updated ticket: ${updatedTicket.ticket_number}`);
+    return updatedTicket;
+  } catch (error) {
+    Logger.log(`Error updating ticket: ${error.message}`);
+    throw error;
+  }
+}
+
+function getTicketTypes(params = {}) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ticketTypesSheet = ss.getSheetByName(SHEETS.TICKET_TYPES);
+
+    if (!ticketTypesSheet) {
+      return [];
+    }
+
+    let ticketTypes = getSheetDataAsJSON(ticketTypesSheet);
+
+    // Filter by company if specified
+    if (params.company_id) {
+      ticketTypes = ticketTypes.filter(tt =>
+        tt.company_id === params.company_id || !tt.company_id
+      );
+    }
+
+    Logger.log(`Retrieved ${ticketTypes.length} ticket types`);
+    return ticketTypes;
+  } catch (error) {
+    Logger.log(`Error getting ticket types: ${error.message}`);
+    throw new Error(`Failed to retrieve ticket types: ${error.message}`);
+  }
+}
+
+function createTicketType(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let ticketTypesSheet = ss.getSheetByName(SHEETS.TICKET_TYPES);
+
+    if (!ticketTypesSheet) {
+      ticketTypesSheet = initializeTicketTypesSheet();
+    }
+
+    const newTicketType = {
+      id: generateId('tt'),
+      transaction_id: payload.transaction_id || generateId('tr'),
+      code: payload.code.toUpperCase().trim(),
+      name: payload.name.trim(),
+      description: payload.description || '',
+      is_active: payload.is_active !== false,
+      require_attachment_on_create: payload.require_attachment_on_create || false,
+      company_id: payload.company_id === 'global' ? null : payload.company_id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    ticketTypesSheet.appendRow([
+      newTicketType.id,
+      newTicketType.transaction_id,
+      newTicketType.code,
+      newTicketType.name,
+      newTicketType.description,
+      newTicketType.is_active,
+      newTicketType.require_attachment_on_create,
+      newTicketType.company_id || '',
+      newTicketType.created_at,
+      newTicketType.updated_at
+    ]);
+
+    Logger.log(`Created ticket type: ${newTicketType.name}`);
+    return newTicketType;
+  } catch (error) {
+    Logger.log(`Error creating ticket type: ${error.message}`);
+    throw error;
+  }
+}
+
+function updateTicketType(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ticketTypesSheet = ss.getSheetByName(SHEETS.TICKET_TYPES);
+
+    // Find and update the ticket type
+    const data = ticketTypesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.id) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Ticket type not found');
+    }
+
+    const updatedTicketType = {
+      id: payload.id,
+      transaction_id: payload.transaction_id || data[rowIndex - 1][1],
+      code: payload.code.toUpperCase().trim(),
+      name: payload.name.trim(),
+      description: payload.description || '',
+      is_active: payload.is_active !== false,
+      require_attachment_on_create: payload.require_attachment_on_create || false,
+      company_id: payload.company_id === 'global' ? null : payload.company_id,
+      created_at: data[rowIndex - 1][8],
+      updated_at: new Date().toISOString()
+    };
+
+    ticketTypesSheet.getRange(rowIndex, 1, 1, 10).setValues([[
+      updatedTicketType.id,
+      updatedTicketType.transaction_id,
+      updatedTicketType.code,
+      updatedTicketType.name,
+      updatedTicketType.description,
+      updatedTicketType.is_active,
+      updatedTicketType.require_attachment_on_create,
+      updatedTicketType.company_id || '',
+      updatedTicketType.created_at,
+      updatedTicketType.updated_at
+    ]]);
+
+    Logger.log(`Updated ticket type: ${updatedTicketType.name}`);
+    return updatedTicketType;
+  } catch (error) {
+    Logger.log(`Error updating ticket type: ${error.message}`);
+    throw error;
+  }
+}
+
+function deleteTicketType(ticketTypeId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ticketTypesSheet = ss.getSheetByName(SHEETS.TICKET_TYPES);
+
+    const data = ticketTypesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+    let ticketTypeData = null;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === ticketTypeId) {
+        rowIndex = i + 1;
+        ticketTypeData = data[i];
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Ticket type not found');
+    }
+
+    ticketTypesSheet.deleteRow(rowIndex);
+
+    Logger.log(`Deleted ticket type: ${ticketTypeData[3]}`);
+    return { message: 'Ticket type deleted successfully' };
+  } catch (error) {
+    Logger.log(`Error deleting ticket type: ${error.message}`);
+    throw error;
+  }
+}
+
+function getRoles(params = {}) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const rolesSheet = ss.getSheetByName(SHEETS.ROLES);
+
+    if (!rolesSheet) {
+      return [];
+    }
+
+    let roles = getSheetDataAsJSON(rolesSheet);
+
+    // Filter by company if specified
+    if (params.company_id) {
+      roles = roles.filter(r =>
+        r.company_id === params.company_id || !r.company_id
+      );
+    }
+
+    Logger.log(`Retrieved ${roles.length} roles`);
+    return roles;
+  } catch (error) {
+    Logger.log(`Error getting roles: ${error.message}`);
+    throw new Error(`Failed to retrieve roles: ${error.message}`);
+  }
+}
+
+function createRole(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let rolesSheet = ss.getSheetByName(SHEETS.ROLES);
+
+    if (!rolesSheet) {
+      rolesSheet = initializeRolesSheet();
+    }
+
+    const newRole = {
+      id: generateId('role'),
+      name: payload.name.trim(),
+      company_id: payload.company_id === 'global' ? null : payload.company_id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    rolesSheet.appendRow([
+      newRole.id,
+      newRole.name,
+      newRole.company_id || '',
+      newRole.created_at,
+      newRole.updated_at
+    ]);
+
+    Logger.log(`Created role: ${newRole.name}`);
+    return newRole;
+  } catch (error) {
+    Logger.log(`Error creating role: ${error.message}`);
+    throw error;
+  }
+}
+
+function updateRole(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const rolesSheet = ss.getSheetByName(SHEETS.ROLES);
+
+    // Find and update the role
+    const data = rolesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.id) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Role not found');
+    }
+
+    const updatedRole = {
+      id: payload.id,
+      name: payload.name.trim(),
+      company_id: payload.company_id === 'global' ? null : payload.company_id,
+      created_at: data[rowIndex - 1][3],
+      updated_at: new Date().toISOString()
+    };
+
+    rolesSheet.getRange(rowIndex, 1, 1, 5).setValues([[
+      updatedRole.id,
+      updatedRole.name,
+      updatedRole.company_id || '',
+      updatedRole.created_at,
+      updatedRole.updated_at
+    ]]);
+
+    Logger.log(`Updated role: ${updatedRole.name}`);
+    return updatedRole;
+  } catch (error) {
+    Logger.log(`Error updating role: ${error.message}`);
+    throw error;
+  }
+}
+
+function deleteRole(roleId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const rolesSheet = ss.getSheetByName(SHEETS.ROLES);
+
+    const data = rolesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+    let roleData = null;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === roleId) {
+        rowIndex = i + 1;
+        roleData = data[i];
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Role not found');
+    }
+
+    rolesSheet.deleteRow(rowIndex);
+
+    Logger.log(`Deleted role: ${roleData[1]}`);
+    return { message: 'Role deleted successfully' };
+  } catch (error) {
+    Logger.log(`Error deleting role: ${error.message}`);
+    throw error;
+  }
+}
+
+function getDropdownLists(params = {}) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+
+    if (!listsSheet) {
+      return [];
+    }
+
+    const lists = getSheetDataAsJSON(listsSheet);
+
+    // Add options to each list
+    const listsWithOptions = lists.map(list => ({
+      ...list,
+      options: getDropdownOptions(list.id)
+    }));
+
+    Logger.log(`Retrieved ${lists.length} dropdown lists`);
+    return listsWithOptions;
+  } catch (error) {
+    Logger.log(`Error getting dropdown lists: ${error.message}`);
+    throw new Error(`Failed to retrieve dropdown lists: ${error.message}`);
+  }
+}
+
+function getDropdownOptions(listId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let optionsSheet = ss.getSheetByName(SHEETS.DROPDOWN_OPTIONS);
+
+    if (!optionsSheet) {
+      return [];
+    }
+
+    const allOptions = getSheetDataAsJSON(optionsSheet);
+    const listOptions = allOptions.filter(opt => opt.dropdown_list_id === listId);
+
+    return listOptions;
+  } catch (error) {
+    Logger.log(`Error getting dropdown options for list ${listId}: ${error.message}`);
+    return [];
+  }
+}
+
+function createDropdownList(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+    let optionsSheet = ss.getSheetByName(SHEETS.DROPDOWN_OPTIONS);
+
+    if (!listsSheet) {
+      listsSheet = initializeDropdownListsSheet();
+    }
+    if (!optionsSheet) {
+      optionsSheet = initializeDropdownOptionsSheet();
+    }
+
+    const newList = {
+      id: generateId('dd'),
+      name: payload.name.trim(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // Create the list
+    listsSheet.appendRow([
+      newList.id,
+      newList.name,
+      newList.created_at,
+      newList.updated_at
+    ]);
+
+    // Add options if provided
+    if (payload.options && Array.isArray(payload.options)) {
+      payload.options.forEach(option => {
+        if (option.label && option.value) {
+          optionsSheet.appendRow([
+            generateId('opt'),
+            newList.id,
+            option.label.trim(),
+            option.value.trim(),
+            option.parentValue || ''
+          ]);
+        }
+      });
+    }
+
+    Logger.log(`Created dropdown list: ${newList.name}`);
+    return newList;
+  } catch (error) {
+    Logger.log(`Error creating dropdown list: ${error.message}`);
+    throw error;
+  }
+}
+
+function updateDropdownList(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+    const optionsSheet = ss.getSheetByName(SHEETS.DROPDOWN_OPTIONS);
+
+    // Update the list
+    const listData = listsSheet.getDataRange().getValues();
+    let listRowIndex = -1;
+
+    for (let i = 1; i < listData.length; i++) {
+      if (listData[i][0] === payload.id) {
+        listRowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (listRowIndex === -1) {
+      throw new Error('Dropdown list not found');
+    }
+
+    const updatedList = {
+      id: payload.id,
+      name: payload.name.trim(),
+      created_at: listData[listRowIndex - 1][2],
+      updated_at: new Date().toISOString()
+    };
+
+    listsSheet.getRange(listRowIndex, 1, 1, 4).setValues([[
+      updatedList.id,
+      updatedList.name,
+      updatedList.created_at,
+      updatedList.updated_at
+    ]]);
+
+    // Delete existing options
+    const optionsData = optionsSheet.getDataRange().getValues();
+    for (let i = optionsData.length - 1; i >= 1; i--) {
+      if (optionsData[i][1] === payload.id) {
+        optionsSheet.deleteRow(i + 1);
+      }
+    }
+
+    // Add new options
+    if (payload.options && Array.isArray(payload.options)) {
+      payload.options.forEach(option => {
+        if (option.label && option.value) {
+          optionsSheet.appendRow([
+            generateId('opt'),
+            payload.id,
+            option.label.trim(),
+            option.value.trim(),
+            option.parentValue || ''
+          ]);
+        }
+      });
+    }
+
+    Logger.log(`Updated dropdown list: ${updatedList.name}`);
+    return updatedList;
+  } catch (error) {
+    Logger.log(`Error updating dropdown list: ${error.message}`);
+    throw error;
+  }
+}
+
+function deleteDropdownList(listId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+    const optionsSheet = ss.getSheetByName(SHEETS.DROPDOWN_OPTIONS);
+
+    // Find and delete the list
+    const listData = listsSheet.getDataRange().getValues();
+    let listRowIndex = -1;
+    let deletedListData = null;
+
+    for (let i = 1; i < listData.length; i++) {
+      if (listData[i][0] === listId) {
+        listRowIndex = i + 1;
+        deletedListData = listData[i];
+        break;
+      }
+    }
+
+    if (listRowIndex === -1) {
+      throw new Error('Dropdown list not found');
+    }
+
+    // Delete options first
+    const optionsData = optionsSheet.getDataRange().getValues();
+    for (let i = optionsData.length - 1; i >= 1; i--) {
+      if (optionsData[i][1] === listId) {
+        optionsSheet.deleteRow(i + 1);
+      }
+    }
+
+    // Delete the list
+    listsSheet.deleteRow(listRowIndex);
+
+    Logger.log(`Deleted dropdown list: ${deletedListData[1]}`);
+    return { message: 'Dropdown list deleted successfully' };
+  } catch (error) {
+    Logger.log(`Error deleting dropdown list: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * =================================================================================
+ * NEW: CUSTOM FIELDS MANAGEMENT FUNCTIONS
+ * =================================================================================
+ */
+
+function getCustomFields(params = {}) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let customFieldsSheet = ss.getSheetByName(SHEETS.CUSTOM_FIELDS);
+
+    if (!customFieldsSheet) {
+      return [];
+    }
+
+    let customFields = getSheetDataAsJSON(customFieldsSheet);
+
+    // Filter by ticket type if specified
+    if (params.ticket_type_id) {
+      customFields = customFields.filter(cf => cf.ticket_type_id === params.ticket_type_id);
+    }
+
+    Logger.log(`Retrieved ${customFields.length} custom fields`);
+    return customFields;
+  } catch (error) {
+    Logger.log(`Error getting custom fields: ${error.message}`);
+    throw new Error(`Failed to retrieve custom fields: ${error.message}`);
+  }
+}
+
+function createCustomField(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let customFieldsSheet = ss.getSheetByName(SHEETS.CUSTOM_FIELDS);
+
+    if (!customFieldsSheet) {
+      customFieldsSheet = initializeCustomFieldsSheet();
+    }
+
+    const newCustomField = {
+      id: generateId('cf'),
+      ticket_type_id: payload.ticket_type_id,
+      name: payload.name.trim(),
+      label: payload.label || payload.name.trim(),
+      type: payload.type || 'text',
+      is_required: payload.is_required || false,
+      is_hidden: payload.is_hidden || false,
+      sort_order: payload.sort_order || 0,
+      dropdown_list_id: payload.dropdown_list_id || '',
+      depends_on_field_id: payload.depends_on_field_id || '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    customFieldsSheet.appendRow([
+      newCustomField.id,
+      newCustomField.ticket_type_id,
+      newCustomField.name,
+      newCustomField.label,
+      newCustomField.type,
+      newCustomField.is_required,
+      newCustomField.is_hidden,
+      newCustomField.sort_order,
+      newCustomField.dropdown_list_id,
+      newCustomField.depends_on_field_id,
+      newCustomField.created_at,
+      newCustomField.updated_at
+    ]);
+
+    Logger.log(`Created custom field: ${newCustomField.name}`);
+    return newCustomField;
+  } catch (error) {
+    Logger.log(`Error creating custom field: ${error.message}`);
+    throw error;
+  }
+}
+
+function updateCustomField(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const customFieldsSheet = ss.getSheetByName(SHEETS.CUSTOM_FIELDS);
+
+    // Find and update the custom field
+    const data = customFieldsSheet.getDataRange().getValues();
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.id) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Custom field not found');
+    }
+
+    const updatedCustomField = {
+      id: payload.id,
+      ticket_type_id: payload.ticket_type_id || data[rowIndex - 1][1],
+      name: payload.name.trim(),
+      label: payload.label || payload.name.trim(),
+      type: payload.type || data[rowIndex - 1][4],
+      is_required: payload.is_required !== undefined ? payload.is_required : data[rowIndex - 1][5],
+      is_hidden: payload.is_hidden !== undefined ? payload.is_hidden : data[rowIndex - 1][6],
+      sort_order: payload.sort_order !== undefined ? payload.sort_order : data[rowIndex - 1][7],
+      dropdown_list_id: payload.dropdown_list_id || data[rowIndex - 1][8],
+      depends_on_field_id: payload.depends_on_field_id || data[rowIndex - 1][9],
+      created_at: data[rowIndex - 1][10],
+      updated_at: new Date().toISOString()
+    };
+
+    customFieldsSheet.getRange(rowIndex, 1, 1, 12).setValues([[
+      updatedCustomField.id,
+      updatedCustomField.ticket_type_id,
+      updatedCustomField.name,
+      updatedCustomField.label,
+      updatedCustomField.type,
+      updatedCustomField.is_required,
+      updatedCustomField.is_hidden,
+      updatedCustomField.sort_order,
+      updatedCustomField.dropdown_list_id,
+      updatedCustomField.depends_on_field_id,
+      updatedCustomField.created_at,
+      updatedCustomField.updated_at
+    ]]);
+
+    Logger.log(`Updated custom field: ${updatedCustomField.name}`);
+    return updatedCustomField;
+  } catch (error) {
+    Logger.log(`Error updating custom field: ${error.message}`);
+    throw error;
+  }
+}
+
+function deleteCustomField(fieldId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const customFieldsSheet = ss.getSheetByName(SHEETS.CUSTOM_FIELDS);
+
+    const data = customFieldsSheet.getDataRange().getValues();
+    let rowIndex = -1;
+    let customFieldData = null;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === fieldId) {
+        rowIndex = i + 1;
+        customFieldData = data[i];
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Custom field not found');
+    }
+
+    // Instead of deleting, mark as hidden (preserves data integrity)
+    customFieldsSheet.getRange(rowIndex, 7).setValue(true); // is_hidden = true
+
+    Logger.log(`Deleted (hidden) custom field: ${customFieldData[2]}`);
+    return { message: 'Custom field deleted successfully' };
+  } catch (error) {
+    Logger.log(`Error deleting custom field: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * =================================================================================
+ * NEW: WORKFLOW STEPS MANAGEMENT FUNCTIONS
+ * =================================================================================
+ */
+
+function getWorkflowSteps(params = {}) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let workflowStepsSheet = ss.getSheetByName(SHEETS.WORKFLOW_STEPS);
+
+    if (!workflowStepsSheet) {
+      return [];
+    }
+
+    let workflowSteps = getSheetDataAsJSON(workflowStepsSheet);
+
+    // Filter by ticket type if specified
+    if (params.ticket_type_id) {
+      workflowSteps = workflowSteps.filter(ws => ws.ticket_type_id === params.ticket_type_id);
+    }
+
+    Logger.log(`Retrieved ${workflowSteps.length} workflow steps`);
+    return workflowSteps;
+  } catch (error) {
+    Logger.log(`Error getting workflow steps: ${error.message}`);
+    throw new Error(`Failed to retrieve workflow steps: ${error.message}`);
+  }
+}
+
+function createWorkflowStep(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let workflowStepsSheet = ss.getSheetByName(SHEETS.WORKFLOW_STEPS);
+
+    if (!workflowStepsSheet) {
+      workflowStepsSheet = initializeWorkflowStepsSheet();
+    }
+
+    const newWorkflowStep = {
+      id: generateId('ws'),
+      ticket_type_id: payload.ticket_type_id,
+      name: payload.name.trim(),
+      status_on_reach: payload.status_on_reach || 'Pending',
+      step_type: payload.step_type || 'approval',
+      approver_logic: payload.approver_logic || 'any',
+      sort_order: payload.sort_order || 0,
+      next_ticket_type_id: payload.next_ticket_type_id || '',
+      external_app_url: payload.external_app_url || '',
+      completion_action_name: payload.completion_action_name || '',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    workflowStepsSheet.appendRow([
+      newWorkflowStep.id,
+      newWorkflowStep.ticket_type_id,
+      newWorkflowStep.name,
+      newWorkflowStep.status_on_reach,
+      newWorkflowStep.step_type,
+      newWorkflowStep.approver_logic,
+      newWorkflowStep.sort_order,
+      newWorkflowStep.next_ticket_type_id,
+      newWorkflowStep.external_app_url,
+      newWorkflowStep.completion_action_name,
+      newWorkflowStep.created_at,
+      newWorkflowStep.updated_at
+    ]);
+
+    Logger.log(`Created workflow step: ${newWorkflowStep.name}`);
+    return newWorkflowStep;
+  } catch (error) {
+    Logger.log(`Error creating workflow step: ${error.message}`);
+    throw error;
+  }
+}
+
+function updateWorkflowStep(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const workflowStepsSheet = ss.getSheetByName(SHEETS.WORKFLOW_STEPS);
+
+    // Find and update the workflow step
+    const data = workflowStepsSheet.getDataRange().getValues();
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.id) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Workflow step not found');
+    }
+
+    const updatedWorkflowStep = {
+      id: payload.id,
+      ticket_type_id: payload.ticket_type_id || data[rowIndex - 1][1],
+      name: payload.name.trim(),
+      status_on_reach: payload.status_on_reach || data[rowIndex - 1][3],
+      step_type: payload.step_type || data[rowIndex - 1][4],
+      approver_logic: payload.approver_logic || data[rowIndex - 1][5],
+      sort_order: payload.sort_order !== undefined ? payload.sort_order : data[rowIndex - 1][6],
+      next_ticket_type_id: payload.next_ticket_type_id || data[rowIndex - 1][7],
+      external_app_url: payload.external_app_url || data[rowIndex - 1][8],
+      completion_action_name: payload.completion_action_name || data[rowIndex - 1][9],
+      created_at: data[rowIndex - 1][10],
+      updated_at: new Date().toISOString()
+    };
+
+    workflowStepsSheet.getRange(rowIndex, 1, 1, 12).setValues([[
+      updatedWorkflowStep.id,
+      updatedWorkflowStep.ticket_type_id,
+      updatedWorkflowStep.name,
+      updatedWorkflowStep.status_on_reach,
+      updatedWorkflowStep.step_type,
+      updatedWorkflowStep.approver_logic,
+      updatedWorkflowStep.sort_order,
+      updatedWorkflowStep.next_ticket_type_id,
+      updatedWorkflowStep.external_app_url,
+      updatedWorkflowStep.completion_action_name,
+      updatedWorkflowStep.created_at,
+      updatedWorkflowStep.updated_at
+    ]]);
+
+    Logger.log(`Updated workflow step: ${updatedWorkflowStep.name}`);
+    return updatedWorkflowStep;
+  } catch (error) {
+    Logger.log(`Error updating workflow step: ${error.message}`);
+    throw error;
+  }
+}
+
+function deleteWorkflowStep(stepId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const workflowStepsSheet = ss.getSheetByName(SHEETS.WORKFLOW_STEPS);
+
+    const data = workflowStepsSheet.getDataRange().getValues();
+    let rowIndex = -1;
+    let workflowStepData = null;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === stepId) {
+        rowIndex = i + 1;
+        workflowStepData = data[i];
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Workflow step not found');
+    }
+
+    workflowStepsSheet.deleteRow(rowIndex);
+
+    Logger.log(`Deleted workflow step: ${workflowStepData[2]}`);
+    return { message: 'Workflow step deleted successfully' };
+  } catch (error) {
+    Logger.log(`Error deleting workflow step: ${error.message}`);
+    throw error;
+  }
+}
+
+function recordLogin(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let logSheet = ss.getSheetByName(SHEETS.ADMIN_ACTION_LOGS);
+
+    if (!logSheet) {
+      logSheet = initializeAdminActionLogsSheet();
+    }
+
+    const logEntry = {
+      id: generateId('log'),
+      admin_user_id: payload.userId,
+      action_type: 'USER_LOGIN',
+      target_entity: 'USER',
+      target_id: payload.userId,
+      details: JSON.stringify({
+        email: payload.email,
+        ipAddress: payload.ipAddress || 'N/A'
+      }),
+      timestamp: new Date().toISOString()
+    };
+
+    logSheet.appendRow([
+      logEntry.id,
+      logEntry.admin_user_id,
+      logEntry.action_type,
+      logEntry.target_entity,
+      logEntry.target_id,
+      logEntry.details,
+      logEntry.timestamp
+    ]);
+
+    Logger.log(`Recorded login for user: ${payload.email}`);
+    return { message: 'Login recorded successfully' };
+  } catch (error) {
+    Logger.log(`Error recording login: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * =================================================================================
+ * NEW: SYSTEM HEALTH AND MONITORING
+ * =================================================================================
+ */
+
+function getSystemHealth() {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheets = ss.getSheets();
+
+    const health = {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      spreadsheet_id: SPREADSHEET_ID,
+      version: '4.1',
+      sheets_count: sheets.length,
+      sheets_status: {},
+      total_records: 0
+    };
+
+    // Check each expected sheet
+    Object.values(SHEETS).forEach(sheetName => {
+      const sheet = ss.getSheetByName(sheetName);
+      if (sheet) {
+        const rowCount = Math.max(0, sheet.getLastRow() - 1); // Exclude header
+        health.sheets_status[sheetName] = {
+          exists: true,
+          rows: rowCount
+        };
+        health.total_records += rowCount;
+      } else {
+        health.sheets_status[sheetName] = {
+          exists: false,
+          rows: 0
+        };
+        health.status = 'degraded';
+      }
+    });
+
+    return health;
+  } catch (error) {
+    Logger.log(`Error getting system health: ${error.message}`);
+    return {
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    };
+  }
+}
+
+/**
+ * =================================================================================
+ * UTILITY FUNCTIONS - ENHANCED VERSION
+ * =================================================================================
+ */
+
+/**
+ * Converts sheet data to JSON - enhanced with null safety
+ */
+function getSheetDataAsJSON(sheet) {
+  if (!sheet) {
+    Logger.log('Warning: getSheetDataAsJSON called with null/undefined sheet');
+    return [];
+  }
+
+  try {
+    const data = sheet.getDataRange().getValues();
+    if (data.length < 2) return [];
+
+    const headers = data.shift();
+    return data.map(row => {
+      let obj = {};
+      headers.forEach((header, i) => {
+        obj[header] = row[i] !== undefined ? row[i] : null;
+      });
+      return obj;
+    });
+  } catch (error) {
+    Logger.log(`Error in getSheetDataAsJSON: ${error.message}`);
+    return [];
+  }
+}
+
+/**
+ * Creates JSON response - NO HEADER CHAINING
+ */
+function createJsonResponse(response) {
+  try {
+    // ✅ CORRECT: Simple approach without chaining
+    const output = ContentService.createTextOutput(JSON.stringify(response));
+    output.setMimeType(ContentService.MimeType.JSON);
+    return output;
+  } catch (error) {
+    Logger.log('createJsonResponse Error:', error);
+    // Fallback response
+    const fallback = ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: 'Response creation failed',
+      details: error.toString()
+    }));
+    fallback.setMimeType(ContentService.MimeType.JSON);
+    return fallback;
+  }
+}
+
+/**
+ * Generates unique ID - using substring() not substr()
+ */
+function generateId(prefix) {
+  // ✅ AVOID: substr() is deprecated
+  // ✅ USE: substring() for future compatibility
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+}
+
+/**
+ * Generates formatted ticket number with LockService
+ */
+function generateTicketNumber(companyCode, typeCode) {
+  const lock = LockService.getScriptLock();
+
+  try {
+    lock.waitLock(30000);
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let countersSheet = ss.getSheetByName(SHEETS.SEQUENCE_COUNTERS);
+
+    if (!countersSheet) {
+      countersSheet = initializeSequenceCountersSheet();
+    }
+
+    const sequenceName = `${companyCode}-${typeCode}`;
+    const year = Utilities.formatDate(new Date(), "Asia/Manila", "yyyy");
+
+    // Get current counter
+    const data = countersSheet.getDataRange().getValues();
+    let currentNumber = 0;
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === sequenceName) {
+        currentNumber = parseInt(data[i][1], 10) || 0;
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    const nextNumber = currentNumber + 1;
+
+    // Update or create counter
+    if (rowIndex > -1) {
+      countersSheet.getRange(rowIndex, 2).setValue(nextNumber);
+    } else {
+      countersSheet.appendRow([sequenceName, nextNumber]);
+    }
+
+    // Format ticket number
+    const paddedNumber = String(nextNumber).padStart(8, '0');
+    return `${sequenceName}-${year}-${paddedNumber}`;
+
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * =================================================================================
+ * SHEET INITIALIZATION FUNCTIONS - ENHANCED
+ * =================================================================================
+ */
+
+function initializeCompaniesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.COMPANIES);
+  sheet.getRange(1, 1, 1, 5).setValues([
+    ['id', 'name', 'code', 'created_at', 'updated_at']
+  ]);
+  sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeRolesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.ROLES);
+  sheet.getRange(1, 1, 1, 5).setValues([
+    ['id', 'name', 'company_id', 'created_at', 'updated_at']
+  ]);
+  sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeTicketsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.TICKETS);
+  sheet.getRange(1, 1, 1, 11).setValues([
+    ['id', 'ticket_number', 'title', 'ticket_type_id', 'requester_id', 'status', 'current_step_id', 'step_due_date', 'created_at', 'updated_at', 'company_id']
+  ]);
+  sheet.getRange(1, 1, 1, 11).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeTicketTypesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.TICKET_TYPES);
+  sheet.getRange(1, 1, 1, 10).setValues([
+    ['id', 'transaction_id', 'code', 'name', 'description', 'is_active', 'require_attachment_on_create', 'company_id', 'created_at', 'updated_at']
+  ]);
+  sheet.getRange(1, 1, 1, 10).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeDropdownListsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.DROPDOWN_LISTS);
+  sheet.getRange(1, 1, 1, 4).setValues([
+    ['id', 'name', 'created_at', 'updated_at']
+  ]);
+  sheet.getRange(1, 1, 1, 4).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeDropdownOptionsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.DROPDOWN_OPTIONS);
+  sheet.getRange(1, 1, 1, 5).setValues([
+    ['id', 'dropdown_list_id', 'label', 'value', 'parent_option_id']
+  ]);
+  sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeCustomFieldsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.CUSTOM_FIELDS);
+  sheet.getRange(1, 1, 1, 12).setValues([
+    ['id', 'ticket_type_id', 'name', 'label', 'type', 'is_required', 'is_hidden', 'sort_order', 'dropdown_list_id', 'depends_on_field_id', 'created_at', 'updated_at']
+  ]);
+  sheet.getRange(1, 1, 1, 12).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeWorkflowStepsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.WORKFLOW_STEPS);
+  sheet.getRange(1, 1, 1, 12).setValues([
+    ['id', 'ticket_type_id', 'name', 'status_on_reach', 'step_type', 'approver_logic', 'sort_order', 'next_ticket_type_id', 'external_app_url', 'completion_action_name', 'created_at', 'updated_at']
+  ]);
+  sheet.getRange(1, 1, 1, 12).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeAdminActionLogsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.ADMIN_ACTION_LOGS);
+  sheet.getRange(1, 1, 1, 7).setValues([
+    ['id', 'admin_user_id', 'action_type', 'target_entity', 'target_id', 'details', 'timestamp']
+  ]);
+  sheet.getRange(1, 1, 1, 7).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeSequenceCountersSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.SEQUENCE_COUNTERS);
+  sheet.getRange(1, 1, 1, 2).setValues([
+    ['sequence_name', 'last_number']
+  ]);
+  sheet.getRange(1, 1, 1, 2).setFontWeight('bold');
+  return sheet;
+}
+
+/**
+ * =================================================================================
+ * ENHANCED TEST FUNCTIONS
+ * =================================================================================
+ */
+
+function testEnhancedAPI() {
+  Logger.log('=== Testing Enhanced API Implementation ===');
+
+  try {
+    // Test system health
+    const health = getSystemHealth();
+    Logger.log('System health:', JSON.stringify(health));
+
+    // Test enhanced payload validation
+    try {
+      const invalidCompany = doPost({
+        postData: { contents: JSON.stringify({ action: 'createCompany' }) }
+      });
+      Logger.log('Invalid company response:', invalidCompany.getContent());
+    } catch (e) {
+      Logger.log('Expected error for missing payload:', e.message);
+    }
+
+    // Test custom fields
+    const customField = doPost({
+      postData: {
+        contents: JSON.stringify({
+          action: 'createCustomField',
+          ticket_type_id: 'test_type',
+          name: 'test_field',
+          type: 'text',
+          is_required: true
+        })
+      }
+    });
+    Logger.log('Custom field response:', customField.getContent());
+
+    // Test workflow steps
+    const workflowStep = doPost({
+      postData: {
+        contents: JSON.stringify({
+          action: 'createWorkflowStep',
+          ticket_type_id: 'test_type',
+          name: 'Test Approval Step',
+          step_type: 'approval'
+        })
+      }
+    });
+    Logger.log('Workflow step response:', workflowStep.getContent());
+
+    Logger.log('=== Enhanced API tests completed ===');
+  } catch (error) {
+    Logger.log('Test error:', error.message);
+  }
+}
+
+/**
+ * System info endpoint
+ */
+function getSystemInfo() {
+  return {
+    status: 'Enhanced API is running',
+    timestamp: new Date().toISOString(),
+    spreadsheetId: SPREADSHEET_ID,
+    version: '4.1',
+    features: [
+      'Enhanced payload validation',
+      'Custom fields management',
+      'Workflow steps management',
+      'System health monitoring',
+      'Comprehensive error handling',
+      'Claude AI anti-pattern fixes'
+    ],
+    availableEndpoints: [
+      'getCompanies', 'createCompany', 'updateCompany', 'deleteCompany',
+      'getRoles', 'createRole', 'updateRole', 'deleteRole',
+      'getTicketTypes', 'createTicketType', 'updateTicketType', 'deleteTicketType',
+      'getDropdownLists', 'createDropdownList', 'updateDropdownList', 'deleteDropdownList',
+      'getCustomFields', 'createCustomField', 'updateCustomField', 'deleteCustomField',
+      'getWorkflowSteps', 'createWorkflowStep', 'updateWorkflowStep', 'deleteWorkflowStep',
+      'getTickets', 'createTicket', 'updateTicket',
+      'recordLogin', 'getSystemHealth'
+    ]
+  };
+}
+
+/**
+ * Enhanced runtime verification
+ */
+function verifyAllFunctionsRuntimeSafety() {
+  Logger.log('=== Enhanced Runtime Verification ===');
+
+  const functionTests = [
+    () => getSystemInfo(),
+    () => getSystemHealth(),
+    () => extractPayload({ test: 'data' }, ['test']),
+    () => validateRequiredFields({ name: 'test' }, ['name']),
+    () => generateId('test'),
+    () => getSheetDataAsJSON(null), // Should handle gracefully
+    () => createJsonResponse({ success: true })
+  ];
+
+  let passed = 0;
+  let failed = 0;
+  const errors = [];
+
+  functionTests.forEach((testFn, index) => {
+    try {
+      const result = testFn();
+      passed++;
+      Logger.log(`Test ${index + 1}: PASSED`);
+    } catch (error) {
+      failed++;
+      errors.push(`Test ${index + 1}: ${error.message}`);
+      Logger.log(`Test ${index + 1}: FAILED - ${error.message}`);
+    }
+  });
+
+  const results = {
+    totalFunctions: functionTests.length,
+    passedFunctions: passed,
+    failedFunctions: failed,
+    errors: errors,
+    timestamp: new Date().toISOString(),
+    version: '4.1'
+  };
+
+  Logger.log('Verification Results:', JSON.stringify(results));
+  return results;
+}

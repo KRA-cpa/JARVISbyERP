@@ -12,8 +12,18 @@
  * @property {string} id - Unique company identifier
  * @property {string} name - Company display name
  * @property {string} code - Short company code for ticket numbering
+ * @property {boolean} code_locked - Whether company code is locked after first ticket
+ * @property {string|null} code_locked_at - ISO timestamp when code was locked
+ * @property {string|null} code_locked_reason - Reason for code locking
+ * @property {number} ticket_count - Number of tickets created for this company
+ * @property {boolean} is_active - Whether the company is active (not deactivated)
  * @property {string} created_at - ISO timestamp of creation
+ * @property {string} created_by - User ID who created the record
  * @property {string} updated_at - ISO timestamp of last update
+ * @property {string} updated_by - User ID who last updated the record
+ * @property {string|null} deactivated_at - ISO timestamp when deactivated (null if active)
+ * @property {string|null} deactivated_by - User ID who deactivated (null if active)
+ * @property {string|null} deactivation_reason - Reason for deactivation (null if active)
  */
 
 export class CompanyModel {
@@ -24,8 +34,18 @@ export class CompanyModel {
     this.id = data.id || '';
     this.name = data.name || '';
     this.code = data.code || '';
+    this.code_locked = data.code_locked || false;
+    this.code_locked_at = data.code_locked_at || null;
+    this.code_locked_reason = data.code_locked_reason || null;
+    this.ticket_count = data.ticket_count || 0;
+    this.is_active = data.is_active !== undefined ? data.is_active : true;
     this.created_at = data.created_at || new Date().toISOString();
+    this.created_by = data.created_by || '';
     this.updated_at = data.updated_at || new Date().toISOString();
+    this.updated_by = data.updated_by || '';
+    this.deactivated_at = data.deactivated_at || null;
+    this.deactivated_by = data.deactivated_by || null;
+    this.deactivation_reason = data.deactivation_reason || null;
   }
 
   /**
@@ -52,6 +72,80 @@ export class CompanyModel {
   }
 
   /**
+   * Check if company is active
+   * @returns {boolean}
+   */
+  isActive() {
+    return this.is_active === true || this.is_active === 'TRUE';
+  }
+
+  /**
+   * Check if company code is locked
+   * @returns {boolean}
+   */
+  isCodeLocked() {
+    return this.code_locked === true || this.code_locked === 'TRUE';
+  }
+
+  /**
+   * Get audit information summary
+   * @returns {Object}
+   */
+  getAuditInfo() {
+    return {
+      created: {
+        at: this.created_at,
+        by: this.created_by
+      },
+      updated: {
+        at: this.updated_at,
+        by: this.updated_by
+      },
+      deactivated: this.deactivated_at ? {
+        at: this.deactivated_at,
+        by: this.deactivated_by,
+        reason: this.deactivation_reason
+      } : null,
+      codeLocked: this.code_locked_at ? {
+        at: this.code_locked_at,
+        reason: this.code_locked_reason
+      } : null
+    };
+  }
+
+  /**
+   * Get status display information
+   * @returns {Object}
+   */
+  getStatusInfo() {
+    if (!this.isActive()) {
+      return {
+        status: 'deactivated',
+        label: 'Deactivated',
+        color: 'red',
+        reason: this.deactivation_reason,
+        timestamp: this.deactivated_at
+      };
+    }
+
+    if (this.isCodeLocked()) {
+      return {
+        status: 'code_locked',
+        label: 'Code Locked',
+        color: 'yellow',
+        reason: this.code_locked_reason,
+        timestamp: this.code_locked_at
+      };
+    }
+
+    return {
+      status: 'active',
+      label: 'Active',
+      color: 'green'
+    };
+  }
+
+  /**
    * Create a new company instance
    * @param {string} name
    * @param {string} code
@@ -61,6 +155,7 @@ export class CompanyModel {
     return new CompanyModel({
       name: name?.trim(),
       code: code?.toUpperCase().trim(),
+      is_active: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     });
@@ -76,8 +171,14 @@ export class CompanyModel {
  * @property {string} id - Unique role identifier
  * @property {string} name - Role display name
  * @property {string|null} company_id - Company ID (null for global roles)
+ * @property {boolean} is_active - Whether the role is active (not deactivated)
  * @property {string} created_at - ISO timestamp of creation
+ * @property {string} created_by - User ID who created the record
  * @property {string} updated_at - ISO timestamp of last update
+ * @property {string} updated_by - User ID who last updated the record
+ * @property {string|null} deactivated_at - ISO timestamp when deactivated (null if active)
+ * @property {string|null} deactivated_by - User ID who deactivated (null if active)
+ * @property {string|null} deactivation_reason - Reason for deactivation (null if active)
  */
 
 export class RoleModel {
@@ -88,8 +189,14 @@ export class RoleModel {
     this.id = data.id || '';
     this.name = data.name || '';
     this.company_id = data.company_id || null;
+    this.is_active = data.is_active !== undefined ? data.is_active : true;
     this.created_at = data.created_at || new Date().toISOString();
+    this.created_by = data.created_by || '';
     this.updated_at = data.updated_at || new Date().toISOString();
+    this.updated_by = data.updated_by || '';
+    this.deactivated_at = data.deactivated_at || null;
+    this.deactivated_by = data.deactivated_by || null;
+    this.deactivation_reason = data.deactivation_reason || null;
   }
 
   /**
@@ -106,6 +213,58 @@ export class RoleModel {
    */
   get scope() {
     return this.isGlobal ? 'Global' : 'Company-specific';
+  }
+
+  /**
+   * Check if role is active
+   * @returns {boolean}
+   */
+  isActive() {
+    return this.is_active === true || this.is_active === 'TRUE';
+  }
+
+  /**
+   * Get audit information summary
+   * @returns {Object}
+   */
+  getAuditInfo() {
+    return {
+      created: {
+        at: this.created_at,
+        by: this.created_by
+      },
+      updated: {
+        at: this.updated_at,
+        by: this.updated_by
+      },
+      deactivated: this.deactivated_at ? {
+        at: this.deactivated_at,
+        by: this.deactivated_by,
+        reason: this.deactivation_reason
+      } : null
+    };
+  }
+
+  /**
+   * Get status display information
+   * @returns {Object}
+   */
+  getStatusInfo() {
+    if (!this.isActive()) {
+      return {
+        status: 'deactivated',
+        label: 'Deactivated',
+        color: 'red',
+        reason: this.deactivation_reason,
+        timestamp: this.deactivated_at
+      };
+    }
+
+    return {
+      status: 'active',
+      label: 'Active',
+      color: 'green'
+    };
   }
 
   /**
@@ -135,6 +294,7 @@ export class RoleModel {
     return new RoleModel({
       name: name?.trim(),
       company_id: companyId === 'global' ? null : companyId,
+      is_active: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     });
@@ -152,14 +312,30 @@ export class RoleModel {
  * @property {string} label - Display label
  * @property {string} value - Option value
  * @property {string} parent_option_id - Parent option for hierarchical dropdowns
+ * @property {number} sort_order - Display order within the dropdown list
+ * @property {boolean} is_active - Whether the option is active (not deactivated)
+ * @property {string} created_at - ISO timestamp of creation
+ * @property {string} created_by - User ID who created the record
+ * @property {string} updated_at - ISO timestamp of last update
+ * @property {string} updated_by - User ID who last updated the record
+ * @property {string|null} deactivated_at - ISO timestamp when deactivated (null if active)
+ * @property {string|null} deactivated_by - User ID who deactivated (null if active)
+ * @property {string|null} deactivation_reason - Reason for deactivation (null if active)
  */
 
 /**
  * @typedef {Object} DropdownList
  * @property {string} id - Unique dropdown list identifier
  * @property {string} name - Dropdown list name
+ * @property {string} company_id - Company ID (makes dropdown lists company-specific)
+ * @property {boolean} is_active - Whether the dropdown list is active (not deactivated)
  * @property {string} created_at - ISO timestamp of creation
+ * @property {string} created_by - User ID who created the record
  * @property {string} updated_at - ISO timestamp of last update
+ * @property {string} updated_by - User ID who last updated the record
+ * @property {string|null} deactivated_at - ISO timestamp when deactivated (null if active)
+ * @property {string|null} deactivated_by - User ID who deactivated (null if active)
+ * @property {string|null} deactivation_reason - Reason for deactivation (null if active)
  * @property {DropdownOption[]} options - Array of dropdown options
  */
 
@@ -173,6 +349,15 @@ export class DropdownOptionModel {
     this.label = data.label || '';
     this.value = data.value || '';
     this.parent_option_id = data.parent_option_id || '';
+    this.sort_order = data.sort_order || 0;
+    this.is_active = data.is_active !== undefined ? data.is_active : true;
+    this.created_at = data.created_at || new Date().toISOString();
+    this.created_by = data.created_by || '';
+    this.updated_at = data.updated_at || new Date().toISOString();
+    this.updated_by = data.updated_by || '';
+    this.deactivated_at = data.deactivated_at || null;
+    this.deactivated_by = data.deactivated_by || null;
+    this.deactivation_reason = data.deactivation_reason || null;
   }
 
   /**
@@ -181,6 +366,58 @@ export class DropdownOptionModel {
    */
   get hasParent() {
     return !!this.parent_option_id;
+  }
+
+  /**
+   * Check if option is active
+   * @returns {boolean}
+   */
+  isActive() {
+    return this.is_active === true || this.is_active === 'TRUE';
+  }
+
+  /**
+   * Get audit information summary
+   * @returns {Object}
+   */
+  getAuditInfo() {
+    return {
+      created: {
+        at: this.created_at,
+        by: this.created_by
+      },
+      updated: {
+        at: this.updated_at,
+        by: this.updated_by
+      },
+      deactivated: this.deactivated_at ? {
+        at: this.deactivated_at,
+        by: this.deactivated_by,
+        reason: this.deactivation_reason
+      } : null
+    };
+  }
+
+  /**
+   * Get status display information
+   * @returns {Object}
+   */
+  getStatusInfo() {
+    if (!this.isActive()) {
+      return {
+        status: 'deactivated',
+        label: 'Deactivated',
+        color: 'red',
+        reason: this.deactivation_reason,
+        timestamp: this.deactivated_at
+      };
+    }
+
+    return {
+      status: 'active',
+      label: 'Active',
+      color: 'green'
+    };
   }
 }
 
@@ -191,8 +428,15 @@ export class DropdownListModel {
   constructor(data = {}) {
     this.id = data.id || '';
     this.name = data.name || '';
+    this.company_id = data.company_id || '';
+    this.is_active = data.is_active !== undefined ? data.is_active : true;
     this.created_at = data.created_at || new Date().toISOString();
+    this.created_by = data.created_by || '';
     this.updated_at = data.updated_at || new Date().toISOString();
+    this.updated_by = data.updated_by || '';
+    this.deactivated_at = data.deactivated_at || null;
+    this.deactivated_by = data.deactivated_by || null;
+    this.deactivation_reason = data.deactivation_reason || null;
     this.options = (data.options || []).map(option => new DropdownOptionModel(option));
   }
 
@@ -211,6 +455,58 @@ export class DropdownListModel {
    */
   getChildOptions(parentId) {
     return this.options.filter(option => option.parent_option_id === parentId);
+  }
+
+  /**
+   * Check if dropdown list is active
+   * @returns {boolean}
+   */
+  isActive() {
+    return this.is_active === true || this.is_active === 'TRUE';
+  }
+
+  /**
+   * Get audit information summary
+   * @returns {Object}
+   */
+  getAuditInfo() {
+    return {
+      created: {
+        at: this.created_at,
+        by: this.created_by
+      },
+      updated: {
+        at: this.updated_at,
+        by: this.updated_by
+      },
+      deactivated: this.deactivated_at ? {
+        at: this.deactivated_at,
+        by: this.deactivated_by,
+        reason: this.deactivation_reason
+      } : null
+    };
+  }
+
+  /**
+   * Get status display information
+   * @returns {Object}
+   */
+  getStatusInfo() {
+    if (!this.isActive()) {
+      return {
+        status: 'deactivated',
+        label: 'Deactivated',
+        color: 'red',
+        reason: this.deactivation_reason,
+        timestamp: this.deactivated_at
+      };
+    }
+
+    return {
+      status: 'active',
+      label: 'Active',
+      color: 'green'
+    };
   }
 
   /**
@@ -247,10 +543,11 @@ export class DropdownListModel {
   /**
    * Create a new dropdown list instance
    * @param {string} name
+   * @param {string} companyId
    * @param {Array<{label: string, value: string, parentValue?: string}>} options
    * @returns {DropdownListModel}
    */
-  static create(name, options = []) {
+  static create(name, companyId, options = []) {
     const formattedOptions = options.map(opt => ({
       label: opt.label,
       value: opt.value,
@@ -259,7 +556,9 @@ export class DropdownListModel {
 
     return new DropdownListModel({
       name: name?.trim(),
+      company_id: companyId,
       options: formattedOptions,
+      is_active: true,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     });
@@ -280,9 +579,15 @@ export class DropdownListModel {
  * @property {string} status - Current ticket status
  * @property {string|null} current_step_id - Current workflow step
  * @property {string|null} step_due_date - Due date for current step
- * @property {string} created_at - ISO timestamp of creation
- * @property {string} updated_at - ISO timestamp of last update
  * @property {string} company_id - Company identifier
+ * @property {boolean} is_active - Whether the ticket is active (not deleted)
+ * @property {string} created_at - ISO timestamp of creation
+ * @property {string} created_by - User ID who created the record
+ * @property {string} updated_at - ISO timestamp of last update
+ * @property {string} updated_by - User ID who last updated the record
+ * @property {string|null} deleted_at - ISO timestamp when deleted (null if not deleted)
+ * @property {string|null} deleted_by - User ID who deleted (null if not deleted)
+ * @property {string|null} deletion_reason - Reason for deletion (null if not deleted)
  * @property {string[]} children - Child ticket IDs
  * @property {string|null} parent - Parent ticket ID
  */
@@ -300,9 +605,15 @@ export class TicketModel {
     this.status = data.status || 'New';
     this.current_step_id = data.current_step_id || null;
     this.step_due_date = data.step_due_date || null;
-    this.created_at = data.created_at || new Date().toISOString();
-    this.updated_at = data.updated_at || new Date().toISOString();
     this.company_id = data.company_id || '';
+    this.is_active = data.is_active !== undefined ? data.is_active : true;
+    this.created_at = data.created_at || new Date().toISOString();
+    this.created_by = data.created_by || '';
+    this.updated_at = data.updated_at || new Date().toISOString();
+    this.updated_by = data.updated_by || '';
+    this.deleted_at = data.deleted_at || null;
+    this.deleted_by = data.deleted_by || null;
+    this.deletion_reason = data.deletion_reason || null;
     this.children = data.children || [];
     this.parent = data.parent || null;
   }

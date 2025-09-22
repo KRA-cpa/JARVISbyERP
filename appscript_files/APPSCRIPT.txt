@@ -41,6 +41,413 @@ const SHEETS = {
 
 /**
  * =================================================================================
+ * COMPREHENSIVE AUDIT FIELD UTILITY FUNCTIONS
+ * Support for creation tracking, update tracking, and soft delete/deactivation
+ * Added: September 22, 2025 for comprehensive audit trail implementation
+ * =================================================================================
+ */
+
+/**
+ * Get current user ID from request context (to be implemented with proper auth)
+ * For now, returns a placeholder - should be replaced with Firebase Auth integration
+ * @returns {string} Current user's Firebase Auth ID
+ */
+function getCurrentUserId() {
+  // TODO: Implement proper Firebase Auth integration
+  // For now, return a placeholder for development
+  return 'system_user'; // Replace with actual Firebase Auth ID extraction
+}
+
+/**
+ * Get current timestamp in Philippine Time (UTC+8)
+ * @returns {string} ISO 8601 timestamp string
+ */
+function getCurrentTimestamp() {
+  const now = new Date();
+  // Convert to Philippine Time (UTC+8)
+  const philippineTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+  return philippineTime.toISOString();
+}
+
+/**
+ * Create audit fields for new record creation
+ * @param {string} userId - User ID who is creating the record (optional, uses current user if not provided)
+ * @returns {Object} Audit fields object for creation
+ */
+function createAuditFields(userId = null) {
+  const currentUser = userId || getCurrentUserId();
+  const timestamp = getCurrentTimestamp();
+
+  return {
+    is_active: true,
+    created_at: timestamp,
+    created_by: currentUser,
+    updated_at: timestamp,
+    updated_by: currentUser,
+    deactivated_at: null,
+    deactivated_by: null,
+    deactivation_reason: null,
+    deleted_at: null,
+    deleted_by: null,
+    deletion_reason: null
+  };
+}
+
+/**
+ * Create audit fields for record updates
+ * @param {string} userId - User ID who is updating the record (optional, uses current user if not provided)
+ * @returns {Object} Audit fields object for updates
+ */
+function updateAuditFields(userId = null) {
+  const currentUser = userId || getCurrentUserId();
+  const timestamp = getCurrentTimestamp();
+
+  return {
+    updated_at: timestamp,
+    updated_by: currentUser
+  };
+}
+
+/**
+ * Create audit fields for record deactivation (soft delete for configuration data)
+ * @param {string} reason - Reason for deactivation
+ * @param {string} userId - User ID who is deactivating the record (optional, uses current user if not provided)
+ * @returns {Object} Audit fields object for deactivation
+ */
+function deactivateAuditFields(reason, userId = null) {
+  const currentUser = userId || getCurrentUserId();
+  const timestamp = getCurrentTimestamp();
+
+  return {
+    is_active: false,
+    updated_at: timestamp,
+    updated_by: currentUser,
+    deactivated_at: timestamp,
+    deactivated_by: currentUser,
+    deactivation_reason: reason
+  };
+}
+
+/**
+ * Create audit fields for record deletion (soft delete for transaction data)
+ * @param {string} reason - Reason for deletion
+ * @param {string} userId - User ID who is deleting the record (optional, uses current user if not provided)
+ * @returns {Object} Audit fields object for deletion
+ */
+function deleteAuditFields(reason, userId = null) {
+  const currentUser = userId || getCurrentUserId();
+  const timestamp = getCurrentTimestamp();
+
+  return {
+    is_active: false,
+    updated_at: timestamp,
+    updated_by: currentUser,
+    deleted_at: timestamp,
+    deleted_by: currentUser,
+    deletion_reason: reason
+  };
+}
+
+/**
+ * Reactivate a deactivated record
+ * @param {string} userId - User ID who is reactivating the record (optional, uses current user if not provided)
+ * @returns {Object} Audit fields object for reactivation
+ */
+function reactivateAuditFields(userId = null) {
+  const currentUser = userId || getCurrentUserId();
+  const timestamp = getCurrentTimestamp();
+
+  return {
+    is_active: true,
+    updated_at: timestamp,
+    updated_by: currentUser,
+    deactivated_at: null,
+    deactivated_by: null,
+    deactivation_reason: null,
+    deleted_at: null,
+    deleted_by: null,
+    deletion_reason: null
+  };
+}
+
+/**
+ * Apply audit fields to a data object
+ * @param {Object} data - The data object to enhance
+ * @param {Object} auditFields - The audit fields to apply
+ * @returns {Object} Enhanced data object with audit fields
+ */
+function applyAuditFields(data, auditFields) {
+  return {
+    ...data,
+    ...auditFields
+  };
+}
+
+/**
+ * Filter active records from a dataset
+ * @param {Array} records - Array of records to filter
+ * @returns {Array} Array containing only active records
+ */
+function filterActiveRecords(records) {
+  return records.filter(record => record.is_active === true || record.is_active === 'TRUE');
+}
+
+/**
+ * Convert audit field values for Google Sheets (handle nulls and booleans)
+ * @param {Object} auditFields - Audit fields object
+ * @returns {Object} Sheets-compatible audit fields
+ */
+function auditFieldsForSheets(auditFields) {
+  const sheetsFields = {};
+
+  Object.keys(auditFields).forEach(key => {
+    const value = auditFields[key];
+    if (value === null || value === undefined) {
+      sheetsFields[key] = '';
+    } else if (typeof value === 'boolean') {
+      sheetsFields[key] = value ? 'TRUE' : 'FALSE';
+    } else {
+      sheetsFields[key] = value;
+    }
+  });
+
+  return sheetsFields;
+}
+
+/**
+ * =================================================================================
+ * PER-COMPANY SLA STATISTICS API FUNCTIONS
+ * Enhanced support for company-specific workflow performance tracking
+ * Added: September 22, 2025 for Phase 8.95
+ * =================================================================================
+ */
+
+/**
+ * Get SLA performance statistics for a specific company
+ * @param {string} companyId - Company ID to get statistics for (optional - returns all if null)
+ * @returns {Object} Company-specific SLA performance data
+ */
+function getSLAPerformanceByCompany(companyId = null) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companies = getSheetDataAsJSON(ss.getSheetByName(SHEETS.COMPANIES));
+    const tickets = getSheetDataAsJSON(ss.getSheetByName(SHEETS.TICKETS));
+    const workflowSteps = getSheetDataAsJSON(ss.getSheetByName(SHEETS.WORKFLOW_STEPS));
+    const stepSLAs = getSheetDataAsJSON(ss.getSheetByName(SHEETS.STEP_SLAS));
+
+    const targetCompanies = companyId ? companies.filter(c => c.id === companyId) : companies;
+    const performanceData = {};
+
+    targetCompanies.forEach(company => {
+      const companyTickets = tickets.filter(t => t.company_id === company.id);
+      const completedTickets = companyTickets.filter(t => t.status === 'Completed');
+
+      let totalStandardSLAHours = 0;
+      let totalActualResolutionHours = 0;
+      let companyBreaches = 0;
+
+      completedTickets.forEach(ticket => {
+        // Get company-specific workflow steps for this ticket type
+        const ticketWorkflowSteps = workflowSteps.filter(ws =>
+          ws.ticket_type_id === ticket.ticket_type_id && ws.company_id === company.id
+        );
+
+        // Calculate standard SLA target for this ticket
+        const ticketStandardSLAHours = ticketWorkflowSteps.reduce((total, step) => {
+          const stepSLA = stepSLAs.find(sla => sla.step_id === step.id);
+          if (stepSLA) {
+            const hours = stepSLA.unit === 'days' ? stepSLA.duration * 24 : stepSLA.duration;
+            return total + hours;
+          }
+          return total;
+        }, 0);
+
+        // Calculate actual resolution time
+        const created = new Date(ticket.created_at);
+        const completed = new Date(ticket.updated_at);
+        const actualResolutionHours = (completed - created) / (1000 * 60 * 60);
+
+        totalStandardSLAHours += ticketStandardSLAHours;
+        totalActualResolutionHours += actualResolutionHours;
+
+        if (actualResolutionHours > ticketStandardSLAHours) {
+          companyBreaches++;
+        }
+      });
+
+      const avgStandardSLAHours = completedTickets.length > 0 ? totalStandardSLAHours / completedTickets.length : 0;
+      const avgActualResolutionHours = completedTickets.length > 0 ? totalActualResolutionHours / completedTickets.length : 0;
+      const slaCompliance = completedTickets.length > 0 ?
+        ((completedTickets.length - companyBreaches) / completedTickets.length * 100).toFixed(1) : 0;
+
+      performanceData[company.id] = {
+        companyId: company.id,
+        companyName: company.name,
+        totalTickets: companyTickets.length,
+        completedTickets: completedTickets.length,
+        avgStandardSLAHours: Math.round(avgStandardSLAHours * 10) / 10,
+        avgActualResolutionHours: Math.round(avgActualResolutionHours * 10) / 10,
+        slaCompliance: slaCompliance,
+        slaBreaches: companyBreaches,
+        performanceVsStandard: avgStandardSLAHours > 0 ?
+          ((avgStandardSLAHours - avgActualResolutionHours) / avgStandardSLAHours * 100).toFixed(1) : 0
+      };
+    });
+
+    return performanceData;
+  } catch (error) {
+    Logger.log('Error in getSLAPerformanceByCompany: ' + error.toString());
+    throw error;
+  }
+}
+
+/**
+ * Get SLA performance statistics for ticket types across companies
+ * @param {string} ticketTypeId - Ticket type ID to filter by (optional)
+ * @param {string} companyId - Company ID to filter by (optional)
+ * @returns {Object} Ticket type and company-specific SLA performance matrix
+ */
+function getSLAPerformanceByTicketTypeAndCompany(ticketTypeId = null, companyId = null) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companies = getSheetDataAsJSON(ss.getSheetByName(SHEETS.COMPANIES));
+    const ticketTypes = getSheetDataAsJSON(ss.getSheetByName(SHEETS.TICKET_TYPES));
+    const tickets = getSheetDataAsJSON(ss.getSheetByName(SHEETS.TICKETS));
+    const workflowSteps = getSheetDataAsJSON(ss.getSheetByName(SHEETS.WORKFLOW_STEPS));
+    const stepSLAs = getSheetDataAsJSON(ss.getSheetByName(SHEETS.STEP_SLAS));
+
+    const targetCompanies = companyId ? companies.filter(c => c.id === companyId) : companies;
+    const targetTicketTypes = ticketTypeId ? ticketTypes.filter(tt => tt.id === ticketTypeId) : ticketTypes;
+    const performanceMatrix = {};
+
+    targetCompanies.forEach(company => {
+      targetTicketTypes.forEach(ticketType => {
+        const specificTickets = tickets.filter(t =>
+          t.company_id === company.id && t.ticket_type_id === ticketType.id
+        );
+
+        if (specificTickets.length === 0) return;
+
+        // Get company-specific workflow steps for this ticket type
+        const companyWorkflowSteps = workflowSteps.filter(ws =>
+          ws.ticket_type_id === ticketType.id && ws.company_id === company.id
+        );
+
+        // Calculate standard SLA target for this company's workflow
+        const standardSLAHours = companyWorkflowSteps.reduce((total, step) => {
+          const stepSLA = stepSLAs.find(sla => sla.step_id === step.id);
+          if (stepSLA) {
+            const hours = stepSLA.unit === 'days' ? stepSLA.duration * 24 : stepSLA.duration;
+            return total + hours;
+          }
+          return total;
+        }, 0);
+
+        const completedTickets = specificTickets.filter(t => t.status === 'Completed');
+        const avgActualResolutionHours = completedTickets.length > 0 ?
+          completedTickets.reduce((sum, ticket) => {
+            const created = new Date(ticket.created_at);
+            const completed = new Date(ticket.updated_at);
+            const hours = (completed - created) / (1000 * 60 * 60);
+            return sum + hours;
+          }, 0) / completedTickets.length : 0;
+
+        const slaBreaches = completedTickets.filter(ticket => {
+          const created = new Date(ticket.created_at);
+          const completed = new Date(ticket.updated_at);
+          const actualHours = (completed - created) / (1000 * 60 * 60);
+          return actualHours > standardSLAHours;
+        }).length;
+
+        const performanceKey = `${company.id}_${ticketType.id}`;
+        performanceMatrix[performanceKey] = {
+          companyId: company.id,
+          companyName: company.name,
+          ticketTypeId: ticketType.id,
+          ticketTypeName: ticketType.name,
+          standardSLAHours: standardSLAHours,
+          avgActualResolutionHours: Math.round(avgActualResolutionHours * 10) / 10,
+          totalTickets: specificTickets.length,
+          completedTickets: completedTickets.length,
+          slaBreaches: slaBreaches,
+          slaCompliance: completedTickets.length > 0 ?
+            ((completedTickets.length - slaBreaches) / completedTickets.length * 100).toFixed(1) : 0,
+          performanceVsStandard: standardSLAHours > 0 ?
+            ((standardSLAHours - avgActualResolutionHours) / standardSLAHours * 100).toFixed(1) : 0
+        };
+      });
+    });
+
+    return performanceMatrix;
+  } catch (error) {
+    Logger.log('Error in getSLAPerformanceByTicketTypeAndCompany: ' + error.toString());
+    throw error;
+  }
+}
+
+/**
+ * Get global SLA performance across all companies
+ * @returns {Object} System-wide SLA performance metrics
+ */
+function getGlobalSLAPerformance() {
+  try {
+    const companyPerformanceData = getSLAPerformanceByCompany();
+    const companies = Object.values(companyPerformanceData);
+
+    if (companies.length === 0) {
+      return {
+        totalCompanies: 0,
+        totalTickets: 0,
+        totalCompletedTickets: 0,
+        globalAvgSLACompliance: 0,
+        globalAvgStandardSLAHours: 0,
+        globalAvgActualResolutionHours: 0,
+        totalSLABreaches: 0,
+        bestPerformingCompany: null,
+        worstPerformingCompany: null
+      };
+    }
+
+    const totalTickets = companies.reduce((sum, c) => sum + c.totalTickets, 0);
+    const totalCompletedTickets = companies.reduce((sum, c) => sum + c.completedTickets, 0);
+    const totalBreaches = companies.reduce((sum, c) => sum + c.slaBreaches, 0);
+
+    const weightedSLASum = companies.reduce((sum, c) =>
+      sum + (c.avgStandardSLAHours * c.completedTickets), 0);
+    const weightedActualSum = companies.reduce((sum, c) =>
+      sum + (c.avgActualResolutionHours * c.completedTickets), 0);
+
+    const globalAvgStandardSLAHours = totalCompletedTickets > 0 ?
+      weightedSLASum / totalCompletedTickets : 0;
+    const globalAvgActualResolutionHours = totalCompletedTickets > 0 ?
+      weightedActualSum / totalCompletedTickets : 0;
+    const globalSLACompliance = totalCompletedTickets > 0 ?
+      ((totalCompletedTickets - totalBreaches) / totalCompletedTickets * 100).toFixed(1) : 0;
+
+    const bestPerformingCompany = companies.reduce((best, current) =>
+      (!best || parseFloat(current.slaCompliance) > parseFloat(best.slaCompliance)) ? current : best, null);
+    const worstPerformingCompany = companies.reduce((worst, current) =>
+      (!worst || parseFloat(current.slaCompliance) < parseFloat(worst.slaCompliance)) ? current : worst, null);
+
+    return {
+      totalCompanies: companies.length,
+      totalTickets: totalTickets,
+      totalCompletedTickets: totalCompletedTickets,
+      globalAvgSLACompliance: globalSLACompliance,
+      globalAvgStandardSLAHours: Math.round(globalAvgStandardSLAHours * 10) / 10,
+      globalAvgActualResolutionHours: Math.round(globalAvgActualResolutionHours * 10) / 10,
+      totalSLABreaches: totalBreaches,
+      bestPerformingCompany: bestPerformingCompany,
+      worstPerformingCompany: worstPerformingCompany
+    };
+  } catch (error) {
+    Logger.log('Error in getGlobalSLAPerformance: ' + error.toString());
+    throw error;
+  }
+}
+
+/**
+ * =================================================================================
  * MAIN API ROUTERS (doGet, doPost, doOptions)
  * These are the main entry points for the deployed Web App.
  * =================================================================================
@@ -123,6 +530,27 @@ function doGet(e) {
             data: getUserPreferences(userId)
           });
 
+        case 'getSLAPerformanceByCompany':
+          const slaCompanyId = params.company_id || null;
+          return createJsonResponse({
+            success: true,
+            data: getSLAPerformanceByCompany(slaCompanyId)
+          });
+
+        case 'getSLAPerformanceByTicketType':
+          const slaTicketTypeId = params.ticket_type_id || null;
+          const slaCompanyFilter = params.company_id || null;
+          return createJsonResponse({
+            success: true,
+            data: getSLAPerformanceByTicketTypeAndCompany(slaTicketTypeId, slaCompanyFilter)
+          });
+
+        case 'getGlobalSLAPerformance':
+          return createJsonResponse({
+            success: true,
+            data: getGlobalSLAPerformance()
+          });
+
         default:
           return createJsonResponse({
             success: false,
@@ -187,12 +615,23 @@ function doPost(e) {
 
         case 'deleteCompany':
           const companyId = data.payload?.id || data.id;
+          const deactivationReason = data.payload?.reason || data.reason || 'admin_request';
           if (!companyId) {
-            throw new Error('Company ID is required for deletion');
+            throw new Error('Company ID is required for deactivation');
           }
           return createJsonResponse({
             success: true,
-            data: deleteCompany(companyId)
+            data: deactivateCompany(companyId, deactivationReason)
+          });
+
+        case 'reactivateCompany':
+          const reactivateCompanyId = data.payload?.id || data.id;
+          if (!reactivateCompanyId) {
+            throw new Error('Company ID is required for reactivation');
+          }
+          return createJsonResponse({
+            success: true,
+            data: reactivateCompany(reactivateCompanyId)
           });
 
         case 'createRole':
@@ -504,30 +943,47 @@ function createCompany(payload) {
       throw new Error('Company name and code are required');
     }
 
-    // Check if code already exists
+    // Check if code already exists (among active companies only)
     const existingCompanies = getSheetDataAsJSON(companiesSheet);
-    const codeExists = existingCompanies.some(c => c.code.toUpperCase() === payload.code.toUpperCase());
+    const activeCompanies = filterActiveRecords(existingCompanies);
+    const codeExists = activeCompanies.some(c => c.code.toUpperCase() === payload.code.toUpperCase());
 
     if (codeExists) {
       throw new Error('Company code already exists');
     }
 
-    // Generate new company
+    // Create audit fields for new record
+    const auditFields = createAuditFields();
+
+    // Generate new company with comprehensive audit fields
     const newCompany = {
       id: generateId('comp'),
       name: payload.name.trim(),
-      code: payload.code.toUpperCase().trim(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
+      code: payload.code.toUpperCase(),
+      code_locked: false,
+      code_locked_at: null,
+      code_locked_reason: null,
+      ticket_count: 0,
+      ...auditFields
     };
 
-    // Add to sheet
+    // Add to sheet with all audit fields
     companiesSheet.appendRow([
-      newCompany.id,
-      newCompany.name,
-      newCompany.code,
-      newCompany.created_at,
-      newCompany.updated_at
+      sheetsData.id,
+      sheetsData.name,
+      sheetsData.code,
+      sheetsData.code_locked,
+      sheetsData.code_locked_at,
+      sheetsData.code_locked_reason,
+      sheetsData.ticket_count,
+      sheetsData.is_active,
+      sheetsData.created_at,
+      sheetsData.created_by,
+      sheetsData.updated_at,
+      sheetsData.updated_by,
+      sheetsData.deactivated_at,
+      sheetsData.deactivated_by,
+      sheetsData.deactivation_reason
     ]);
 
     // Log the action
@@ -537,6 +993,130 @@ function createCompany(payload) {
     return newCompany;
   } catch (error) {
     Logger.log(`Error creating company: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Deactivate (soft delete) a company
+ * @param {string} companyId - The company ID to deactivate
+ * @param {string} reason - Reason for deactivation
+ * @returns {Object} Result of the deactivation operation
+ */
+function deactivateCompany(companyId, reason = 'admin_request') {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    if (!companiesSheet) {
+      throw new Error('Companies sheet not found');
+    }
+
+    // Find the row to deactivate
+    const data = companiesSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const rowIndex = rows.findIndex(row => row[0] === companyId);
+    if (rowIndex === -1) {
+      throw new Error('Company not found');
+    }
+
+    const actualRowIndex = rowIndex + 2; // +1 for header, +1 for 0-based index
+
+    // Create deactivation audit fields
+    const deactivationFields = deactivateAuditFields(reason);
+    const sheetsFields = auditFieldsForSheets(deactivationFields);
+
+    // Update the row with deactivation fields
+    const currentRow = rows[rowIndex];
+    const updatedRow = [...currentRow];
+
+    // Update audit fields (assuming column positions match the schema)
+    updatedRow[7] = sheetsFields.is_active; // is_active column
+    updatedRow[10] = sheetsFields.updated_at; // updated_at column
+    updatedRow[11] = sheetsFields.updated_by; // updated_by column
+    updatedRow[12] = sheetsFields.deactivated_at; // deactivated_at column
+    updatedRow[13] = sheetsFields.deactivated_by; // deactivated_by column
+    updatedRow[14] = sheetsFields.deactivation_reason; // deactivation_reason column
+
+    // Write the updated row back to the sheet
+    companiesSheet.getRange(actualRowIndex, 1, 1, updatedRow.length).setValues([updatedRow]);
+
+    // Log the action
+    logAdminAction('DEACTIVATE_COMPANY', companyId, { reason: reason });
+
+    Logger.log(`Deactivated company: ${companyId} (Reason: ${reason})`);
+    return {
+      id: companyId,
+      deactivated: true,
+      reason: reason,
+      deactivated_at: deactivationFields.deactivated_at
+    };
+
+  } catch (error) {
+    Logger.log(`Error deactivating company: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Reactivate a deactivated company
+ * @param {string} companyId - The company ID to reactivate
+ * @returns {Object} Result of the reactivation operation
+ */
+function reactivateCompany(companyId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    if (!companiesSheet) {
+      throw new Error('Companies sheet not found');
+    }
+
+    // Find the row to reactivate
+    const data = companiesSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const rowIndex = rows.findIndex(row => row[0] === companyId);
+    if (rowIndex === -1) {
+      throw new Error('Company not found');
+    }
+
+    const actualRowIndex = rowIndex + 2; // +1 for header, +1 for 0-based index
+
+    // Create reactivation audit fields
+    const reactivationFields = reactivateAuditFields();
+    const sheetsFields = auditFieldsForSheets(reactivationFields);
+
+    // Update the row with reactivation fields
+    const currentRow = rows[rowIndex];
+    const updatedRow = [...currentRow];
+
+    // Update audit fields (assuming column positions match the schema)
+    updatedRow[7] = sheetsFields.is_active; // is_active column
+    updatedRow[10] = sheetsFields.updated_at; // updated_at column
+    updatedRow[11] = sheetsFields.updated_by; // updated_by column
+    updatedRow[12] = sheetsFields.deactivated_at; // deactivated_at column (cleared)
+    updatedRow[13] = sheetsFields.deactivated_by; // deactivated_by column (cleared)
+    updatedRow[14] = sheetsFields.deactivation_reason; // deactivation_reason column (cleared)
+
+    // Write the updated row back to the sheet
+    companiesSheet.getRange(actualRowIndex, 1, 1, updatedRow.length).setValues([updatedRow]);
+
+    // Log the action
+    logAdminAction('REACTIVATE_COMPANY', companyId, { reactivated: true });
+
+    Logger.log(`Reactivated company: ${companyId}`);
+    return {
+      id: companyId,
+      reactivated: true,
+      reactivated_at: reactivationFields.updated_at
+    };
+
+  } catch (error) {
+    Logger.log(`Error reactivating company: ${error.message}`);
     throw error;
   }
 }
@@ -1688,10 +2268,12 @@ function pingAPI() {
 function initializeCompaniesSheet() {
   const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   const sheet = ss.insertSheet(SHEETS.COMPANIES);
-  sheet.getRange(1, 1, 1, 5).setValues([
-    ['id', 'name', 'code', 'created_at', 'updated_at']
+  sheet.getRange(1, 1, 1, 15).setValues([
+    ['id', 'name', 'code', 'code_locked', 'code_locked_at', 'code_locked_reason', 'ticket_count',
+     'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by',
+     'deactivated_at', 'deactivated_by', 'deactivation_reason']
   ]);
-  sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+  sheet.getRange(1, 1, 1, 15).setFontWeight('bold');
   return sheet;
 }
 
