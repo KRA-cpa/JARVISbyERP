@@ -18,7 +18,11 @@
       "Bash(curl:*)",
       "Bash(cmd /c taskkill:*)",
       "Bash(tasklist)",
-      "Bash(cmd /c:*)"
+      "Bash(cmd /c:*)",
+      "Bash(grep:*)",
+      "Bash(timeout:*)",
+      "Bash(npm test:*)",
+      "Bash(xargs ls:*)"
     ],
     "deny": [],
     "ask": []

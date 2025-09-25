@@ -19,11 +19,11 @@ import { API } from '../api/googleSheet';
 const AdminTicketTypeCreatePage = () => {
   const navigate = useNavigate();
   const { user } = useUser();
-  const { success, error, warning, ToastContainer } = useToast();
+  const { success, error, ToastContainer } = useToast();
   const [loading, setLoading] = useState(false);
 
   // API data
-  const { data: companies, loading: companiesLoading } = useCompanies();
+  const { data: companies } = useCompanies();
   const { data: existingTicketTypes, refetch: refetchTicketTypes } = useTicketTypes();
 
   // Form state

@@ -4,6 +4,30 @@
 **Version**: 2.0
 **Status**: Phase 5 Complete - Advanced SLA Features with Dashboard Integration
 
+## 🚨 MANDATORY SLA RESOLUTION RULE
+
+### FUNDAMENTAL RESOLUTION PRINCIPLE FOR ALL SLA ISSUES:
+
+**1. SIMPLEST FIRST APPROACH:**
+- **1st Resolution**: Always use simplest SLA solution (copy working SLA implementation)
+- **Complexity Gate**: Only add SLA complexity if simple calculation clearly inadequate
+- **Pattern Priority**: Use proven working SLA patterns from successful implementations
+
+**2. SLA DOMAIN INTEGRATION WITH SYSTEM DOMAINS:**
+- **Frontend SLA**: Use working SLA widget patterns from SLAWidgets.js
+- **API SLA**: Use working SLA hooks from useAPI.js (useSLAStatus, useWorkflowStepSLA)
+- **AppScript SLA**: Use working SLA calculation functions from backend
+- **Schema SLA**: Use working step_slas table structure and relationships
+
+**3. SLA WORKING PATTERNS:**
+- **Reference**: slaCalculator.js (proven UTC+8 calculations)
+- **Reference**: SLAWidgets.js (working dashboard components)
+- **Reference**: AdminWorkflowBuilder.js (working SLA configuration)
+
+**BEFORE ANY SLA CHANGES**: Apply Fundamental Resolution Rule from RESOLUTION_CHECKLIST.md
+
+---
+
 ## Overview
 
 This document tracks the implementation of Service Level Agreement (SLA) functionality for the JarvisByERP Ticketing & Workflow Orchestration System.

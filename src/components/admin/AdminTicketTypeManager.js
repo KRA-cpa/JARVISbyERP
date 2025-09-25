@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Icons from '../shared/Icons';
 import { useToast } from '../shared/Toast';
 import { useTicketTypes, useCompanies } from '../../hooks/useAPI';
@@ -15,7 +15,7 @@ import { API } from '../../api/googleSheet';
  * - Company-specific vs global ticket types
  */
 const AdminTicketTypeManager = () => {
-  const { success, error, warning, ToastContainer } = useToast();
+  const { success, error, ToastContainer } = useToast();
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
@@ -42,13 +42,13 @@ const AdminTicketTypeManager = () => {
   const [showActivationDialog, setShowActivationDialog] = useState(false);
   const [pendingActivation, setPendingActivation] = useState(null);
 
-  // Comment requirements state
-  const [commentRequirements, setCommentRequirements] = useState({
-    require_on_approve: false,
-    require_on_return: false,
-    require_on_reject: false,
-    require_on_cancel: false
-  });
+  // Comment requirements state - TODO: Implement comment requirements feature
+  // const [commentRequirements, setCommentRequirements] = useState({
+  //   require_on_approve: false,
+  //   require_on_return: false,
+  //   require_on_reject: false,
+  //   require_on_cancel: false
+  // });
 
   const [formErrors, setFormErrors] = useState({});
 
@@ -63,12 +63,13 @@ const AdminTicketTypeManager = () => {
       require_attachment_on_create: false,
       company_id: 'global'
     });
-    setCommentRequirements({
-      require_on_approve: false,
-      require_on_return: false,
-      require_on_reject: false,
-      require_on_cancel: false
-    });
+    // TODO: Implement comment requirements feature
+    // setCommentRequirements({
+    //   require_on_approve: false,
+    //   require_on_return: false,
+    //   require_on_reject: false,
+    //   require_on_cancel: false
+    // });
     setFormErrors({});
   };
 
@@ -280,13 +281,14 @@ const AdminTicketTypeManager = () => {
     }
   };
 
-  const handleCommentRequirementChange = (e) => {
-    const { name, checked } = e.target;
-    setCommentRequirements(prev => ({
-      ...prev,
-      [name]: checked
-    }));
-  };
+  // TODO: Implement comment requirements feature
+  // const handleCommentRequirementChange = (e) => {
+  //   const { name, checked } = e.target;
+  //   setCommentRequirements(prev => ({
+  //     ...prev,
+  //     [name]: checked
+  //   }));
+  // };
 
   // Loading state
   if (ticketTypesLoading || companiesLoading) {

@@ -15,6 +15,7 @@ import AdminPage from './pages/AdminPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import AdminTicketTypeCreatePage from './pages/AdminTicketTypeCreatePage';
 import AdminCustomFieldCreatePage from './pages/AdminCustomFieldCreatePage';
+import ProfilePage from './pages/ProfilePage';
 
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
@@ -115,6 +116,15 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
               </ProtectedRoute>
             }
           />

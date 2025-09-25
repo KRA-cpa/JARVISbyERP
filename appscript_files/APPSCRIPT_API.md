@@ -74,6 +74,7 @@ const SHEETS = {
     STEP_CONDITIONS: "step_conditions",
     DROPDOWN_LISTS: "dropdown_lists",
     DROPDOWN_OPTIONS: "dropdown_options",
+    DROPDOWN_COMPANY_ASSIGNMENTS: "dropdown_company_assignments",
     TICKET_ATTACHMENTS: "ticket_attachments",
     REPORT_CONFIGURATIONS: "report_configurations",
     TICKET_LINKS: "ticket_links",
@@ -1818,13 +1819,22 @@ After deployment, you can test the API using these functions in the Apps Script 
 - `ping` - Health check
 - `getCompanies` - Fetch all companies
 - `getRoles` - Fetch all roles
-- `getDropdownLists` - Fetch dropdown lists with options
+- `getDropdownLists` - Fetch dropdown lists with options (company-filtered)
+- `getDropdownAssignments` - Fetch company assignments for dropdown lists
 - `getTicketTypes` - Fetch ticket types
 
 **POST Endpoints:**
 - All CRUD operations for companies, roles, dropdown lists, and ticket types
+- `createDropdownList` - Create dropdown (Step 1: company-neutral)
+- `assignDropdownToCompany` - Assign dropdown to company(ies) (Step 2)
+- `removeDropdownFromCompany` - Remove company access from dropdown
+- `setDropdownGlobal` - Make dropdown available to all companies
 - `createTicket` - Create new tickets
 - `recordLogin` - Log user logins
+
+**📋 NEW: Two-Step Dropdown Process**
+1. **Create**: `createDropdownList(name, description, options)` - Creates draft dropdown
+2. **Assign**: `assignDropdownToCompany(dropdownId, companyIds, isGlobal)` - Assigns access
 
 ## ✅ Syntax Issues Fixed
 

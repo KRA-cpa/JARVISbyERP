@@ -27,7 +27,6 @@ import {
 // Note: Using simplified timezone handling without date-fns-tz dependency
 
 // Philippine timezone configuration
-const PHILIPPINE_TIMEZONE = 'Asia/Manila';
 
 // Business hours configuration (24-hour format)
 const BUSINESS_HOURS = {

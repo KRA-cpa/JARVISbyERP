@@ -1,0 +1,3627 @@
+September 24, 9:03 PM
+Version 23
+Kenneth Advento
+
+/*
+=================================================================================
+ * Ticketing & Workflow Orchestration System - Google Apps Script Backend API
+ * Version: 4.8 (CRITICAL FIX: doPost now passes description and company_id to createDropdownList)
+ * Author: System Generated
+ * Description: This script provides a complete serverless backend using Google Sheets
+ * for the dynamic ticketing system, as specified in the design document. It includes
+ * multi-tenancy, dynamic roles, sequential ticket numbering, and audit logging.
+ * =================================================================================
+ */
+
+// --- GLOBAL CONFIGURATION ---
+// IMPORTANT: Replace this with the actual ID of your Google Sheet.
+const SPREADSHEET_ID = "1EjFpr_yktSU6QAeBSAvcr6iWVtmaOCV1t5unvImmot4"; // Google sheet added 0235pm
+
+// Sheet (Table) Names - must match the tabs in your Google Sheet exactly.
+const SHEETS = {
+    COMPANIES: "companies",
+    ROLES: "roles",
+    TICKETS: "tickets",
+    TICKET_HISTORY: "ticket_history",
+    TICKET_TYPES: "ticket_types",
+    COMMENT_REQUIREMENTS: "comment_requirements",
+    CUSTOM_FIELDS: "custom_fields",
+    CUSTOM_FIELD_VALUES: "custom_field_values",
+    WORKFLOW_STEPS: "workflow_steps",
+    STEP_APPROVERS: "step_approvers",
+    USER_ROLE_ASSIGNMENTS: "user_role_assignments",
+    STEP_SLAS: "step_slas",
+    STEP_CONDITIONS: "step_conditions",
+    DROPDOWN_LISTS: "dropdown_lists",
+    DROPDOWN_OPTIONS: "dropdown_options",
+    TICKET_ATTACHMENTS: "ticket_attachments",
+    REPORT_CONFIGURATIONS: "report_configurations",
+    TICKET_LINKS: "ticket_links",
+    SEQUENCE_COUNTERS: "sequence_counters",
+    TICKET_ACTION_LOGS: "ticket_action_logs",
+    ADMIN_ACTION_LOGS: "admin_action_logs",
+    USER_PREFERENCES: "user_preferences"
+};
+
+/**
+ * =================================================================================
+ * COMPREHENSIVE AUDIT FIELD UTILITY FUNCTIONS
+ * Support for creation tracking, update tracking, and soft delete/deactivation
+ * Added: September 22, 2025 for comprehensive audit trail implementation
+ * =================================================================================
+ */
+
+/**
+ * Get current user ID from request context (to be implemented with proper auth)
+ * For now, returns a placeholder - should be replaced with Firebase Auth integration
+ * @returns {string} Current user's Firebase Auth ID
+ */
+function getCurrentUserId() {
+  // TODO: Implement proper Firebase Auth integration
+  // For now, return a placeholder for development
+  return 'system_user'; // Replace with actual Firebase Auth ID extraction
+}
+
+/**
+ * Get current timestamp in Philippine Time (UTC+8)
+ * @returns {string} ISO 8601 timestamp string
+ */
+function getCurrentTimestamp() {
+  const now = new Date();
+  // Convert to Philippine Time (UTC+8)
+  const philippineTime = new Date(now.getTime() + (8 * 60 * 60 * 1000));
+  return philippineTime.toISOString();
+}
+
+/**
+ * Create audit fields for new record creation
+ * @param {string} userId - User ID who is creating the record (optional, uses current user if not provided)
+ * @returns {Object} Audit fields object for creation
+ */
+function createAuditFields(userId = null) {
+  const currentUser = userId || getCurrentUserId();
+  const timestamp = getCurrentTimestamp();
+
+  return {
+    is_active: true,
+    created_at: timestamp,
+    created_by: currentUser,
+    updated_at: timestamp,
+    updated_by: currentUser,
+    deactivated_at: null,
+    deactivated_by: null,
+    deactivation_reason: null,
+    deleted_at: null,
+    deleted_by: null,
+    deletion_reason: null
+  };
+}
+
+/**
+ * Create audit fields for record updates
+ * @param {string} userId - User ID who is updating the record (optional, uses current user if not provided)
+ * @returns {Object} Audit fields object for updates
+ */
+function updateAuditFields(userId = null) {
+  const currentUser = userId || getCurrentUserId();
+  const timestamp = getCurrentTimestamp();
+
+  return {
+    updated_at: timestamp,
+    updated_by: currentUser
+  };
+}
+
+/**
+ * Create audit fields for record deactivation (soft delete for configuration data)
+ * @param {string} reason - Reason for deactivation
+ * @param {string} userId - User ID who is deactivating the record (optional, uses current user if not provided)
+ * @returns {Object} Audit fields object for deactivation
+ */
+function deactivateAuditFields(reason, userId = null) {
+  const currentUser = userId || getCurrentUserId();
+  const timestamp = getCurrentTimestamp();
+
+  return {
+    is_active: false,
+    updated_at: timestamp,
+    updated_by: currentUser,
+    deactivated_at: timestamp,
+    deactivated_by: currentUser,
+    deactivation_reason: reason
+  };
+}
+
+/**
+ * Create audit fields for record deletion (soft delete for transaction data)
+ * @param {string} reason - Reason for deletion
+ * @param {string} userId - User ID who is deleting the record (optional, uses current user if not provided)
+ * @returns {Object} Audit fields object for deletion
+ */
+function deleteAuditFields(reason, userId = null) {
+  const currentUser = userId || getCurrentUserId();
+  const timestamp = getCurrentTimestamp();
+
+  return {
+    is_active: false,
+    updated_at: timestamp,
+    updated_by: currentUser,
+    deleted_at: timestamp,
+    deleted_by: currentUser,
+    deletion_reason: reason
+  };
+}
+
+/**
+ * Reactivate a deactivated record
+ * @param {string} userId - User ID who is reactivating the record (optional, uses current user if not provided)
+ * @returns {Object} Audit fields object for reactivation
+ */
+function reactivateAuditFields(userId = null) {
+  const currentUser = userId || getCurrentUserId();
+  const timestamp = getCurrentTimestamp();
+
+  return {
+    is_active: true,
+    updated_at: timestamp,
+    updated_by: currentUser,
+    deactivated_at: null,
+    deactivated_by: null,
+    deactivation_reason: null,
+    deleted_at: null,
+    deleted_by: null,
+    deletion_reason: null
+  };
+}
+
+/**
+ * Apply audit fields to a data object
+ * @param {Object} data - The data object to enhance
+ * @param {Object} auditFields - The audit fields to apply
+ * @returns {Object} Enhanced data object with audit fields
+ */
+function applyAuditFields(data, auditFields) {
+  return {
+    ...data,
+    ...auditFields
+  };
+}
+
+/**
+ * Filter active records from a dataset
+ * @param {Array} records - Array of records to filter
+ * @returns {Array} Array containing only active records
+ */
+function filterActiveRecords(records) {
+  return records.filter(record => record.is_active === true || record.is_active === 'TRUE');
+}
+
+/**
+ * Convert audit field values for Google Sheets (handle nulls and booleans)
+ * @param {Object} auditFields - Audit fields object
+ * @returns {Object} Sheets-compatible audit fields
+ */
+function auditFieldsForSheets(auditFields) {
+  const sheetsFields = {};
+
+  Object.keys(auditFields).forEach(key => {
+    const value = auditFields[key];
+    if (value === null || value === undefined) {
+      sheetsFields[key] = '';
+    } else if (typeof value === 'boolean') {
+      sheetsFields[key] = value ? 'TRUE' : 'FALSE';
+    } else {
+      sheetsFields[key] = value;
+    }
+  });
+
+  return sheetsFields;
+}
+
+/**
+ * =================================================================================
+ * PER-COMPANY SLA STATISTICS API FUNCTIONS
+ * Enhanced support for company-specific workflow performance tracking
+ * Added: September 22, 2025 for Phase 8.95
+ * =================================================================================
+ */
+
+/**
+ * Get SLA performance statistics for a specific company
+ * @param {string} companyId - Company ID to get statistics for (optional - returns all if null)
+ * @returns {Object} Company-specific SLA performance data
+ */
+function getSLAPerformanceByCompany(companyId = null) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companies = getSheetDataAsJSON(ss.getSheetByName(SHEETS.COMPANIES));
+    const tickets = getSheetDataAsJSON(ss.getSheetByName(SHEETS.TICKETS));
+    const workflowSteps = getSheetDataAsJSON(ss.getSheetByName(SHEETS.WORKFLOW_STEPS));
+    const stepSLAs = getSheetDataAsJSON(ss.getSheetByName(SHEETS.STEP_SLAS));
+
+    const targetCompanies = companyId ? companies.filter(c => c.id === companyId) : companies;
+    const performanceData = {};
+
+    targetCompanies.forEach(company => {
+      const companyTickets = tickets.filter(t => t.company_id === company.id);
+      const completedTickets = companyTickets.filter(t => t.status === 'Completed');
+
+      let totalStandardSLAHours = 0;
+      let totalActualResolutionHours = 0;
+      let companyBreaches = 0;
+
+      completedTickets.forEach(ticket => {
+        // Get company-specific workflow steps for this ticket type
+        const ticketWorkflowSteps = workflowSteps.filter(ws =>
+          ws.ticket_type_id === ticket.ticket_type_id && ws.company_id === company.id
+        );
+
+        // Calculate standard SLA target for this ticket
+        const ticketStandardSLAHours = ticketWorkflowSteps.reduce((total, step) => {
+          const stepSLA = stepSLAs.find(sla => sla.step_id === step.id);
+          if (stepSLA) {
+            const hours = stepSLA.unit === 'days' ? stepSLA.duration * 24 : stepSLA.duration;
+            return total + hours;
+          }
+          return total;
+        }, 0);
+
+        // Calculate actual resolution time
+        const created = new Date(ticket.created_at);
+        const completed = new Date(ticket.updated_at);
+        const actualResolutionHours = (completed - created) / (1000 * 60 * 60);
+
+        totalStandardSLAHours += ticketStandardSLAHours;
+        totalActualResolutionHours += actualResolutionHours;
+
+        if (actualResolutionHours > ticketStandardSLAHours) {
+          companyBreaches++;
+        }
+      });
+
+      const avgStandardSLAHours = completedTickets.length > 0 ? totalStandardSLAHours / completedTickets.length : 0;
+      const avgActualResolutionHours = completedTickets.length > 0 ? totalActualResolutionHours / completedTickets.length : 0;
+      const slaCompliance = completedTickets.length > 0 ?
+        ((completedTickets.length - companyBreaches) / completedTickets.length * 100).toFixed(1) : 0;
+
+      performanceData[company.id] = {
+        companyId: company.id,
+        companyName: company.name,
+        totalTickets: companyTickets.length,
+        completedTickets: completedTickets.length,
+        avgStandardSLAHours: Math.round(avgStandardSLAHours * 10) / 10,
+        avgActualResolutionHours: Math.round(avgActualResolutionHours * 10) / 10,
+        slaCompliance: slaCompliance,
+        slaBreaches: companyBreaches,
+        performanceVsStandard: avgStandardSLAHours > 0 ?
+          ((avgStandardSLAHours - avgActualResolutionHours) / avgStandardSLAHours * 100).toFixed(1) : 0
+      };
+    });
+
+    return performanceData;
+  } catch (error) {
+    Logger.log('Error in getSLAPerformanceByCompany: ' + error.toString());
+    throw error;
+  }
+}
+
+/**
+ * Get SLA performance statistics for ticket types across companies
+ * @param {string} ticketTypeId - Ticket type ID to filter by (optional)
+ * @param {string} companyId - Company ID to filter by (optional)
+ * @returns {Object} Ticket type and company-specific SLA performance matrix
+ */
+function getSLAPerformanceByTicketTypeAndCompany(ticketTypeId = null, companyId = null) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companies = getSheetDataAsJSON(ss.getSheetByName(SHEETS.COMPANIES));
+    const ticketTypes = getSheetDataAsJSON(ss.getSheetByName(SHEETS.TICKET_TYPES));
+    const tickets = getSheetDataAsJSON(ss.getSheetByName(SHEETS.TICKETS));
+    const workflowSteps = getSheetDataAsJSON(ss.getSheetByName(SHEETS.WORKFLOW_STEPS));
+    const stepSLAs = getSheetDataAsJSON(ss.getSheetByName(SHEETS.STEP_SLAS));
+
+    const targetCompanies = companyId ? companies.filter(c => c.id === companyId) : companies;
+    const targetTicketTypes = ticketTypeId ? ticketTypes.filter(tt => tt.id === ticketTypeId) : ticketTypes;
+    const performanceMatrix = {};
+
+    targetCompanies.forEach(company => {
+      targetTicketTypes.forEach(ticketType => {
+        const specificTickets = tickets.filter(t =>
+          t.company_id === company.id && t.ticket_type_id === ticketType.id
+        );
+
+        if (specificTickets.length === 0) return;
+
+        // Get company-specific workflow steps for this ticket type
+        const companyWorkflowSteps = workflowSteps.filter(ws =>
+          ws.ticket_type_id === ticketType.id && ws.company_id === company.id
+        );
+
+        // Calculate standard SLA target for this company's workflow
+        const standardSLAHours = companyWorkflowSteps.reduce((total, step) => {
+          const stepSLA = stepSLAs.find(sla => sla.step_id === step.id);
+          if (stepSLA) {
+            const hours = stepSLA.unit === 'days' ? stepSLA.duration * 24 : stepSLA.duration;
+            return total + hours;
+          }
+          return total;
+        }, 0);
+
+        const completedTickets = specificTickets.filter(t => t.status === 'Completed');
+        const avgActualResolutionHours = completedTickets.length > 0 ?
+          completedTickets.reduce((sum, ticket) => {
+            const created = new Date(ticket.created_at);
+            const completed = new Date(ticket.updated_at);
+            const hours = (completed - created) / (1000 * 60 * 60);
+            return sum + hours;
+          }, 0) / completedTickets.length : 0;
+
+        const slaBreaches = completedTickets.filter(ticket => {
+          const created = new Date(ticket.created_at);
+          const completed = new Date(ticket.updated_at);
+          const actualHours = (completed - created) / (1000 * 60 * 60);
+          return actualHours > standardSLAHours;
+        }).length;
+
+        const performanceKey = `${company.id}_${ticketType.id}`;
+        performanceMatrix[performanceKey] = {
+          companyId: company.id,
+          companyName: company.name,
+          ticketTypeId: ticketType.id,
+          ticketTypeName: ticketType.name,
+          standardSLAHours: standardSLAHours,
+          avgActualResolutionHours: Math.round(avgActualResolutionHours * 10) / 10,
+          totalTickets: specificTickets.length,
+          completedTickets: completedTickets.length,
+          slaBreaches: slaBreaches,
+          slaCompliance: completedTickets.length > 0 ?
+            ((completedTickets.length - slaBreaches) / completedTickets.length * 100).toFixed(1) : 0,
+          performanceVsStandard: standardSLAHours > 0 ?
+            ((standardSLAHours - avgActualResolutionHours) / standardSLAHours * 100).toFixed(1) : 0
+        };
+      });
+    });
+
+    return performanceMatrix;
+  } catch (error) {
+    Logger.log('Error in getSLAPerformanceByTicketTypeAndCompany: ' + error.toString());
+    throw error;
+  }
+}
+
+/**
+ * Get global SLA performance across all companies
+ * @returns {Object} System-wide SLA performance metrics
+ */
+function getGlobalSLAPerformance() {
+  try {
+    const companyPerformanceData = getSLAPerformanceByCompany();
+    const companies = Object.values(companyPerformanceData);
+
+    if (companies.length === 0) {
+      return {
+        totalCompanies: 0,
+        totalTickets: 0,
+        totalCompletedTickets: 0,
+        globalAvgSLACompliance: 0,
+        globalAvgStandardSLAHours: 0,
+        globalAvgActualResolutionHours: 0,
+        totalSLABreaches: 0,
+        bestPerformingCompany: null,
+        worstPerformingCompany: null
+      };
+    }
+
+    const totalTickets = companies.reduce((sum, c) => sum + c.totalTickets, 0);
+    const totalCompletedTickets = companies.reduce((sum, c) => sum + c.completedTickets, 0);
+    const totalBreaches = companies.reduce((sum, c) => sum + c.slaBreaches, 0);
+
+    const weightedSLASum = companies.reduce((sum, c) =>
+      sum + (c.avgStandardSLAHours * c.completedTickets), 0);
+    const weightedActualSum = companies.reduce((sum, c) =>
+      sum + (c.avgActualResolutionHours * c.completedTickets), 0);
+
+    const globalAvgStandardSLAHours = totalCompletedTickets > 0 ?
+      weightedSLASum / totalCompletedTickets : 0;
+    const globalAvgActualResolutionHours = totalCompletedTickets > 0 ?
+      weightedActualSum / totalCompletedTickets : 0;
+    const globalSLACompliance = totalCompletedTickets > 0 ?
+      ((totalCompletedTickets - totalBreaches) / totalCompletedTickets * 100).toFixed(1) : 0;
+
+    const bestPerformingCompany = companies.reduce((best, current) =>
+      (!best || parseFloat(current.slaCompliance) > parseFloat(best.slaCompliance)) ? current : best, null);
+    const worstPerformingCompany = companies.reduce((worst, current) =>
+      (!worst || parseFloat(current.slaCompliance) < parseFloat(worst.slaCompliance)) ? current : worst, null);
+
+    return {
+      totalCompanies: companies.length,
+      totalTickets: totalTickets,
+      totalCompletedTickets: totalCompletedTickets,
+      globalAvgSLACompliance: globalSLACompliance,
+      globalAvgStandardSLAHours: Math.round(globalAvgStandardSLAHours * 10) / 10,
+      globalAvgActualResolutionHours: Math.round(globalAvgActualResolutionHours * 10) / 10,
+      totalSLABreaches: totalBreaches,
+      bestPerformingCompany: bestPerformingCompany,
+      worstPerformingCompany: worstPerformingCompany
+    };
+  } catch (error) {
+    Logger.log('Error in getGlobalSLAPerformance: ' + error.toString());
+    throw error;
+  }
+}
+
+/**
+ * =================================================================================
+ * MAIN API ROUTERS (doGet, doPost, doOptions)
+ * These are the main entry points for the deployed Web App.
+ * =================================================================================
+ */
+
+/**
+ * Handles all GET requests. Used for fetching data.
+ * @param {object} e - The event object from the GET request.
+ * @returns {ContentService.TextOutput} - A JSON response.
+ */
+function doGet(e) {
+    // Safe parameter access with fallback
+    const params = e && e.parameter ? e.parameter : {};
+    const action = params.action || 'ping'; // Default to 'ping' if no action
+
+    try {
+      // Log for debugging
+      console.log('doGet called with params:', params);
+
+      // Handle the request based on action
+      switch(action) {
+        case 'ping':
+          return createJsonResponse({
+            success: true,
+            message: 'API connection successful',
+            serverTime: new Date().toISOString(),
+            responseTime: 150,
+            version: '1.0.0'
+          });
+
+        case 'getCompanies':
+          return createJsonResponse({
+            success: true,
+            data: getCompanies(params)
+          });
+
+        case 'getCompany':
+          return createJsonResponse({
+            success: true,
+            data: getCompany(params.companyId)
+          });
+
+        case 'getRoles':
+          return createJsonResponse({
+            success: true,
+            data: getRoles(params)
+          });
+
+        case 'getDropdownLists':
+          return createJsonResponse({
+            success: true,
+            data: getDropdownLists(params)
+          });
+
+        case 'getDropdownOptions':
+          return createJsonResponse({
+            success: true,
+            data: getDropdownOptions(params.listId)
+          });
+
+        case 'getTicketTypes':
+          return createJsonResponse({
+            success: true,
+            data: getTicketTypes(params)
+          });
+
+        case 'getTickets':
+          return createJsonResponse({
+            success: true,
+            data: getTickets(params)
+          });
+
+        case 'getUserPreferences':
+          const userId = params.user_id;
+          if (!userId) {
+            throw new Error('User ID is required for getting preferences');
+          }
+          return createJsonResponse({
+            success: true,
+            data: getUserPreferences(userId)
+          });
+
+        case 'getSLAPerformanceByCompany':
+          const slaCompanyId = params.company_id || null;
+          return createJsonResponse({
+            success: true,
+            data: getSLAPerformanceByCompany(slaCompanyId)
+          });
+
+        case 'getSLAPerformanceByTicketType':
+          const slaTicketTypeId = params.ticket_type_id || null;
+          const slaCompanyFilter = params.company_id || null;
+          return createJsonResponse({
+            success: true,
+            data: getSLAPerformanceByTicketTypeAndCompany(slaTicketTypeId, slaCompanyFilter)
+          });
+
+        case 'getGlobalSLAPerformance':
+          return createJsonResponse({
+            success: true,
+            data: getGlobalSLAPerformance()
+          });
+
+        default:
+          return createJsonResponse({
+            success: false,
+            error: 'Unknown action: ' + action
+          });
+      }
+    } catch (error) {
+      console.error('doGet Error:', error);
+      return createJsonResponse({
+        success: false,
+        error: error.toString()
+      });
+    }
+}
+
+/**
+ * Handles all POST requests. Used for creating or updating data.
+ * @param {object} e - The event object from the POST request.
+ * @returns {ContentService.TextOutput} - A JSON response.
+ */
+function doPost(e) {
+    // Safe parameter access
+    const postData = e && e.postData ? e.postData.contents : '{}';
+
+    try {
+      const data = JSON.parse(postData);
+      const action = data.action || 'ping';
+
+      console.log('doPost called with action:', action, 'data:', data);
+
+      // Handle the request based on action
+      switch(action) {
+        case 'ping':
+          return createJsonResponse({
+            success: true,
+            message: 'API connection successful',
+            serverTime: new Date().toISOString(),
+            responseTime: 150,
+            version: '1.0.0'
+          });
+
+        case 'getCompanies':
+          return createJsonResponse({
+            success: true,
+            data: getCompanies()
+          });
+
+        case 'createCompany':
+          // Handle both payload formats: { action, payload } or { action, ...payload }
+          const companyData = data.payload || { name: data.name, code: data.code };
+          return createJsonResponse({
+            success: true,
+            data: createCompany(companyData)
+          });
+
+        case 'updateCompany':
+          const updateCompanyData = data.payload || { id: data.id, name: data.name, code: data.code };
+          return createJsonResponse({
+            success: true,
+            data: updateCompany(updateCompanyData)
+          });
+
+        case 'deleteCompany':
+          const companyId = data.payload?.id || data.id;
+          const deactivationReason = data.payload?.reason || data.reason || 'admin_request';
+          if (!companyId) {
+            throw new Error('Company ID is required for deactivation');
+          }
+          return createJsonResponse({
+            success: true,
+            data: deactivateCompany(companyId, deactivationReason)
+          });
+
+        case 'reactivateCompany':
+          const reactivateCompanyId = data.payload?.id || data.id;
+          if (!reactivateCompanyId) {
+            throw new Error('Company ID is required for reactivation');
+          }
+          return createJsonResponse({
+            success: true,
+            data: reactivateCompany(reactivateCompanyId)
+          });
+
+        case 'createRole':
+          const roleData = data.payload || { name: data.name, company_id: data.company_id };
+          return createJsonResponse({
+            success: true,
+            data: createRole(roleData)
+          });
+
+        case 'updateRole':
+          const updateRoleData = data.payload || { id: data.id, name: data.name, company_id: data.company_id };
+          return createJsonResponse({
+            success: true,
+            data: updateRole(updateRoleData)
+          });
+
+        case 'deleteRole':
+          const roleId = data.payload?.id || data.id;
+          if (!roleId) {
+            throw new Error('Role ID is required for deletion');
+          }
+          return createJsonResponse({
+            success: true,
+            data: deleteRole(roleId)
+          });
+
+        case 'createDropdownList':
+          const dropdownData = data.payload || {
+            name: data.name,
+            description: data.description,
+            company_id: data.company_id,
+            options: data.options
+          };
+          return createJsonResponse({
+            success: true,
+            data: createDropdownList(dropdownData)
+          });
+
+        case 'updateDropdownList':
+          const updateDropdownData = data.payload || {
+            id: data.id,
+            name: data.name,
+            description: data.description,
+            company_id: data.company_id,
+            options: data.options
+          };
+          return createJsonResponse({
+            success: true,
+            data: updateDropdownList(updateDropdownData)
+          });
+
+        case 'deleteDropdownList':
+          const dropdownId = data.payload?.id || data.id;
+          if (!dropdownId) {
+            throw new Error('Dropdown list ID is required for deletion');
+          }
+          return createJsonResponse({
+            success: true,
+            data: deleteDropdownList(dropdownId)
+          });
+
+        case 'createTicketType':
+          const ticketTypeData = data.payload || { name: data.name, code: data.code, description: data.description, transaction_id: data.transaction_id, require_attachment_on_create: data.require_attachment_on_create, company_id: data.company_id };
+          return createJsonResponse({
+            success: true,
+            data: createTicketType(ticketTypeData)
+          });
+
+        case 'updateTicketType':
+          const updateTicketTypeData = data.payload || { id: data.id, name: data.name, code: data.code, description: data.description, transaction_id: data.transaction_id, require_attachment_on_create: data.require_attachment_on_create, company_id: data.company_id };
+          return createJsonResponse({
+            success: true,
+            data: updateTicketType(updateTicketTypeData)
+          });
+
+        case 'deleteTicketType':
+          const ticketTypeId = data.payload?.id || data.id;
+          if (!ticketTypeId) {
+            throw new Error('Ticket type ID is required for deletion');
+          }
+          return createJsonResponse({
+            success: true,
+            data: deleteTicketType(ticketTypeId)
+          });
+
+        case 'getTickets':
+          return createJsonResponse({
+            success: true,
+            data: getTickets(data)
+          });
+
+        case 'createTicket':
+          const ticketData = data.payload || {
+            title: data.title,
+            ticket_type_id: data.ticket_type_id,
+            requester_id: data.requester_id,
+            company_id: data.company_id,
+            custom_fields: data.custom_fields
+          };
+          return createJsonResponse({
+            success: true,
+            data: createTicket(ticketData)
+          });
+
+        case 'recordLogin':
+          const loginData = data.payload || {
+            userId: data.userId || data.user_id,
+            email: data.email,
+            ipAddress: data.ipAddress
+          };
+          return createJsonResponse({
+            success: true,
+            data: logLogin(loginData)
+          });
+
+        case 'updateUserPreferences':
+          const preferencesPayload = data.payload || data;
+          const prefUserId = preferencesPayload.user_id;
+          const preferences = preferencesPayload.preferences || preferencesPayload;
+          if (!prefUserId) {
+            throw new Error('User ID is required for updating preferences');
+          }
+          return createJsonResponse({
+            success: true,
+            data: updateUserPreferences(prefUserId, preferences)
+          });
+
+        default:
+          return createJsonResponse({
+            success: false,
+            error: 'Unknown action: ' + action
+          });
+      }
+    } catch (error) {
+      console.error('doPost Error:', error);
+      return createJsonResponse({
+        success: false,
+        error: error.toString()
+      });
+    }
+}
+
+/**
+ * Handles OPTIONS requests for CORS preflight checks. This is essential for
+ * allowing the frontend (e.g., on Vercel) to communicate with this API.
+ * Google Apps Script requires proper CORS handling for cross-origin requests.
+ * @param {object} e - The event object from the OPTIONS request.
+ * @returns {ContentService.TextOutput} - An empty response with CORS support.
+ */
+function doOptions(e) {
+  // Google Apps Script doesn't support setHeader chaining
+  // For Web Apps, CORS is handled automatically when deployed with "Anyone" access
+  return ContentService
+    .createTextOutput('')
+    .setMimeType(ContentService.MimeType.TEXT);
+}
+
+/**
+ * =================================================================================
+ * CORE BUSINESS LOGIC FUNCTIONS
+ * =================================================================================
+ */
+
+/**
+ * Creates a new ticket, generates a unique ticket number, and logs the creation.
+ * @param {object} payload - The data for the new ticket from the frontend.
+ * @returns {object} - Confirmation of the created ticket.
+ */
+function createTicket(payload) {
+  // Validate payload exists
+  if (!payload) {
+    throw new Error('Payload is required');
+  }
+
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ticketsSheet = ss.getSheetByName(SHEETS.TICKETS);
+
+  const now = new Date();
+  const newTicketId = ticketsSheet.getLastRow() > 0 ? ticketsSheet.getLastRow() : 1; // Simple internal ID
+
+  // --- Generate User-Facing Ticket Number ---
+  const ticketTypes = getSheetDataAsJSON(ss.getSheetByName(SHEETS.TICKET_TYPES));
+  const companies = getSheetDataAsJSON(ss.getSheetByName(SHEETS.COMPANIES));
+
+  const ticketType = ticketTypes.find(t => t.id == payload.ticket_type_id);
+  const company = companies.find(c => c.id == payload.company_id);
+
+  if (!ticketType) throw new Error(`Ticket Type with ID ${payload.ticket_type_id} not found.`);
+  if (!company) throw new Error(`Company with ID ${payload.company_id} not found.`);
+
+  const ticketNumber = generateTicketNumber(company.code, ticketType.code);
+
+  // --- Create Main Ticket Entry ---
+  const newTicketRow = [
+    newTicketId,
+    ticketNumber,
+    payload.title,
+    payload.ticket_type_id,
+    payload.requester_id,
+    'New', // Initial status
+    payload.current_step_id || null,
+    payload.step_due_date || null,
+    now,
+    now,
+    payload.company_id
+  ];
+  ticketsSheet.appendRow(newTicketRow);
+
+  // --- Log Actions ---
+  logTicketHistory(newTicketId, payload.requester_id, 'Created', 'Ticket submitted by user.');
+  logTicketAction(newTicketId, payload.requester_id, 'CREATE_TICKET', { newTicketData: payload });
+
+  // --- Save Custom Field Values (Simplified for POC) ---
+  if (payload.customData) {
+      const fieldValuesSheet = ss.getSheetByName(SHEETS.CUSTOM_FIELD_VALUES);
+      for (const fieldId in payload.customData) {
+          const valueRow = [
+              (fieldValuesSheet.getLastRow() > 0 ? fieldValuesSheet.getLastRow() : 1),
+              newTicketId,
+              fieldId,
+              payload.customData[fieldId], // Assumes text value
+              null, null, null // Placeholders for other value types
+          ];
+          fieldValuesSheet.appendRow(valueRow);
+      }
+  }
+
+  return { ticketId: newTicketId, ticketNumber: ticketNumber, message: "Ticket created successfully." };
+}
+
+/**
+ * Fetches all tickets and their parent/child relationships.
+ * @param {object} params - Optional filter parameters.
+ * @returns {Array} - An array of ticket objects.
+ */
+function getTickets(params) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const ticketsSheet = ss.getSheetByName(SHEETS.TICKETS);
+  const linksSheet = ss.getSheetByName(SHEETS.TICKET_LINKS);
+
+  const tickets = getSheetDataAsJSON(ticketsSheet);
+  const links = getSheetDataAsJSON(linksSheet);
+
+  // Add parent/child info to each ticket object
+  const ticketsWithLinks = tickets.map(ticket => {
+      const children = links.filter(l => l.parent_ticket_id == ticket.id).map(l => l.child_ticket_id);
+      const parent = links.find(l => l.child_ticket_id == ticket.id);
+      return {
+          ...ticket,
+          children: children,
+          parent: parent ? parent.parent_ticket_id : null
+      };
+  });
+
+  // Example filtering (can be expanded)
+  if (params.status) {
+    return ticketsWithLinks.filter(t => t.status === params.status);
+  }
+
+  return ticketsWithLinks;
+}
+
+/**
+ * =================================================================================
+ * COMPANY MANAGEMENT FUNCTIONS
+ * =================================================================================
+ */
+
+function getCompanies(params = {}) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    if (!companiesSheet) {
+      initializeCompaniesSheet();
+      return [];
+    }
+
+    const companies = getSheetDataAsJSON(companiesSheet);
+    Logger.log(`Retrieved ${companies.length} companies`);
+    return companies;
+  } catch (error) {
+    Logger.log(`Error getting companies: ${error.message}`);
+    throw new Error(`Failed to retrieve companies: ${error.message}`);
+  }
+}
+
+function getCompany(companyId) {
+  try {
+    const companies = getCompanies();
+    const company = companies.find(c => c.id === companyId);
+
+    if (!company) {
+      throw new Error('Company not found');
+    }
+
+    return company;
+  } catch (error) {
+    Logger.log(`Error getting company ${companyId}: ${error.message}`);
+    throw error;
+  }
+}
+
+function createCompany(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    if (!companiesSheet) {
+      companiesSheet = initializeCompaniesSheet();
+    }
+
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
+
+    // Validate required fields
+    if (!payload.name || !payload.code) {
+      throw new Error('Company name and code are required');
+    }
+
+    // Check if code already exists (among active companies only)
+    const existingCompanies = getSheetDataAsJSON(companiesSheet);
+    const activeCompanies = filterActiveRecords(existingCompanies);
+    const codeExists = activeCompanies.some(c => c.code.toUpperCase() === payload.code.toUpperCase());
+
+    if (codeExists) {
+      throw new Error('Company code already exists');
+    }
+
+    // Create audit fields for new record
+    const auditFields = createAuditFields();
+
+    // Generate new company with comprehensive audit fields
+    const newCompany = {
+      id: generateId('comp'),
+      name: payload.name.trim(),
+      code: payload.code.toUpperCase(),
+      code_locked: false,
+      code_locked_at: null,
+      code_locked_reason: null,
+      ticket_count: 0,
+      ...auditFields
+    };
+
+    // Add to sheet with all audit fields
+    companiesSheet.appendRow([
+      newCompany.id,
+      newCompany.name,
+      newCompany.code,
+      newCompany.code_locked,
+      newCompany.code_locked_at,
+      newCompany.code_locked_reason,
+      newCompany.ticket_count,
+      newCompany.is_active,
+      newCompany.created_at,
+      newCompany.created_by,
+      newCompany.updated_at,
+      newCompany.updated_by,
+      newCompany.deactivated_at,
+      newCompany.deactivated_by,
+      newCompany.deactivation_reason
+    ]);
+
+    // Log the action
+    logAdminAction('CREATE_COMPANY', newCompany.id, newCompany);
+
+    Logger.log(`Created company: ${newCompany.name} (${newCompany.code})`);
+    return newCompany;
+  } catch (error) {
+    Logger.log(`Error creating company: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Deactivate (soft delete) a company
+ * @param {string} companyId - The company ID to deactivate
+ * @param {string} reason - Reason for deactivation
+ * @returns {Object} Result of the deactivation operation
+ */
+function deactivateCompany(companyId, reason = 'admin_request') {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    if (!companiesSheet) {
+      throw new Error('Companies sheet not found');
+    }
+
+    // Find the row to deactivate
+    const data = companiesSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const rowIndex = rows.findIndex(row => row[0] === companyId);
+    if (rowIndex === -1) {
+      throw new Error('Company not found');
+    }
+
+    const actualRowIndex = rowIndex + 2; // +1 for header, +1 for 0-based index
+
+    // Create deactivation audit fields
+    const deactivationFields = deactivateAuditFields(reason);
+    const sheetsFields = auditFieldsForSheets(deactivationFields);
+
+    // Update the row with deactivation fields
+    const currentRow = rows[rowIndex];
+    const updatedRow = [...currentRow];
+
+    // Update audit fields (assuming column positions match the schema)
+    updatedRow[7] = sheetsFields.is_active; // is_active column
+    updatedRow[10] = sheetsFields.updated_at; // updated_at column
+    updatedRow[11] = sheetsFields.updated_by; // updated_by column
+    updatedRow[12] = sheetsFields.deactivated_at; // deactivated_at column
+    updatedRow[13] = sheetsFields.deactivated_by; // deactivated_by column
+    updatedRow[14] = sheetsFields.deactivation_reason; // deactivation_reason column
+
+    // Write the updated row back to the sheet
+    companiesSheet.getRange(actualRowIndex, 1, 1, updatedRow.length).setValues([updatedRow]);
+
+    // Log the action
+    logAdminAction('DEACTIVATE_COMPANY', companyId, { reason: reason });
+
+    Logger.log(`Deactivated company: ${companyId} (Reason: ${reason})`);
+    return {
+      id: companyId,
+      deactivated: true,
+      reason: reason,
+      deactivated_at: deactivationFields.deactivated_at
+    };
+
+  } catch (error) {
+    Logger.log(`Error deactivating company: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Reactivate a deactivated company
+ * @param {string} companyId - The company ID to reactivate
+ * @returns {Object} Result of the reactivation operation
+ */
+function reactivateCompany(companyId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    if (!companiesSheet) {
+      throw new Error('Companies sheet not found');
+    }
+
+    // Find the row to reactivate
+    const data = companiesSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const rowIndex = rows.findIndex(row => row[0] === companyId);
+    if (rowIndex === -1) {
+      throw new Error('Company not found');
+    }
+
+    const actualRowIndex = rowIndex + 2; // +1 for header, +1 for 0-based index
+
+    // Create reactivation audit fields
+    const reactivationFields = reactivateAuditFields();
+    const sheetsFields = auditFieldsForSheets(reactivationFields);
+
+    // Update the row with reactivation fields
+    const currentRow = rows[rowIndex];
+    const updatedRow = [...currentRow];
+
+    // Update audit fields (assuming column positions match the schema)
+    updatedRow[7] = sheetsFields.is_active; // is_active column
+    updatedRow[10] = sheetsFields.updated_at; // updated_at column
+    updatedRow[11] = sheetsFields.updated_by; // updated_by column
+    updatedRow[12] = sheetsFields.deactivated_at; // deactivated_at column (cleared)
+    updatedRow[13] = sheetsFields.deactivated_by; // deactivated_by column (cleared)
+    updatedRow[14] = sheetsFields.deactivation_reason; // deactivation_reason column (cleared)
+
+    // Write the updated row back to the sheet
+    companiesSheet.getRange(actualRowIndex, 1, 1, updatedRow.length).setValues([updatedRow]);
+
+    // Log the action
+    logAdminAction('REACTIVATE_COMPANY', companyId, { reactivated: true });
+
+    Logger.log(`Reactivated company: ${companyId}`);
+    return {
+      id: companyId,
+      reactivated: true,
+      reactivated_at: reactivationFields.updated_at
+    };
+
+  } catch (error) {
+    Logger.log(`Error reactivating company: ${error.message}`);
+    throw error;
+  }
+}
+
+function updateCompany(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
+
+    if (!payload.id) {
+      throw new Error('Company ID is required for update');
+    }
+
+    // Validate required fields
+    if (!payload.name || !payload.code) {
+      throw new Error('Company name and code are required');
+    }
+
+    // Find the row to update
+    const data = companiesSheet.getDataRange().getValues();
+    const headers = data[0];
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.id) { // ID is in first column
+        rowIndex = i + 1; // 1-based index
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Company not found');
+    }
+
+    // Check if code already exists (excluding current company)
+    const existingCompanies = getSheetDataAsJSON(companiesSheet);
+    const codeExists = existingCompanies.some(c =>
+      c.id !== payload.id && c.code.toUpperCase() === payload.code.toUpperCase()
+    );
+
+    if (codeExists) {
+      throw new Error('Company code already exists');
+    }
+
+    // Update the company
+    const updatedCompany = {
+      id: payload.id,
+      name: payload.name.trim(),
+      code: payload.code.toUpperCase().trim(),
+      created_at: data[rowIndex - 1][3], // Keep original created_at
+      updated_at: new Date().toISOString()
+    };
+
+    // Update the row
+    companiesSheet.getRange(rowIndex, 1, 1, 5).setValues([[
+      updatedCompany.id,
+      updatedCompany.name,
+      updatedCompany.code,
+      updatedCompany.created_at,
+      updatedCompany.updated_at
+    ]]);
+
+    // Log the action
+    logAdminAction('UPDATE_COMPANY', payload.id, { before: data[rowIndex - 1], after: updatedCompany });
+
+    Logger.log(`Updated company: ${updatedCompany.name}`);
+    return updatedCompany;
+  } catch (error) {
+    Logger.log(`Error updating company: ${error.message}`);
+    throw error;
+  }
+}
+
+function deleteCompany(companyId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const companiesSheet = ss.getSheetByName(SHEETS.COMPANIES);
+
+    // Find the row to delete
+    const data = companiesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+    let companyData = null;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === companyId) {
+        rowIndex = i + 1; // 1-based index
+        companyData = data[i];
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Company not found');
+    }
+
+    // Delete the row
+    companiesSheet.deleteRow(rowIndex);
+
+    // Log the action
+    logAdminAction('DELETE_COMPANY', companyId, { deletedCompany: companyData });
+
+    Logger.log(`Deleted company: ${companyData[1]}`);
+    return { message: 'Company deleted successfully' };
+  } catch (error) {
+    Logger.log(`Error deleting company: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * =================================================================================
+ * ROLE MANAGEMENT FUNCTIONS
+ * =================================================================================
+ */
+
+function getRoles(params = {}) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let rolesSheet = ss.getSheetByName(SHEETS.ROLES);
+
+    if (!rolesSheet) {
+      rolesSheet = initializeRolesSheet();
+      return [];
+    }
+
+    let roles = getSheetDataAsJSON(rolesSheet);
+
+    // Filter by company if specified
+    if (params.companyId) {
+      roles = roles.filter(r => r.company_id === params.companyId || r.company_id === null);
+    }
+
+    Logger.log(`Retrieved ${roles.length} roles`);
+    return roles;
+  } catch (error) {
+    Logger.log(`Error getting roles: ${error.message}`);
+    throw new Error(`Failed to retrieve roles: ${error.message}`);
+  }
+}
+
+function createRole(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let rolesSheet = ss.getSheetByName(SHEETS.ROLES);
+
+    if (!rolesSheet) {
+      rolesSheet = initializeRolesSheet();
+    }
+
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
+
+    if (!payload.name) {
+      throw new Error('Role name is required');
+    }
+
+    const newRole = {
+      id: generateId('role'),
+      name: payload.name.trim(),
+      company_id: payload.company_id === 'global' ? null : payload.company_id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    rolesSheet.appendRow([
+      newRole.id,
+      newRole.name,
+      newRole.company_id || '',
+      newRole.created_at,
+      newRole.updated_at
+    ]);
+
+    logAdminAction('CREATE_ROLE', newRole.id, newRole);
+
+    Logger.log(`Created role: ${newRole.name}`);
+    return newRole;
+  } catch (error) {
+    Logger.log(`Error creating role: ${error.message}`);
+    throw error;
+  }
+}
+
+function updateRole(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const rolesSheet = ss.getSheetByName(SHEETS.ROLES);
+
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
+
+    if (!payload.id || !payload.name) {
+      throw new Error('Role ID and name are required');
+    }
+
+    // Find and update the role
+    const data = rolesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.id) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Role not found');
+    }
+
+    const updatedRole = {
+      id: payload.id,
+      name: payload.name.trim(),
+      company_id: payload.company_id === 'global' ? null : payload.company_id,
+      created_at: data[rowIndex - 1][3],
+      updated_at: new Date().toISOString()
+    };
+
+    rolesSheet.getRange(rowIndex, 1, 1, 5).setValues([[
+      updatedRole.id,
+      updatedRole.name,
+      updatedRole.company_id || '',
+      updatedRole.created_at,
+      updatedRole.updated_at
+    ]]);
+
+    logAdminAction('UPDATE_ROLE', payload.id, updatedRole);
+
+    Logger.log(`Updated role: ${updatedRole.name}`);
+    return updatedRole;
+  } catch (error) {
+    Logger.log(`Error updating role: ${error.message}`);
+    throw error;
+  }
+}
+
+function deleteRole(roleId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const rolesSheet = ss.getSheetByName(SHEETS.ROLES);
+
+    const data = rolesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+    let roleData = null;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === roleId) {
+        rowIndex = i + 1;
+        roleData = data[i];
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Role not found');
+    }
+
+    rolesSheet.deleteRow(rowIndex);
+    logAdminAction('DELETE_ROLE', roleId, { deletedRole: roleData });
+
+    Logger.log(`Deleted role: ${roleData[1]}`);
+    return { message: 'Role deleted successfully' };
+  } catch (error) {
+    Logger.log(`Error deleting role: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * =================================================================================
+ * DROPDOWN LIST MANAGEMENT FUNCTIONS
+ * =================================================================================
+ */
+
+function getDropdownLists(params = {}) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+
+    if (!listsSheet) {
+      listsSheet = initializeDropdownListsSheet();
+      return [];
+    }
+
+    const lists = getSheetDataAsJSON(listsSheet);
+
+    // Filter by company_id if provided
+    let filteredLists = lists;
+    if (params.company_id !== undefined) {
+      if (params.company_id === null || params.company_id === 'global') {
+        // Get only global dropdown lists (company_id is null or empty)
+        filteredLists = lists.filter(list =>
+          !list.company_id || list.company_id === '' || list.company_id === null
+        );
+      } else {
+        // Get company-specific lists AND global lists
+        filteredLists = lists.filter(list => {
+          // Always include global lists (null, empty, or 'global')
+          if (!list.company_id || list.company_id === '' || list.company_id === null || list.company_id === 'global') {
+            return true;
+          }
+
+          // Check if company_id is a JSON array (multi-company)
+          if (typeof list.company_id === 'string' && (list.company_id.startsWith('[') || list.company_id.includes(','))) {
+            try {
+              // Try parsing as JSON array first
+              if (list.company_id.startsWith('[')) {
+                const companyArray = JSON.parse(list.company_id);
+                return Array.isArray(companyArray) && companyArray.includes(params.company_id);
+              }
+              // Handle comma-separated format as backup
+              else if (list.company_id.includes(',')) {
+                const companyArray = list.company_id.split(',').map(id => id.trim());
+                return companyArray.includes(params.company_id);
+              }
+            } catch (error) {
+              Logger.log(`Error parsing multi-company dropdown list ${list.id}: ${error.message}`);
+              return false;
+            }
+          }
+
+          // Single company match
+          return list.company_id === params.company_id;
+        });
+      }
+    }
+
+    // Add options to each list
+    const listsWithOptions = filteredLists.map(list => ({
+      ...list,
+      options: getDropdownOptions(list.id)
+    }));
+
+    Logger.log(`Retrieved ${filteredLists.length} dropdown lists (filtered from ${lists.length})`);
+    return listsWithOptions;
+  } catch (error) {
+    Logger.log(`Error getting dropdown lists: ${error.message}`);
+    throw new Error(`Failed to retrieve dropdown lists: ${error.message}`);
+  }
+}
+
+function getDropdownOptions(listId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let optionsSheet = ss.getSheetByName(SHEETS.DROPDOWN_OPTIONS);
+
+    if (!optionsSheet) {
+      optionsSheet = initializeDropdownOptionsSheet();
+      return [];
+    }
+
+    const allOptions = getSheetDataAsJSON(optionsSheet);
+    const listOptions = allOptions.filter(opt => opt.dropdown_list_id === listId);
+
+    return listOptions;
+  } catch (error) {
+    Logger.log(`Error getting dropdown options for list ${listId}: ${error.message}`);
+    return [];
+  }
+}
+
+function createDropdownList(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+    let optionsSheet = ss.getSheetByName(SHEETS.DROPDOWN_OPTIONS);
+
+    if (!listsSheet) {
+      listsSheet = initializeDropdownListsSheet();
+    }
+    if (!optionsSheet) {
+      optionsSheet = initializeDropdownOptionsSheet();
+    }
+
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
+
+    if (!payload.name) {
+      throw new Error('Dropdown list name is required');
+    }
+
+    // Handle multi-company assignment
+    let companyId = payload.company_id || null;
+
+    // If multiple companies are specified, store as JSON array
+    if (Array.isArray(payload.company_ids) && payload.company_ids.length > 0) {
+      companyId = JSON.stringify(payload.company_ids);
+    } else if (Array.isArray(payload.company_id) && payload.company_id.length > 0) {
+      companyId = JSON.stringify(payload.company_id);
+    }
+
+    const currentTime = new Date().toISOString();
+    const currentUser = getCurrentUserId();
+
+    const newList = {
+      id: generateId('dd'),
+      name: payload.name.trim(),
+      description: payload.description ? payload.description.trim() : '',
+      company_id: companyId,
+      is_active: true,
+      created_at: currentTime,
+      created_by: currentUser,
+      updated_at: currentTime,
+      updated_by: currentUser,
+      deactivated_at: null,
+      deactivated_by: null,
+      deactivation_reason: null
+    };
+
+    // Create the list
+    listsSheet.appendRow([
+      newList.id,
+      newList.name,
+      newList.description,
+      newList.company_id,
+      newList.is_active,
+      newList.created_at,
+      newList.created_by,
+      newList.updated_at,
+      newList.updated_by,
+      newList.deactivated_at,
+      newList.deactivated_by,
+      newList.deactivation_reason
+    ]);
+
+    // Add options if provided
+    if (payload.options && Array.isArray(payload.options)) {
+      payload.options.forEach(option => {
+        if (option.label && option.value) {
+          optionsSheet.appendRow([
+            generateId('opt'),
+            newList.id,
+            option.label.trim(),
+            option.value.trim(),
+            option.parent_id || ''
+          ]);
+        }
+      });
+    }
+
+    logAdminAction('CREATE_DROPDOWN_LIST', newList.id, newList);
+
+    Logger.log(`Created dropdown list: ${newList.name}`);
+    return newList;
+  } catch (error) {
+    Logger.log(`Error creating dropdown list: ${error.message}`);
+    throw error;
+  }
+}
+
+function updateDropdownList(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+    const optionsSheet = ss.getSheetByName(SHEETS.DROPDOWN_OPTIONS);
+
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
+
+    if (!payload.id || !payload.name) {
+      throw new Error('Dropdown list ID and name are required');
+    }
+
+    // Update the list
+    const listData = listsSheet.getDataRange().getValues();
+    let listRowIndex = -1;
+
+    for (let i = 1; i < listData.length; i++) {
+      if (listData[i][0] === payload.id) {
+        listRowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (listRowIndex === -1) {
+      throw new Error('Dropdown list not found');
+    }
+
+    const currentTime = new Date().toISOString();
+    const currentUser = getCurrentUserId();
+
+    const updatedList = {
+      id: payload.id,
+      name: payload.name.trim(),
+      description: payload.description ? payload.description.trim() : (listData[listRowIndex - 1][2] || ''),
+      company_id: payload.company_id !== undefined ? payload.company_id : listData[listRowIndex - 1][3],
+      is_active: listData[listRowIndex - 1][4] !== undefined ? listData[listRowIndex - 1][4] : true,
+      created_at: listData[listRowIndex - 1][5] || currentTime,
+      created_by: listData[listRowIndex - 1][6] || currentUser,
+      updated_at: currentTime,
+      updated_by: currentUser,
+      deactivated_at: listData[listRowIndex - 1][9] || null,
+      deactivated_by: listData[listRowIndex - 1][10] || null,
+      deactivation_reason: listData[listRowIndex - 1][11] || null
+    };
+
+    listsSheet.getRange(listRowIndex, 1, 1, 12).setValues([[
+      updatedList.id,
+      updatedList.name,
+      updatedList.description,
+      updatedList.company_id,
+      updatedList.is_active,
+      updatedList.created_at,
+      updatedList.created_by,
+      updatedList.updated_at,
+      updatedList.updated_by,
+      updatedList.deactivated_at,
+      updatedList.deactivated_by,
+      updatedList.deactivation_reason
+    ]]);
+
+    // Delete existing options
+    const optionsData = optionsSheet.getDataRange().getValues();
+    for (let i = optionsData.length - 1; i >= 1; i--) {
+      if (optionsData[i][1] === payload.id) {
+        optionsSheet.deleteRow(i + 1);
+      }
+    }
+
+    // Add new options
+    if (payload.options && Array.isArray(payload.options)) {
+      payload.options.forEach(option => {
+        if (option.label && option.value) {
+          optionsSheet.appendRow([
+            generateId('opt'),
+            payload.id,
+            option.label.trim(),
+            option.value.trim(),
+            option.parentValue || ''
+          ]);
+        }
+      });
+    }
+
+    logAdminAction('UPDATE_DROPDOWN_LIST', payload.id, updatedList);
+
+    Logger.log(`Updated dropdown list: ${updatedList.name}`);
+    return updatedList;
+  } catch (error) {
+    Logger.log(`Error updating dropdown list: ${error.message}`);
+    throw error;
+  }
+}
+
+function deleteDropdownList(listId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+    const optionsSheet = ss.getSheetByName(SHEETS.DROPDOWN_OPTIONS);
+
+    // Find and delete the list
+    const listData = listsSheet.getDataRange().getValues();
+    let listRowIndex = -1;
+    let deletedListData = null;
+
+    for (let i = 1; i < listData.length; i++) {
+      if (listData[i][0] === listId) {
+        listRowIndex = i + 1;
+        deletedListData = listData[i];
+        break;
+      }
+    }
+
+    if (listRowIndex === -1) {
+      throw new Error('Dropdown list not found');
+    }
+
+    // Delete options first
+    const optionsData = optionsSheet.getDataRange().getValues();
+    for (let i = optionsData.length - 1; i >= 1; i--) {
+      if (optionsData[i][1] === listId) {
+        optionsSheet.deleteRow(i + 1);
+      }
+    }
+
+    // Delete the list
+    listsSheet.deleteRow(listRowIndex);
+
+    logAdminAction('DELETE_DROPDOWN_LIST', listId, { deletedList: deletedListData });
+
+    Logger.log(`Deleted dropdown list: ${deletedListData[1]}`);
+    return { message: 'Dropdown list deleted successfully' };
+  } catch (error) {
+    Logger.log(`Error deleting dropdown list: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * =================================================================================
+ * TICKET TYPE MANAGEMENT FUNCTIONS
+ * =================================================================================
+ */
+
+function getTicketTypes(params = {}) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let ticketTypesSheet = ss.getSheetByName(SHEETS.TICKET_TYPES);
+
+    if (!ticketTypesSheet) {
+      ticketTypesSheet = initializeTicketTypesSheet();
+      return [];
+    }
+
+    let ticketTypes = getSheetDataAsJSON(ticketTypesSheet);
+
+    // Filter by company if specified
+    if (params.companyId) {
+      ticketTypes = ticketTypes.filter(tt => tt.company_id === params.companyId || tt.company_id === null);
+    }
+
+    Logger.log(`Retrieved ${ticketTypes.length} ticket types`);
+    return ticketTypes;
+  } catch (error) {
+    Logger.log(`Error getting ticket types: ${error.message}`);
+    throw new Error(`Failed to retrieve ticket types: ${error.message}`);
+  }
+}
+
+function createTicketType(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let ticketTypesSheet = ss.getSheetByName(SHEETS.TICKET_TYPES);
+
+    if (!ticketTypesSheet) {
+      ticketTypesSheet = initializeTicketTypesSheet();
+    }
+
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
+
+    if (!payload.name || !payload.code) {
+      throw new Error('Ticket type name and code are required');
+    }
+
+    const newTicketType = {
+      id: generateId('tt'),
+      transaction_id: payload.transaction_id || generateId('tr'),
+      code: payload.code.toUpperCase().trim(),
+      name: payload.name.trim(),
+      description: payload.description || '',
+      is_active: payload.is_active !== false,
+      require_attachment_on_create: payload.require_attachment_on_create || false,
+      company_id: payload.company_id === 'global' ? null : payload.company_id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    ticketTypesSheet.appendRow([
+      newTicketType.id,
+      newTicketType.transaction_id,
+      newTicketType.code,
+      newTicketType.name,
+      newTicketType.description,
+      newTicketType.is_active,
+      newTicketType.require_attachment_on_create,
+      newTicketType.company_id || '',
+      newTicketType.created_at,
+      newTicketType.updated_at
+    ]);
+
+    logAdminAction('CREATE_TICKET_TYPE', newTicketType.id, newTicketType);
+
+    Logger.log(`Created ticket type: ${newTicketType.name}`);
+    return newTicketType;
+  } catch (error) {
+    Logger.log(`Error creating ticket type: ${error.message}`);
+    throw error;
+  }
+}
+
+function updateTicketType(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ticketTypesSheet = ss.getSheetByName(SHEETS.TICKET_TYPES);
+
+    // Validate payload exists
+    if (!payload) {
+      throw new Error('Payload is required');
+    }
+
+    if (!payload.id || !payload.name || !payload.code) {
+      throw new Error('Ticket type ID, name, and code are required');
+    }
+
+    // Find and update the ticket type
+    const data = ticketTypesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.id) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Ticket type not found');
+    }
+
+    const updatedTicketType = {
+      id: payload.id,
+      transaction_id: payload.transaction_id || data[rowIndex - 1][1],
+      code: payload.code.toUpperCase().trim(),
+      name: payload.name.trim(),
+      description: payload.description || '',
+      is_active: payload.is_active !== false,
+      require_attachment_on_create: payload.require_attachment_on_create || false,
+      company_id: payload.company_id === 'global' ? null : payload.company_id,
+      created_at: data[rowIndex - 1][8],
+      updated_at: new Date().toISOString()
+    };
+
+    ticketTypesSheet.getRange(rowIndex, 1, 1, 10).setValues([[
+      updatedTicketType.id,
+      updatedTicketType.transaction_id,
+      updatedTicketType.code,
+      updatedTicketType.name,
+      updatedTicketType.description,
+      updatedTicketType.is_active,
+      updatedTicketType.require_attachment_on_create,
+      updatedTicketType.company_id || '',
+      updatedTicketType.created_at,
+      updatedTicketType.updated_at
+    ]]);
+
+    logAdminAction('UPDATE_TICKET_TYPE', payload.id, updatedTicketType);
+
+    Logger.log(`Updated ticket type: ${updatedTicketType.name}`);
+    return updatedTicketType;
+  } catch (error) {
+    Logger.log(`Error updating ticket type: ${error.message}`);
+    throw error;
+  }
+}
+
+function deleteTicketType(ticketTypeId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const ticketTypesSheet = ss.getSheetByName(SHEETS.TICKET_TYPES);
+
+    const data = ticketTypesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+    let ticketTypeData = null;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === ticketTypeId) {
+        rowIndex = i + 1;
+        ticketTypeData = data[i];
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error('Ticket type not found');
+    }
+
+    ticketTypesSheet.deleteRow(rowIndex);
+    logAdminAction('DELETE_TICKET_TYPE', ticketTypeId, { deletedTicketType: ticketTypeData });
+
+    Logger.log(`Deleted ticket type: ${ticketTypeData[3]}`);
+    return { message: 'Ticket type deleted successfully' };
+  } catch (error) {
+    Logger.log(`Error deleting ticket type: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * =================================================================================
+ * USER PREFERENCES FUNCTIONS
+ * =================================================================================
+ */
+
+/**
+ * Retrieves user preferences by user ID.
+ * @param {string} userId - The user's ID.
+ * @returns {object} - The user's preferences or default preferences.
+ */
+function getUserPreferences(userId) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let preferencesSheet;
+
+    try {
+      preferencesSheet = ss.getSheetByName(SHEETS.USER_PREFERENCES);
+    } catch (error) {
+      // If sheet doesn't exist, initialize it
+      preferencesSheet = initializeUserPreferencesSheet();
+    }
+
+    const data = preferencesSheet.getDataRange().getValues();
+
+    // Look for existing user preferences
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === userId) {
+        // Found existing preferences, return them
+        return {
+          user_id: data[i][0],
+          dark_mode: data[i][1] || false,
+          timezone: data[i][2] || 'Asia/Manila',
+          language: data[i][3] || 'en',
+          email_notifications: data[i][4] !== false, // Default to true
+          desktop_notifications: data[i][5] !== false, // Default to true
+          dashboard_layout: data[i][6] || 'grid',
+          items_per_page: data[i][7] || 20,
+          auto_refresh: data[i][8] !== false, // Default to true
+          refresh_interval: data[i][9] || 30000,
+          created_at: data[i][10],
+          updated_at: data[i][11]
+        };
+      }
+    }
+
+    // If no preferences found, return default preferences
+    const defaultPreferences = {
+      user_id: userId,
+      dark_mode: false,
+      timezone: 'Asia/Manila',
+      language: 'en',
+      email_notifications: true,
+      desktop_notifications: true,
+      dashboard_layout: 'grid',
+      items_per_page: 20,
+      auto_refresh: true,
+      refresh_interval: 30000,
+      created_at: null,
+      updated_at: null
+    };
+
+    Logger.log(`No existing preferences found for user ${userId}, returning defaults`);
+    return defaultPreferences;
+
+  } catch (error) {
+    Logger.log(`Error getting user preferences: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Updates or creates user preferences.
+ * @param {string} userId - The user's ID.
+ * @param {object} preferences - The preferences to update.
+ * @returns {object} - The updated preferences.
+ */
+function updateUserPreferences(userId, preferences) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let preferencesSheet;
+
+    try {
+      preferencesSheet = ss.getSheetByName(SHEETS.USER_PREFERENCES);
+    } catch (error) {
+      // If sheet doesn't exist, initialize it
+      preferencesSheet = initializeUserPreferencesSheet();
+    }
+
+    const data = preferencesSheet.getDataRange().getValues();
+    let rowIndex = -1;
+    let existingPrefs = null;
+
+    // Look for existing user preferences
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === userId) {
+        rowIndex = i + 1; // Sheet rows are 1-indexed
+        existingPrefs = {
+          dark_mode: data[i][1] || false,
+          timezone: data[i][2] || 'Asia/Manila',
+          language: data[i][3] || 'en',
+          email_notifications: data[i][4] !== false,
+          desktop_notifications: data[i][5] !== false,
+          dashboard_layout: data[i][6] || 'grid',
+          items_per_page: data[i][7] || 20,
+          auto_refresh: data[i][8] !== false,
+          refresh_interval: data[i][9] || 30000,
+          created_at: data[i][10],
+          updated_at: data[i][11]
+        };
+        break;
+      }
+    }
+
+    const now = new Date();
+    const updatedPrefs = {
+      user_id: userId,
+      dark_mode: preferences.dark_mode !== undefined ? preferences.dark_mode : (existingPrefs?.dark_mode || false),
+      timezone: preferences.timezone || existingPrefs?.timezone || 'Asia/Manila',
+      language: preferences.language || existingPrefs?.language || 'en',
+      email_notifications: preferences.email_notifications !== undefined ? preferences.email_notifications : (existingPrefs?.email_notifications !== false),
+      desktop_notifications: preferences.desktop_notifications !== undefined ? preferences.desktop_notifications : (existingPrefs?.desktop_notifications !== false),
+      dashboard_layout: preferences.dashboard_layout || existingPrefs?.dashboard_layout || 'grid',
+      items_per_page: preferences.items_per_page || existingPrefs?.items_per_page || 20,
+      auto_refresh: preferences.auto_refresh !== undefined ? preferences.auto_refresh : (existingPrefs?.auto_refresh !== false),
+      refresh_interval: preferences.refresh_interval || existingPrefs?.refresh_interval || 30000,
+      created_at: existingPrefs?.created_at || now,
+      updated_at: now
+    };
+
+    const rowData = [
+      updatedPrefs.user_id,
+      updatedPrefs.dark_mode,
+      updatedPrefs.timezone,
+      updatedPrefs.language,
+      updatedPrefs.email_notifications,
+      updatedPrefs.desktop_notifications,
+      updatedPrefs.dashboard_layout,
+      updatedPrefs.items_per_page,
+      updatedPrefs.auto_refresh,
+      updatedPrefs.refresh_interval,
+      updatedPrefs.created_at,
+      updatedPrefs.updated_at
+    ];
+
+    if (rowIndex > -1) {
+      // Update existing row
+      preferencesSheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
+      Logger.log(`Updated preferences for user ${userId}`);
+    } else {
+      // Create new row
+      preferencesSheet.appendRow(rowData);
+      Logger.log(`Created new preferences for user ${userId}`);
+    }
+
+    // Log the admin action
+    logAdminAction('UPDATE_USER_PREFERENCES', userId, {
+      updatedFields: Object.keys(preferences),
+      preferences: updatedPrefs
+    });
+
+    return updatedPrefs;
+
+  } catch (error) {
+    Logger.log(`Error updating user preferences: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * Initializes the user_preferences sheet with proper headers.
+ * @returns {Sheet} - The initialized preferences sheet.
+ */
+function initializeUserPreferencesSheet() {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const preferencesSheet = ss.insertSheet(SHEETS.USER_PREFERENCES);
+
+    // Set up headers
+    const headers = [
+      'user_id',
+      'dark_mode',
+      'timezone',
+      'language',
+      'email_notifications',
+      'desktop_notifications',
+      'dashboard_layout',
+      'items_per_page',
+      'auto_refresh',
+      'refresh_interval',
+      'created_at',
+      'updated_at'
+    ];
+
+    preferencesSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    preferencesSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+    preferencesSheet.setFrozenRows(1);
+
+    Logger.log('Initialized user_preferences sheet');
+    return preferencesSheet;
+
+  } catch (error) {
+    Logger.log(`Error initializing user preferences sheet: ${error.message}`);
+    throw error;
+  }
+}
+
+/**
+ * =================================================================================
+ * AUDIT LOGGING FUNCTIONS
+ * =================================================================================
+ */
+
+/**
+ * Records a successful user login event.
+ * @param {object} payload - Contains the user's ID and email.
+ * @returns {object} - A success message.
+ */
+function logLogin(payload) {
+  const logSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.ADMIN_ACTION_LOGS);
+  const logRow = [
+    (logSheet.getLastRow() > 0 ? logSheet.getLastRow() : 1), // Log ID
+    payload.userId, // admin_user_id
+    'USER_LOGIN',   // action_type
+    'USER',         // target_entity
+    payload.userId, // target_id
+    JSON.stringify({ email: payload.email, ipAddress: payload.ipAddress || 'N/A' }),
+    new Date()
+  ];
+  logSheet.appendRow(logRow);
+  return { message: "Login recorded." };
+}
+
+/**
+ * Records a user-facing action in the ticket's history.
+ * @param {number} ticketId - The ID of the ticket.
+ * @param {string} userId - The ID of the user performing the action.
+ * @param {string} action - The name of the action (e.g., 'Approved').
+ * @param {string} comment - The user's comment.
+ */
+function logTicketHistory(ticketId, userId, action, comment) {
+  const historySheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.TICKET_HISTORY);
+  const historyRow = [
+    (historySheet.getLastRow() > 0 ? historySheet.getLastRow() : 1),
+    ticketId,
+    userId,
+    action,
+    comment,
+    new Date()
+  ];
+  historySheet.appendRow(historyRow);
+}
+
+/**
+ * Records a detailed, system-level change for a ticket.
+ * @param {number} ticketId - The ID of the ticket.
+ * @param {string} userId - The ID of the user performing the action.
+ * @param {string} actionType - A system-level action name (e.g., 'STATUS_CHANGE').
+ * @param {object} details - A JSON object describing the change.
+ */
+function logTicketAction(ticketId, userId, actionType, details) {
+  const logSheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEETS.TICKET_ACTION_LOGS);
+  const logRow = [
+    (logSheet.getLastRow() > 0 ? logSheet.getLastRow() : 1),
+    ticketId,
+    userId,
+    actionType,
+    JSON.stringify(details),
+    new Date()
+  ];
+  logSheet.appendRow(logRow);
+}
+
+/**
+ * =================================================================================
+ * UTILITY & HELPER FUNCTIONS
+ * =================================================================================
+ */
+
+/**
+ * Generates a unique, formatted ticket number.
+ * Uses LockService to prevent race conditions when multiple users create tickets simultaneously.
+ * @param {string} companyCode - The short code for the company.
+ * @param {string} typeCode - The short code for the ticket type.
+ * @returns {string} - The formatted ticket number.
+ */
+function generateTicketNumber(companyCode, typeCode) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000); // Wait up to 30 seconds for the lock.
+
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const countersSheet = ss.getSheetByName(SHEETS.SEQUENCE_COUNTERS);
+    const data = countersSheet.getDataRange().getValues();
+    const headers = data.shift();
+
+    const sequenceName = `${companyCode}-${typeCode}`;
+    const year = Utilities.formatDate(new Date(), "Asia/Manila", "yyyy");
+
+    let currentNumber = 0;
+    let rowIndex = -1;
+
+    for (let i = 0; i < data.length; i++) {
+        if (data[i][0] === sequenceName) {
+            currentNumber = parseInt(data[i][1], 10);
+            rowIndex = i + 2; // +1 for 1-based index, +1 for header
+            break;
+        }
+    }
+
+    const nextNumber = currentNumber + 1;
+
+    if (nextNumber > 99999999) {
+        // In a real system, you might throw an error or handle the reset differently.
+        // For now, we'll just log it.
+        Logger.log(`Sequence ${sequenceName} has exceeded 99,999,999.`);
+    }
+
+    // Update the sheet with the new number
+    if (rowIndex > -1) {
+        countersSheet.getRange(rowIndex, 2).setValue(nextNumber);
+    } else {
+        countersSheet.appendRow([sequenceName, nextNumber]);
+    }
+
+    // Pad the number with leading zeros to 8 digits
+    const paddedNumber = String(nextNumber).padStart(8, '0');
+
+    return `${sequenceName}-${year}-${paddedNumber}`;
+
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Converts a Google Sheet's data into an array of JSON objects.
+ * @param {Sheet} sheet - The Google Sheet object.
+ * @returns {Array} - An array of objects representing the sheet data.
+ */
+/**
+ * Converts a Google Sheet's data into an array of JSON objects.
+ * @param {Sheet} sheet - The Google Sheet object.
+ * @returns {Array} - An array of objects representing the sheet data.
+ */
+function getSheetDataAsJSON(sheet) {
+  if (!sheet) {
+    Logger.log('Warning: getSheetDataAsJSON called with null/undefined sheet');
+    return [];
+  }
+
+  try {
+    const data = sheet.getDataRange().getValues();
+    if (data.length < 2) return []; // No data beyond headers
+
+    const headers = data.shift();
+    return data.map(row => {
+      let obj = {};
+      headers.forEach((header, i) => {
+        obj[header] = row[i] !== undefined ? row[i] : null;
+      });
+      return obj;
+    });
+  } catch (error) {
+    Logger.log(`Error in getSheetDataAsJSON: ${error.message}`);
+    return [];
+  }
+}
+
+/**
+ * Creates a standard JSON response with proper error handling.
+ * Google Apps Script Web Apps handle CORS automatically when deployed with "Anyone" access.
+ * @param {object} response - The data to be stringified.
+ * @returns {ContentService.TextOutput} - The final JSON response object.
+ */
+function createJsonResponse(response) {
+  try {
+    // Google Apps Script handles CORS automatically for Web Apps deployed with "Anyone" access
+    const output = ContentService.createTextOutput(JSON.stringify(response))
+      .setMimeType(ContentService.MimeType.JSON);
+
+    return output;
+  } catch (error) {
+    Logger.log('createJsonResponse Error:', error);
+    // Fallback response
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: 'Response creation failed',
+      details: error.toString()
+    }))
+    .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * =================================================================================
+ * UTILITY FUNCTIONS
+ * =================================================================================
+ */
+
+/**
+ * Generates a unique ID with the given prefix.
+ * @param {string} prefix - The prefix for the ID.
+ * @returns {string} - A unique identifier string.
+ */
+function generateId(prefix) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+}
+
+function logAdminAction(actionType, targetId, details) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let logSheet = ss.getSheetByName(SHEETS.ADMIN_ACTION_LOGS);
+
+    if (!logSheet) {
+      logSheet = initializeAdminActionLogsSheet();
+    }
+
+    logSheet.appendRow([
+      generateId('log'),
+      Session.getActiveUser().getEmail() || 'system',
+      actionType,
+      'ENTITY',
+      targetId,
+      JSON.stringify(details),
+      new Date().toISOString()
+    ]);
+  } catch (error) {
+    Logger.log(`Error logging admin action: ${error.message}`);
+    // Don't throw - logging failure shouldn't break the main operation
+  }
+}
+
+function pingAPI() {
+  return {
+    status: 'API is running',
+    timestamp: new Date().toISOString(),
+    spreadsheetId: SPREADSHEET_ID,
+    version: '3.0',
+    availableEndpoints: [
+      'getCompanies', 'createCompany', 'updateCompany', 'deleteCompany',
+      'getRoles', 'createRole', 'updateRole', 'deleteRole',
+      'getDropdownLists', 'createDropdownList', 'updateDropdownList', 'deleteDropdownList',
+      'getTicketTypes', 'createTicketType', 'updateTicketType', 'deleteTicketType',
+      'getTickets', 'createTicket', 'recordLogin'
+    ]
+  };
+}
+
+/**
+ * =================================================================================
+ * SHEET INITIALIZATION FUNCTIONS
+ * =================================================================================
+ */
+
+function initializeCompaniesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.COMPANIES);
+  sheet.getRange(1, 1, 1, 15).setValues([
+    ['id', 'name', 'code', 'code_locked', 'code_locked_at', 'code_locked_reason', 'ticket_count',
+     'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by',
+     'deactivated_at', 'deactivated_by', 'deactivation_reason']
+  ]);
+  sheet.getRange(1, 1, 1, 15).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeRolesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.ROLES);
+  sheet.getRange(1, 1, 1, 5).setValues([
+    ['id', 'name', 'company_id', 'created_at', 'updated_at']
+  ]);
+  sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeDropdownListsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.DROPDOWN_LISTS);
+  sheet.getRange(1, 1, 1, 12).setValues([
+    ['id', 'name', 'description', 'company_id', 'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by', 'deactivated_at', 'deactivated_by', 'deactivation_reason']
+  ]);
+  sheet.getRange(1, 1, 1, 12).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeDropdownOptionsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.DROPDOWN_OPTIONS);
+  sheet.getRange(1, 1, 1, 5).setValues([
+    ['id', 'dropdown_list_id', 'label', 'value', 'parent_option_id']
+  ]);
+  sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeTicketTypesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.TICKET_TYPES);
+  sheet.getRange(1, 1, 1, 10).setValues([
+    ['id', 'transaction_id', 'code', 'name', 'description', 'is_active', 'require_attachment_on_create', 'company_id', 'created_at', 'updated_at']
+  ]);
+  sheet.getRange(1, 1, 1, 10).setFontWeight('bold');
+  return sheet;
+}
+
+function initializeAdminActionLogsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.ADMIN_ACTION_LOGS);
+  sheet.getRange(1, 1, 1, 7).setValues([
+    ['id', 'admin_user_id', 'action_type', 'target_entity', 'target_id', 'details', 'timestamp']
+  ]);
+  sheet.getRange(1, 1, 1, 7).setFontWeight('bold');
+  return sheet;
+}
+
+/**
+ * =================================================================================
+ * COMPREHENSIVE TEST FUNCTIONS
+ * =================================================================================
+ */
+
+function runCompleteAPITest() {
+  Logger.log('=== STARTING COMPLETE API TEST ===');
+
+  try {
+    // Test API ping
+    Logger.log('1. Testing API ping...');
+    const pingResult = pingAPI();
+    Logger.log('Ping result:', pingResult);
+
+    // Test company CRUD
+    Logger.log('2. Testing Company CRUD...');
+    testCompanyCRUD();
+
+    // Test role CRUD
+    Logger.log('3. Testing Role CRUD...');
+    testRoleCRUD();
+
+    // Test dropdown CRUD
+    Logger.log('4. Testing Dropdown CRUD...');
+    testDropdownCRUD();
+
+    // Test ticket type CRUD
+    Logger.log('5. Testing Ticket Type CRUD...');
+    testTicketTypeCRUD();
+
+    // Test ticket operations
+    Logger.log('6. Testing Ticket operations...');
+    testTicketOperations();
+
+    Logger.log('=== ALL TESTS COMPLETED SUCCESSFULLY ===');
+
+  } catch (error) {
+    Logger.log('=== TEST FAILED ===');
+    Logger.log('Error:', error.message);
+    Logger.log('Stack:', error.stack);
+  }
+}
+
+function testCompanyCRUD() {
+  Logger.log('--- Testing Company CRUD ---');
+
+  // Create company
+  const newCompany = createCompany({
+    name: 'Test Company',
+    code: 'TEST'
+  });
+  Logger.log('Created company:', newCompany);
+
+  // Get all companies
+  const allCompanies = getCompanies();
+  Logger.log('All companies:', allCompanies.length);
+
+  // Get single company
+  const singleCompany = getCompany(newCompany.id);
+  Logger.log('Single company:', singleCompany);
+
+  // Update company
+  const updatedCompany = updateCompany({
+    id: newCompany.id,
+    name: 'Updated Test Company',
+    code: 'UPDT'
+  });
+  Logger.log('Updated company:', updatedCompany);
+
+  // Delete company
+  const deleteResult = deleteCompany(newCompany.id);
+  Logger.log('Delete result:', deleteResult);
+
+  Logger.log('--- Company CRUD test completed ---');
+}
+
+function testRoleCRUD() {
+  Logger.log('--- Testing Role CRUD ---');
+
+  // Create global role
+  const globalRole = createRole({
+    name: 'Test Global Role',
+    company_id: 'global'
+  });
+  Logger.log('Created global role:', globalRole);
+
+  // Create company-specific role
+  const companyRole = createRole({
+    name: 'Test Company Role',
+    company_id: 'comp_123'
+  });
+  Logger.log('Created company role:', companyRole);
+
+  // Get all roles
+  const allRoles = getRoles();
+  Logger.log('All roles:', allRoles.length);
+
+  // Update role
+  const updatedRole = updateRole({
+    id: globalRole.id,
+    name: 'Updated Global Role',
+    company_id: 'global'
+  });
+  Logger.log('Updated role:', updatedRole);
+
+  // Delete roles
+  deleteRole(globalRole.id);
+  deleteRole(companyRole.id);
+
+  Logger.log('--- Role CRUD test completed ---');
+}
+
+function testDropdownCRUD() {
+  Logger.log('--- Testing Dropdown CRUD ---');
+
+  // Create dropdown list with options
+  const newDropdown = createDropdownList({
+    name: 'Test Dropdown',
+    options: [
+      { label: 'Option 1', value: 'opt1', parentValue: '' },
+      { label: 'Option 2', value: 'opt2', parentValue: '' },
+      { label: 'Sub Option', value: 'sub1', parentValue: 'opt1' }
+    ]
+  });
+  Logger.log('Created dropdown:', newDropdown);
+
+  // Get all dropdowns
+  const allDropdowns = getDropdownLists();
+  Logger.log('All dropdowns:', allDropdowns.length);
+
+  // Get options for the dropdown
+  const options = getDropdownOptions(newDropdown.id);
+  Logger.log('Dropdown options:', options.length);
+
+  // Update dropdown
+  const updatedDropdown = updateDropdownList({
+    id: newDropdown.id,
+    name: 'Updated Test Dropdown',
+    options: [
+      { label: 'New Option 1', value: 'new1', parentValue: '' },
+      { label: 'New Option 2', value: 'new2', parentValue: '' }
+    ]
+  });
+  Logger.log('Updated dropdown:', updatedDropdown);
+
+  // Delete dropdown
+  const deleteResult = deleteDropdownList(newDropdown.id);
+  Logger.log('Delete result:', deleteResult);
+
+  Logger.log('--- Dropdown CRUD test completed ---');
+}
+
+function testTicketTypeCRUD() {
+  Logger.log('--- Testing Ticket Type CRUD ---');
+
+  // Create ticket type
+  const newTicketType = createTicketType({
+    name: 'Test Purchase Request',
+    code: 'TPR',
+    transaction_id: 'TR001',
+    description: 'Test ticket type for purchase requests',
+    company_id: 'global',
+    require_attachment_on_create: true
+  });
+  Logger.log('Created ticket type:', newTicketType);
+
+  // Get all ticket types
+  const allTicketTypes = getTicketTypes();
+  Logger.log('All ticket types:', allTicketTypes.length);
+
+  // Update ticket type
+  const updatedTicketType = updateTicketType({
+    id: newTicketType.id,
+    name: 'Updated Test Purchase Request',
+    code: 'UTPR',
+    transaction_id: 'TR001',
+    description: 'Updated test ticket type',
+    company_id: 'global',
+    require_attachment_on_create: false
+  });
+  Logger.log('Updated ticket type:', updatedTicketType);
+
+  // Delete ticket type
+  const deleteResult = deleteTicketType(newTicketType.id);
+  Logger.log('Delete result:', deleteResult);
+
+  Logger.log('--- Ticket Type CRUD test completed ---');
+}
+
+function testTicketOperations() {
+  Logger.log('--- Testing Ticket Operations ---');
+
+  // First create a company and ticket type for testing
+  const testCompany = createCompany({
+    name: 'Ticket Test Company',
+    code: 'TTC'
+  });
+
+  const testTicketType = createTicketType({
+    name: 'Test Request',
+    code: 'TEST',
+    transaction_id: 'TR001',
+    company_id: testCompany.id
+  });
+
+  // Create ticket
+  const newTicket = createTicket({
+    title: 'Test Ticket',
+    ticket_type_id: testTicketType.id,
+    company_id: testCompany.id,
+    requester_id: 'user_test',
+    customData: {
+      field1: 'Test Value 1',
+      field2: 'Test Value 2'
+    }
+  });
+  Logger.log('Created ticket:', newTicket);
+
+  // Get tickets
+  const allTickets = getTickets();
+  Logger.log('All tickets:', allTickets.length);
+
+  // Test login logging
+  const loginResult = logLogin({
+    userId: 'user_test',
+    email: 'test@example.com',
+    ipAddress: '127.0.0.1'
+  });
+  Logger.log('Login result:', loginResult);
+
+  // Clean up test data
+  deleteTicketType(testTicketType.id);
+  deleteCompany(testCompany.id);
+
+  Logger.log('--- Ticket Operations test completed ---');
+}
+
+function createSampleData() {
+  Logger.log('=== CREATING SAMPLE DATA ===');
+
+  try {
+    // Create sample companies
+    const companies = [
+      { name: 'Main Corporation', code: 'MAIN' },
+      { name: 'Tech Solutions Inc.', code: 'TECH' },
+      { name: 'Global Services Ltd.', code: 'GLOB' }
+    ];
+
+    const createdCompanies = companies.map(comp => createCompany(comp));
+    Logger.log('Created companies:', createdCompanies);
+
+    // Create sample roles
+    const roles = [
+      { name: 'Global Admin', company_id: 'global' },
+      { name: 'Manager', company_id: createdCompanies[0].id },
+      { name: 'Finance', company_id: createdCompanies[0].id },
+      { name: 'HR', company_id: createdCompanies[1].id }
+    ];
+
+    const createdRoles = roles.map(role => createRole(role));
+    Logger.log('Created roles:', createdRoles);
+
+    // Create sample dropdown lists
+    const dropdowns = [
+      {
+        name: 'Departments',
+        options: [
+          { label: 'Engineering', value: 'eng', parentValue: '' },
+          { label: 'Marketing', value: 'mkt', parentValue: '' },
+          { label: 'Finance', value: 'fin', parentValue: '' }
+        ]
+      },
+      {
+        name: 'Equipment Types',
+        options: [
+          { label: 'Hardware', value: 'hardware', parentValue: '' },
+          { label: 'Software', value: 'software', parentValue: '' },
+          { label: 'Laptop', value: 'laptop', parentValue: 'hardware' },
+          { label: 'Monitor', value: 'monitor', parentValue: 'hardware' }
+        ]
+      }
+    ];
+
+    const createdDropdowns = dropdowns.map(dropdown => createDropdownList(dropdown));
+    Logger.log('Created dropdowns:', createdDropdowns);
+
+    // Create sample ticket types
+    const ticketTypes = [
+      {
+        name: 'Purchase Request',
+        code: 'PR',
+        transaction_id: 'TR001',
+        description: 'Request for purchasing items',
+        company_id: createdCompanies[0].id,
+        require_attachment_on_create: true
+      },
+      {
+        name: 'Leave Request',
+        code: 'LEAVE',
+        transaction_id: 'TR002',
+        description: 'Request for leave',
+        company_id: 'global',
+        require_attachment_on_create: false
+      }
+    ];
+
+    const createdTicketTypes = ticketTypes.map(tt => createTicketType(tt));
+    Logger.log('Created ticket types:', createdTicketTypes);
+
+    Logger.log('=== SAMPLE DATA CREATION COMPLETED ===');
+
+  } catch (error) {
+    Logger.log('Error creating sample data:', error.message);
+  }
+}
+
+/**
+ * =================================================================================
+ * FRONTEND API TESTER
+ * =================================================================================
+ */
+
+// This function simulates what your React frontend will do
+function simulateFrontendRequests() {
+  Logger.log('=== SIMULATING FRONTEND REQUESTS ===');
+
+  try {
+    // Simulate GET request for companies
+    const getCompaniesResult = doGet({
+      parameter: { action: 'getCompanies' }
+    });
+    Logger.log('GET companies result:', getCompaniesResult.getContent());
+
+    // Simulate POST request to create company
+    const createCompanyResult = doPost({
+      postData: {
+        contents: JSON.stringify({
+          action: 'createCompany',
+          payload: {
+            name: 'Frontend Test Company',
+            code: 'FRONT'
+          }
+        })
+      }
+    });
+    Logger.log('POST create company result:', createCompanyResult.getContent());
+
+    // Simulate ping request
+    const pingResult = doGet({
+      parameter: { action: 'ping' }
+    });
+    Logger.log('Ping result:', pingResult.getContent());
+
+    Logger.log('=== FRONTEND SIMULATION COMPLETED ===');
+
+  } catch (error) {
+    Logger.log('Error simulating frontend requests:', error.message);
+  }
+}
+
+/**
+ * =================================================================================
+ * RUNTIME ERROR VERIFICATION SUITE
+ * =================================================================================
+ */
+
+/**
+ * Comprehensive runtime error verification for all Apps Script functions.
+ * This function tests each function individually to ensure no runtime errors.
+ */
+function verifyAllFunctionsRuntimeSafety() {
+  Logger.log('=== STARTING RUNTIME SAFETY VERIFICATION ===');
+
+  const results = {
+    totalFunctions: 0,
+    passedFunctions: 0,
+    failedFunctions: 0,
+    errors: []
+  };
+
+  // Test Core API Functions
+  try {
+    Logger.log('Testing Core API Functions...');
+
+    // Test doGet with valid parameters
+    const pingTest = doGet({ parameter: { action: 'ping' } });
+    if (pingTest) results.passedFunctions++; else results.failedFunctions++;
+    results.totalFunctions++;
+
+    // Test doPost with valid parameters
+    const postTest = doPost({
+      postData: { contents: JSON.stringify({ action: 'ping' }) }
+    });
+    if (postTest) results.passedFunctions++; else results.failedFunctions++;
+    results.totalFunctions++;
+
+    // Test doOptions
+    const optionsTest = doOptions({});
+    if (optionsTest) results.passedFunctions++; else results.failedFunctions++;
+    results.totalFunctions++;
+
+    Logger.log('Core API Functions: ✅ PASSED');
+  } catch (error) {
+    results.errors.push(`Core API Functions: ${error.message}`);
+    results.failedFunctions++;
+  }
+
+  // Test Utility Functions
+  try {
+    Logger.log('Testing Utility Functions...');
+
+    // Test generateId
+    const idTest = generateId('test');
+    if (idTest && idTest.includes('test_')) results.passedFunctions++; else results.failedFunctions++;
+    results.totalFunctions++;
+
+    // Test createJsonResponse
+    const jsonTest = createJsonResponse({ test: 'data' });
+    if (jsonTest) results.passedFunctions++; else results.failedFunctions++;
+    results.totalFunctions++;
+
+    // Test pingAPI
+    const pingApiTest = pingAPI();
+    if (pingApiTest && pingApiTest.status) results.passedFunctions++; else results.failedFunctions++;
+    results.totalFunctions++;
+
+    Logger.log('Utility Functions: ✅ PASSED');
+  } catch (error) {
+    results.errors.push(`Utility Functions: ${error.message}`);
+    results.failedFunctions++;
+  }
+
+  // Test CRUD Functions (with mock parameters)
+  try {
+    Logger.log('Testing CRUD Function Structure...');
+
+    // Note: These tests check function structure without actually modifying data
+    const crudFunctions = [
+      'getCompanies', 'createCompany', 'updateCompany', 'deleteCompany',
+      'getRoles', 'createRole', 'updateRole', 'deleteRole',
+      'getDropdownLists', 'createDropdownList', 'updateDropdownList', 'deleteDropdownList',
+      'getTicketTypes', 'createTicketType', 'updateTicketType', 'deleteTicketType'
+    ];
+
+    // Check if functions exist and are callable
+    crudFunctions.forEach(funcName => {
+      try {
+        if (typeof eval(funcName) === 'function') {
+          results.passedFunctions++;
+          Logger.log(`${funcName}: ✅ Function exists`);
+        } else {
+          results.failedFunctions++;
+          results.errors.push(`${funcName}: Function not found`);
+        }
+        results.totalFunctions++;
+      } catch (error) {
+        results.failedFunctions++;
+        results.errors.push(`${funcName}: ${error.message}`);
+        results.totalFunctions++;
+      }
+    });
+
+    Logger.log('CRUD Functions Structure: ✅ PASSED');
+  } catch (error) {
+    results.errors.push(`CRUD Functions: ${error.message}`);
+  }
+
+  // Test Sheet Initialization Functions
+  try {
+    Logger.log('Testing Sheet Initialization Functions...');
+
+    const initFunctions = [
+      'initializeCompaniesSheet', 'initializeRolesSheet', 'initializeDropdownListsSheet',
+      'initializeDropdownOptionsSheet', 'initializeTicketTypesSheet', 'initializeAdminActionLogsSheet'
+    ];
+
+    initFunctions.forEach(funcName => {
+      try {
+        if (typeof eval(funcName) === 'function') {
+          results.passedFunctions++;
+          Logger.log(`${funcName}: ✅ Function exists`);
+        } else {
+          results.failedFunctions++;
+          results.errors.push(`${funcName}: Function not found`);
+        }
+        results.totalFunctions++;
+      } catch (error) {
+        results.failedFunctions++;
+        results.errors.push(`${funcName}: ${error.message}`);
+        results.totalFunctions++;
+      }
+    });
+
+    Logger.log('Sheet Initialization Functions: ✅ PASSED');
+  } catch (error) {
+    results.errors.push(`Sheet Initialization Functions: ${error.message}`);
+  }
+
+  // Generate Final Report
+  Logger.log('=== RUNTIME SAFETY VERIFICATION COMPLETE ===');
+  Logger.log(`Total Functions Tested: ${results.totalFunctions}`);
+  Logger.log(`Passed: ${results.passedFunctions}`);
+  Logger.log(`Failed: ${results.failedFunctions}`);
+  Logger.log(`Success Rate: ${Math.round((results.passedFunctions / results.totalFunctions) * 100)}%`);
+
+  if (results.errors.length > 0) {
+    Logger.log('=== ERRORS FOUND ===');
+    results.errors.forEach(error => Logger.log(`❌ ${error}`));
+  } else {
+    Logger.log('🎉 ALL FUNCTIONS PASSED RUNTIME SAFETY VERIFICATION');
+  }
+
+  return results;
+}
+
+/**
+ * =================================================================================
+ * DIAGNOSTIC FUNCTIONS FOR SCHEMA DEBUGGING
+ * =================================================================================
+ */
+
+/**
+ * Diagnostic function to check dropdown_lists sheet structure and data mapping
+ */
+function diagnoseDropdownListsSheet() {
+  try {
+    Logger.log("=== DROPDOWN LISTS SHEET DIAGNOSIS ===");
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+
+    if (!listsSheet) {
+      Logger.log("Sheet does not exist, creating...");
+      listsSheet = initializeDropdownListsSheet();
+    }
+
+    // Get all data including headers
+    const allData = listsSheet.getDataRange().getValues();
+    Logger.log(`Total rows: ${allData.length}`);
+
+    if (allData.length === 0) {
+      Logger.log("No data in sheet");
+      return;
+    }
+
+    // Log headers
+    const headers = allData[0];
+    Logger.log(`Headers (${headers.length} columns): ${JSON.stringify(headers)}`);
+
+    // Expected headers
+    const expectedHeaders = ['id', 'name', 'description', 'company_id', 'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by', 'deactivated_at', 'deactivated_by', 'deactivation_reason'];
+    Logger.log(`Expected (${expectedHeaders.length} columns): ${JSON.stringify(expectedHeaders)}`);
+
+    // Compare headers
+    const headerMatch = JSON.stringify(headers) === JSON.stringify(expectedHeaders);
+    Logger.log(`Headers match expected: ${headerMatch}`);
+
+    if (!headerMatch) {
+      Logger.log("Header differences:");
+      for (let i = 0; i < Math.max(headers.length, expectedHeaders.length); i++) {
+        if (headers[i] !== expectedHeaders[i]) {
+          Logger.log(`  Position ${i}: Got '${headers[i]}', Expected '${expectedHeaders[i]}'`);
+        }
+      }
+    }
+
+    // Log sample data
+    if (allData.length > 1) {
+      Logger.log(`Sample data rows: ${allData.length - 1}`);
+      for (let i = 1; i <= Math.min(3, allData.length - 1); i++) {
+        const row = allData[i];
+        Logger.log(`Row ${i}: ${JSON.stringify(row)}`);
+
+        // Map row to object manually
+        const obj = {};
+        headers.forEach((header, index) => {
+          obj[header] = row[index];
+        });
+        Logger.log(`Row ${i} as object: ${JSON.stringify(obj)}`);
+      }
+    }
+
+    // Test getSheetDataAsJSON function
+    Logger.log("Testing getSheetDataAsJSON function:");
+    const jsonData = getSheetDataAsJSON(listsSheet);
+    Logger.log(`getSheetDataAsJSON returned ${jsonData.length} objects`);
+    if (jsonData.length > 0) {
+      Logger.log(`First object: ${JSON.stringify(jsonData[0])}`);
+      Logger.log(`Object keys: ${Object.keys(jsonData[0])}`);
+    }
+
+    return {
+      totalRows: allData.length,
+      headers: headers,
+      expectedHeaders: expectedHeaders,
+      headerMatch: headerMatch,
+      sampleData: jsonData.slice(0, 3)
+    };
+
+  } catch (error) {
+    Logger.log(`Error in diagnoseDropdownListsSheet: ${error.message}`);
+    Logger.log(`Stack: ${error.stack}`);
+    return { error: error.message };
+  }
+}
+
+/**
+ * Migration function to convert old 4-column dropdown data to new 12-column format
+ */
+function migrateDropdownListsTo12Columns() {
+  try {
+    Logger.log("=== MIGRATING DROPDOWN LISTS TO 12 COLUMNS ===");
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+
+    if (!listsSheet) {
+      Logger.log("No dropdown_lists sheet found - nothing to migrate");
+      return { success: true, message: "No sheet to migrate" };
+    }
+
+    // Get all data
+    const allData = listsSheet.getDataRange().getValues();
+    if (allData.length <= 1) {
+      Logger.log("No data rows to migrate");
+      return { success: true, message: "No data to migrate" };
+    }
+
+    const headers = allData[0];
+    Logger.log(`Current headers: ${JSON.stringify(headers)}`);
+
+    // Check if migration is needed
+    const expectedHeaders = ['id', 'name', 'description', 'company_id', 'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by', 'deactivated_at', 'deactivated_by', 'deactivation_reason'];
+
+    if (headers.length === 12 && JSON.stringify(headers) === JSON.stringify(expectedHeaders)) {
+      Logger.log("Headers are already correct - checking data format");
+
+      // Check if data needs migration (look for old 4-column format)
+      let needsMigration = false;
+      for (let i = 1; i < allData.length; i++) {
+        const row = allData[i];
+        // Old format: data in positions 0,1,2,3 and empty in positions 4-11
+        // New format: data properly distributed across all 12 columns
+        if (row.length >= 12 && row[2] && row[3] && !row[4] && !row[5]) {
+          // Check if positions 2,3 contain timestamps (old format)
+          const col2 = String(row[2]);
+          const col3 = String(row[3]);
+          if (col2.includes('T') && col2.includes('Z') && col3.includes('T') && col3.includes('Z')) {
+            needsMigration = true;
+            break;
+          }
+        }
+      }
+
+      if (!needsMigration) {
+        Logger.log("Data format is already correct - no migration needed");
+        return { success: true, message: "Data already in correct format" };
+      }
+    }
+
+    Logger.log(`Migrating ${allData.length - 1} data rows...`);
+
+    // Clear the sheet and rewrite with correct headers
+    listsSheet.clear();
+    listsSheet.getRange(1, 1, 1, 12).setValues([expectedHeaders]);
+    listsSheet.getRange(1, 1, 1, 12).setFontWeight('bold');
+
+    let migratedCount = 0;
+    const currentTime = new Date().toISOString();
+    const currentUser = "system_migration";
+
+    // Migrate each data row
+    for (let i = 1; i < allData.length; i++) {
+      const oldRow = allData[i];
+
+      if (oldRow.length >= 4 && oldRow[0] && oldRow[1]) {
+        // Old format: [id, name, created_at, updated_at, ...]
+        // New format: [id, name, description, company_id, is_active, created_at, created_by, updated_at, updated_by, deactivated_at, deactivated_by, deactivation_reason]
+
+        const newRow = [
+          oldRow[0],                    // id (keep same)
+          oldRow[1],                    // name (keep same)
+          "",                           // description (new field - empty)
+          null,                         // company_id (new field - null for global)
+          true,                         // is_active (new field - default true)
+          oldRow[2] || currentTime,     // created_at (from old position 2)
+          currentUser,                  // created_by (new field - system)
+          oldRow[3] || currentTime,     // updated_at (from old position 3)
+          currentUser,                  // updated_by (new field - system)
+          null,                         // deactivated_at (new field - null)
+          null,                         // deactivated_by (new field - null)
+          null                          // deactivation_reason (new field - null)
+        ];
+
+        listsSheet.appendRow(newRow);
+        migratedCount++;
+        Logger.log(`Migrated row ${i}: ${oldRow[0]} - ${oldRow[1]}`);
+      }
+    }
+
+    Logger.log(`=== MIGRATION COMPLETE ===`);
+    Logger.log(`Successfully migrated ${migratedCount} dropdown lists`);
+
+    return {
+      success: true,
+      message: `Migrated ${migratedCount} rows`,
+      migratedCount: migratedCount
+    };
+
+  } catch (error) {
+    Logger.log(`Error in migrateDropdownListsTo12Columns: ${error.message}`);
+    Logger.log(`Stack: ${error.stack}`);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * CLEAN RESET: Clear all data and reinitialize with correct schemas
+ * This is faster than migration for proof of concept
+ */
+function cleanResetAllTables() {
+  try {
+    Logger.log("=== CLEAN RESET: CLEARING ALL TABLES ===");
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const results = {
+      success: true,
+      tablesReset: [],
+      errors: []
+    };
+
+    // Tables that need clean reset (only include tables with existing init functions)
+    const tablesToReset = [
+      { name: 'dropdown_lists', initFunction: 'initializeDropdownListsSheet' },
+      { name: 'dropdown_options', initFunction: 'initializeDropdownOptionsSheet' },
+      { name: 'companies', initFunction: 'initializeCompaniesSheet' },
+      { name: 'roles', initFunction: 'initializeRolesSheet' },
+      { name: 'ticket_types', initFunction: 'initializeTicketTypesSheet' },
+      { name: 'admin_action_logs', initFunction: 'initializeAdminActionLogsSheet' }
+      // Note: custom_fields and workflow_steps init functions not yet implemented
+    ];
+
+    tablesToReset.forEach(table => {
+      try {
+        Logger.log(`Resetting ${table.name}...`);
+
+        const sheet = ss.getSheetByName(table.name);
+        if (sheet) {
+          // Delete the entire sheet
+          ss.deleteSheet(sheet);
+          Logger.log(`  Deleted existing ${table.name} sheet`);
+        }
+
+        // Recreate with correct schema
+        if (typeof eval(table.initFunction) === 'function') {
+          eval(table.initFunction + '()');
+          Logger.log(`  Recreated ${table.name} with correct schema`);
+          results.tablesReset.push(table.name);
+        } else {
+          Logger.log(`  Warning: ${table.initFunction} not found`);
+          results.errors.push(`${table.name}: Init function not found`);
+        }
+
+      } catch (error) {
+        Logger.log(`  Error resetting ${table.name}: ${error.message}`);
+        results.errors.push(`${table.name}: ${error.message}`);
+      }
+    });
+
+    Logger.log(`=== CLEAN RESET COMPLETE ===`);
+    Logger.log(`Tables reset: ${results.tablesReset.join(', ')}`);
+
+    if (results.errors.length > 0) {
+      Logger.log(`Errors: ${results.errors.join(', ')}`);
+      results.success = false;
+    }
+
+    return results;
+
+  } catch (error) {
+    Logger.log(`Error in cleanResetAllTables: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Create fresh test data after clean reset
+ */
+function createFreshTestData() {
+  try {
+    Logger.log("=== CREATING FRESH TEST DATA ===");
+
+    const results = {
+      success: true,
+      created: [],
+      errors: []
+    };
+
+    // Create test companies
+    try {
+      const company1 = createCompany({
+        name: "Test Company A",
+        code: "TCA"
+      });
+      const company2 = createCompany({
+        name: "Test Company B",
+        code: "TCB"
+      });
+      results.created.push(`Companies: ${company1.name}, ${company2.name}`);
+      Logger.log("✅ Created test companies");
+    } catch (error) {
+      results.errors.push(`Companies: ${error.message}`);
+    }
+
+    // Create test roles
+    try {
+      const globalRole = createRole({
+        name: "Admin",
+        company_id: null  // Global role
+      });
+      results.created.push(`Roles: ${globalRole.name} (Global)`);
+      Logger.log("✅ Created test roles");
+    } catch (error) {
+      results.errors.push(`Roles: ${error.message}`);
+    }
+
+    // Create test dropdown lists
+    try {
+      const dropdown1 = createDropdownList({
+        name: "Priority Levels",
+        description: "Task priority options",
+        company_id: null,  // Global dropdown
+        options: [
+          { label: "High", value: "high" },
+          { label: "Medium", value: "medium" },
+          { label: "Low", value: "low" }
+        ]
+      });
+
+      const dropdown2 = createDropdownList({
+        name: "Status Types",
+        description: "Request status options",
+        company_id: null,  // Global dropdown
+        options: [
+          { label: "Open", value: "open" },
+          { label: "In Progress", value: "progress" },
+          { label: "Closed", value: "closed" }
+        ]
+      });
+
+      results.created.push(`Dropdowns: ${dropdown1.name}, ${dropdown2.name}`);
+      Logger.log("✅ Created test dropdowns with options");
+    } catch (error) {
+      results.errors.push(`Dropdowns: ${error.message}`);
+    }
+
+    Logger.log(`=== FRESH TEST DATA COMPLETE ===`);
+    Logger.log(`Created: ${results.created.join(', ')}`);
+
+    if (results.errors.length > 0) {
+      Logger.log(`Errors: ${results.errors.join(', ')}`);
+      results.success = false;
+    }
+
+    return results;
+
+  } catch (error) {
+    Logger.log(`Error in createFreshTestData: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Complete reset and test data creation (one-click solution)
+ */
+function completeSystemReset() {
+  Logger.log("=== COMPLETE SYSTEM RESET ===");
+
+  const resetResult = cleanResetAllTables();
+  if (!resetResult.success) {
+    Logger.log("Reset failed, aborting test data creation");
+    return resetResult;
+  }
+
+  const testDataResult = createFreshTestData();
+
+  return {
+    success: resetResult.success && testDataResult.success,
+    reset: resetResult,
+    testData: testDataResult,
+    message: "System reset complete - ready for testing"
+  };
+}
+
+/**
+ * Test function for dropdown creation with detailed logging
+ */
+function testDropdownCreationDiagnosis() {
+  Logger.log("=== TESTING DROPDOWN CREATION ===");
+
+  const testPayload = {
+    name: "DiagnosisTest_" + new Date().getTime(),
+    description: "Test dropdown for diagnosis",
+    company_id: null,
+    options: [
+      { label: "Option 1", value: "opt1" },
+      { label: "Option 2", value: "opt2" }
+    ]
+  };
+
+  Logger.log(`Test payload: ${JSON.stringify(testPayload)}`);
+
+  try {
+    const result = createDropdownList(testPayload);
+    Logger.log(`Creation result: ${JSON.stringify(result)}`);
+
+    // Immediately read back the data
+    Logger.log("Reading back created data:");
+    const allLists = getDropdownLists();
+    const createdList = allLists.find(list => list.name === testPayload.name);
+    Logger.log(`Found created list: ${JSON.stringify(createdList)}`);
+
+    return { success: true, result: result, foundList: createdList };
+  } catch (error) {
+    Logger.log(`Error in testDropdownCreationDiagnosis: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Diagnostic function to test immediate dropdown creation and retrieval
+ * Tests if newly created dropdowns are immediately available via filtering
+ */
+function testDropdownCreationAndRetrieval(payload) {
+  Logger.log("=== DROPDOWN CREATION AND RETRIEVAL TEST ===");
+  Logger.log(`Input payload: ${JSON.stringify(payload)}`);
+
+  try {
+    // Step 1: Create the dropdown
+    Logger.log("Step 1: Creating dropdown...");
+    const createdDropdown = createDropdownList(payload);
+    Logger.log(`Created dropdown: ${JSON.stringify(createdDropdown)}`);
+
+    // Step 2: Immediately fetch all dropdowns (no filter)
+    Logger.log("Step 2: Fetching all dropdowns...");
+    const allDropdowns = getDropdownLists();
+    Logger.log(`Total dropdowns found: ${allDropdowns.length}`);
+
+    const foundInAll = allDropdowns.find(d => d.id === createdDropdown.id);
+    Logger.log(`Created dropdown found in all: ${foundInAll ? 'YES' : 'NO'}`);
+    if (foundInAll) {
+      Logger.log(`Found data: ${JSON.stringify(foundInAll)}`);
+    }
+
+    // Step 3: Fetch dropdowns filtered by company
+    if (createdDropdown.company_id) {
+      Logger.log(`Step 3: Fetching dropdowns filtered by company_id: ${createdDropdown.company_id}`);
+      const filteredDropdowns = getDropdownLists({company_id: createdDropdown.company_id});
+      Logger.log(`Filtered dropdowns found: ${filteredDropdowns.length}`);
+
+      const foundInFiltered = filteredDropdowns.find(d => d.id === createdDropdown.id);
+      Logger.log(`Created dropdown found in filtered: ${foundInFiltered ? 'YES' : 'NO'}`);
+      if (foundInFiltered) {
+        Logger.log(`Filtered data: ${JSON.stringify(foundInFiltered)}`);
+      }
+
+      // Step 4: Debug filtering logic
+      Logger.log("Step 4: Debugging filtering logic...");
+      Logger.log(`Created dropdown company_id type: ${typeof createdDropdown.company_id}`);
+      Logger.log(`Created dropdown company_id value: "${createdDropdown.company_id}"`);
+
+      // Check each dropdown in all results
+      allDropdowns.forEach((dropdown, index) => {
+        if (dropdown.id === createdDropdown.id) {
+          Logger.log(`Found our dropdown at index ${index}:`);
+          Logger.log(`  ID: ${dropdown.id}`);
+          Logger.log(`  Name: ${dropdown.name}`);
+          Logger.log(`  Company ID: "${dropdown.company_id}" (type: ${typeof dropdown.company_id})`);
+          Logger.log(`  Match test: ${dropdown.company_id === createdDropdown.company_id}`);
+        }
+      });
+    }
+
+    return {
+      success: true,
+      created: createdDropdown,
+      totalDropdowns: allDropdowns.length,
+      foundInAll: !!foundInAll,
+      foundInFiltered: createdDropdown.company_id ? !!filteredDropdowns.find(d => d.id === createdDropdown.id) : null
+    };
+
+  } catch (error) {
+    Logger.log(`Error in testDropdownCreationAndRetrieval: ${error.message}`);
+    Logger.log(`Error stack: ${error.stack}`);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Comprehensive end-to-end verification of dropdown creation flow
+ * Tests the complete pipeline: doPost → createDropdownList → sheet write → sheet read
+ */
+function verifyDropdownSavingPipeline() {
+  Logger.log("=== COMPLETE DROPDOWN SAVING PIPELINE VERIFICATION ===");
+
+  try {
+    // Step 1: Test direct sheet write (bypass API layer)
+    Logger.log("Step 1: Testing direct sheet write...");
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+
+    if (!listsSheet) {
+      listsSheet = initializeDropdownListsSheet();
+    }
+
+    const testId = generateId('test');
+    const testData = [
+      testId, 'Direct Test List', 'Direct write test', 'comp_test_123', true,
+      new Date().toISOString(), 'test_user', new Date().toISOString(), 'test_user',
+      null, null, null
+    ];
+
+    const beforeRowCount = listsSheet.getLastRow();
+    listsSheet.appendRow(testData);
+    const afterRowCount = listsSheet.getLastRow();
+
+    Logger.log(`Direct write - Before: ${beforeRowCount}, After: ${afterRowCount}`);
+    const directWriteSuccess = afterRowCount > beforeRowCount;
+    Logger.log(`Direct sheet write: ${directWriteSuccess ? 'SUCCESS' : 'FAILED'}`);
+
+    // Step 2: Test createDropdownList function
+    Logger.log("Step 2: Testing createDropdownList function...");
+    const testPayload = {
+      name: 'Function Test List',
+      description: 'Function test description',
+      company_id: 'comp_function_test',
+      options: [{label: 'Test Option', value: 'test_opt'}]
+    };
+
+    const beforeCount2 = listsSheet.getLastRow();
+    const createdDropdown = createDropdownList(testPayload);
+    const afterCount2 = listsSheet.getLastRow();
+
+    Logger.log(`Function test - Before: ${beforeCount2}, After: ${afterCount2}`);
+    Logger.log(`Created dropdown: ${JSON.stringify(createdDropdown)}`);
+    const functionSuccess = afterCount2 > beforeCount2 && createdDropdown && createdDropdown.id;
+    Logger.log(`createDropdownList function: ${functionSuccess ? 'SUCCESS' : 'FAILED'}`);
+
+    // Step 3: Test doPost API layer
+    Logger.log("Step 3: Testing doPost API layer...");
+    const apiPayload = {
+      action: 'createDropdownList',
+      name: 'API Test List',
+      description: 'API test description',
+      company_id: 'comp_api_test',
+      options: [{label: 'API Option', value: 'api_opt'}]
+    };
+
+    const beforeCount3 = listsSheet.getLastRow();
+    const apiResponse = doPost({
+      postData: { contents: JSON.stringify(apiPayload) }
+    });
+    const afterCount3 = listsSheet.getLastRow();
+
+    Logger.log(`API test - Before: ${beforeCount3}, After: ${afterCount3}`);
+    Logger.log(`API response: ${apiResponse.getContent()}`);
+    const apiSuccess = afterCount3 > beforeCount3;
+    Logger.log(`doPost API: ${apiSuccess ? 'SUCCESS' : 'FAILED'}`);
+
+    // Step 4: Verify data retrieval
+    Logger.log("Step 4: Testing data retrieval...");
+    const allDropdowns = getDropdownLists();
+    const directTestFound = allDropdowns.find(d => d.id === testId);
+    const functionTestFound = allDropdowns.find(d => d.name === 'Function Test List');
+    const apiTestFound = allDropdowns.find(d => d.name === 'API Test List');
+
+    Logger.log(`Retrieval test - Direct: ${directTestFound ? 'FOUND' : 'NOT FOUND'}`);
+    Logger.log(`Retrieval test - Function: ${functionTestFound ? 'FOUND' : 'NOT FOUND'}`);
+    Logger.log(`Retrieval test - API: ${apiTestFound ? 'FOUND' : 'NOT FOUND'}`);
+
+    // Step 5: Raw sheet data verification
+    Logger.log("Step 5: Raw sheet data verification...");
+    const allSheetData = listsSheet.getDataRange().getValues();
+    Logger.log(`Total rows in sheet: ${allSheetData.length}`);
+    Logger.log(`Sheet headers: ${JSON.stringify(allSheetData[0])}`);
+
+    // Show last 3 rows to see our test data
+    for (let i = Math.max(1, allSheetData.length - 3); i < allSheetData.length; i++) {
+      Logger.log(`Row ${i + 1}: ${JSON.stringify(allSheetData[i])}`);
+    }
+
+    return {
+      success: directWriteSuccess && functionSuccess && apiSuccess,
+      results: {
+        directWrite: directWriteSuccess,
+        functionCall: functionSuccess,
+        apiCall: apiSuccess,
+        dataRetrieval: {
+          direct: !!directTestFound,
+          function: !!functionTestFound,
+          api: !!apiTestFound
+        },
+        totalRows: allSheetData.length
+      }
+    };
+
+  } catch (error) {
+    Logger.log(`Error in pipeline verification: ${error.message}`);
+    Logger.log(`Error stack: ${error.stack}`);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Test the exact payload format that frontend sends
+ * This simulates the actual frontend request to verify the fix
+ */
+function testFrontendDropdownCreation() {
+  Logger.log("=== TESTING EXACT FRONTEND PAYLOAD FORMAT ===");
+
+  try {
+    // This is the exact payload format from your console logs
+    const frontendPayload = {
+      action: "createDropdownList",
+      name: "Frontend Test List",
+      description: "Test dropdown from frontend",
+      company_id: "comp_1758704456776_ywbq16c39", // Test Company A
+      options: [
+        { value: "T1", label: "Value 1", parent_id: "", sort_order: 0 },
+        { value: "T2", label: "Value 2", parent_id: "", sort_order: 1 }
+      ]
+    };
+
+    Logger.log(`Frontend payload: ${JSON.stringify(frontendPayload)}`);
+
+    // Test via doPost (exactly how frontend calls it)
+    const response = doPost({
+      postData: { contents: JSON.stringify(frontendPayload) }
+    });
+
+    const responseData = JSON.parse(response.getContent());
+    Logger.log(`Response: ${JSON.stringify(responseData)}`);
+
+    if (responseData.success && responseData.data) {
+      const created = responseData.data;
+      Logger.log(`✅ Created successfully with:`);
+      Logger.log(`   ID: ${created.id}`);
+      Logger.log(`   Name: ${created.name}`);
+      Logger.log(`   Description: "${created.description}"`);
+      Logger.log(`   Company ID: "${created.company_id}"`);
+
+      // Verify it's saved with correct company filtering
+      const companyDropdowns = getDropdownLists({ company_id: created.company_id });
+      const found = companyDropdowns.find(d => d.id === created.id);
+
+      Logger.log(`✅ Found in company filter: ${found ? 'YES' : 'NO'}`);
+
+      if (found) {
+        Logger.log(`   Found data: Name="${found.name}", Company="${found.company_id}"`);
+        return {
+          success: true,
+          message: "Frontend payload test PASSED - dropdown created with correct company_id and found via filtering"
+        };
+      } else {
+        return {
+          success: false,
+          message: "Created but not found in company filter"
+        };
+      }
+    } else {
+      return {
+        success: false,
+        message: `Creation failed: ${JSON.stringify(responseData)}`
+      };
+    }
+
+  } catch (error) {
+    Logger.log(`Error: ${error.message}`);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+==
+

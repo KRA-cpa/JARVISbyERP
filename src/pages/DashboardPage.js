@@ -10,7 +10,7 @@ import { SLASummaryWidgets, SLADetailedMetrics } from '../components/shared/SLAW
 import DEV_CONFIG from '../config/development';
 
 const DashboardPage = () => {
-  const { user, userRoles, currentCompany, userCompanies, permissions, hasPermission } = useUser();
+  const { user, userRoles, userCompanies, permissions, hasPermission } = useUser();
   const { data: tickets, loading: ticketsLoading, error: ticketsError, refetch: refetchTickets } = useTickets();
   const { data: companies } = useCompanies();
   const { data: ticketTypes } = useTicketTypes();
@@ -195,7 +195,7 @@ const DashboardPage = () => {
       <ToastContainer />
       <InformationModal />
 
-      <div className="min-h-screen bg-gray-100">
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
         {/* Header */}
         <Header
           user={user}
@@ -208,10 +208,10 @@ const DashboardPage = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* Welcome Section */}
             <div className="mb-8">
-              <div className="bg-white shadow rounded-lg p-6">
+              <div className="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
                   <div>
-                    <h1 className="text-3xl font-bold text-gray-900">
+                    <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                       Ticket Dashboard
                     </h1>
                     <p className="mt-2 text-gray-600">
@@ -232,20 +232,20 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            {/* SLA Summary Widgets */}
-            <div className="mb-8">
+            {/* SLA Summary Widgets - HIDDEN */}
+            {/* <div className="mb-8">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">SLA Overview</h3>
               <SLASummaryWidgets
                 onOverdueClick={() => handleSLAWidgetClick('Overdue')}
                 onDueTodayClick={() => handleSLAWidgetClick('Due Today')}
                 onPerformanceClick={() => handleSLAWidgetClick('Performance')}
               />
-            </div>
+            </div> */}
 
-            {/* SLA Detailed Metrics */}
-            <div className="mb-8">
+            {/* SLA Detailed Metrics - HIDDEN */}
+            {/* <div className="mb-8">
               <SLADetailedMetrics />
-            </div>
+            </div> */}
 
             {/* Dashboard Stats */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-8">

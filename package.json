@@ -27,7 +27,19 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "test:setup": "node scripts/setup-tests.js",
+    "test:unit": "node scripts/test-runner.js --suite=unit",
+    "test:integration": "node scripts/test-runner.js --suite=integration",
+    "test:hooks": "node scripts/test-runner.js --suite=hooks",
+    "test:api": "node scripts/test-runner.js --suite=api",
+    "test:all": "node scripts/test-runner.js",
+    "test:coverage": "npm test -- --coverage --watchAll=false",
+    "test:ci": "node scripts/test-runner.js --ci",
+    "test:watch": "npm test -- --watch",
+    "test:debug": "node --inspect-brk scripts/test-runner.js",
+    "test:api-endpoints": "node scripts/test-api.js",
+    "test:api-health": "node scripts/test-api.js --health"
   },
   "eslintConfig": {
     "extends": [

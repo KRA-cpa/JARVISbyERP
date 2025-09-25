@@ -6,23 +6,25 @@
 // Environment-based API configuration
 const API_CONFIG = {
   development: {
-    // Local development proxy to avoid CORS issues
-    baseURL: process.env.REACT_APP_API_BASE_URL_DEV || '/api/appscript-proxy',
+    // LOCAL DEVELOPMENT: Use Vercel proxy to handle CORS issues (same as production)
+    baseURL: process.env.REACT_APP_API_BASE_URL_DEV || 'https://jarvis-by-erp.vercel.app/api/appscript-proxy',
     timeout: 30000,
     retryAttempts: 3,
     retryDelay: 1000,
     debugMode: true,
-    mockMode: false // Disable mock mode to test real API data fetching
+    mockMode: false,
+    connectionType: 'proxy' // For debugging purposes
   },
 
   production: {
-    // Vercel API Proxy (bypasses CORS issues)
+    // VERCEL PRODUCTION: Use Vercel proxy to handle CORS issues
     baseURL: process.env.REACT_APP_API_BASE_URL || 'https://jarvis-by-erp.vercel.app/api/appscript-proxy',
     timeout: 45000,
     retryAttempts: 5,
     retryDelay: 2000,
     debugMode: false,
-    mockMode: false
+    mockMode: false,
+    connectionType: 'proxy' // For debugging purposes
   }
 };
 
@@ -160,8 +162,10 @@ export const getDeploymentInfo = () => {
   return {
     deploymentId,
     environment: process.env.NODE_ENV || 'development',
+    connectionType: config.connectionType,
     mockMode: config.mockMode,
-    timeout: config.timeout
+    timeout: config.timeout,
+    baseURL: config.baseURL
   };
 };
 
@@ -272,7 +276,7 @@ export const getAPIHealthStatus = async () => {
   };
 };
 
-export default {
+const APIConfigModule = {
   apiConfig,
   API_ENDPOINTS,
   checkAPIConnection,
@@ -282,3 +286,5 @@ export default {
   extractDeploymentId,
   getDeploymentInfo
 };
+
+export default APIConfigModule;

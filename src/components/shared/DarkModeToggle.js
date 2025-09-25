@@ -13,7 +13,8 @@ import Icons from './Icons';
  * - Compact design suitable for headers and toolbars
  */
 const DarkModeToggle = ({ size = 'md', showLabel = false, className = '' }) => {
-  const { isDarkMode, toggleDarkMode } = useDarkMode();
+  const { isDarkMode, toggleDarkMode, isLoading } = useDarkMode();
+
 
   const sizeClasses = {
     sm: 'w-10 h-6',
@@ -34,9 +35,9 @@ const DarkModeToggle = ({ size = 'md', showLabel = false, className = '' }) => {
   };
 
   const translateClasses = {
-    sm: isDarkMode ? 'translate-x-4' : 'translate-x-1',
-    md: isDarkMode ? 'translate-x-5' : 'translate-x-1',
-    lg: isDarkMode ? 'translate-x-6' : 'translate-x-1'
+    sm: isDarkMode ? 'translate-x-4' : 'translate-x-0',
+    md: isDarkMode ? 'translate-x-5' : 'translate-x-0',
+    lg: isDarkMode ? 'translate-x-6' : 'translate-x-0'
   };
 
   return (
@@ -48,12 +49,18 @@ const DarkModeToggle = ({ size = 'md', showLabel = false, className = '' }) => {
       )}
 
       <button
-        onClick={toggleDarkMode}
+        onClick={() => {
+          if (toggleDarkMode) {
+            toggleDarkMode();
+          }
+        }}
+        disabled={isLoading || !toggleDarkMode}
         className={`
           relative inline-flex items-center ${sizeClasses[size]}
           rounded-full border-2 border-transparent
           transition-colors duration-200 ease-in-out
           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500
+          ${(isLoading || !toggleDarkMode) ? 'opacity-50 cursor-not-allowed' : ''}
           ${isDarkMode
             ? 'bg-blue-600 hover:bg-blue-700'
             : 'bg-gray-200 hover:bg-gray-300'

@@ -900,7 +900,7 @@ export const ValidationUtils = {
    * @returns {string}
    */
   sanitizeString(input) {
-    return input?.trim().replace(/[<>\"'&]/g, '') || '';
+    return input?.trim().replace(/[<>"'&]/g, '') || '';
   }
 };
 

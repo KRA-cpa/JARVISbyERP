@@ -5,10 +5,9 @@
  * for the JarvisByERP Ticketing & Workflow Orchestration System
  */
 
-import { addHours, addDays, isBefore, differenceInHours, differenceInDays } from 'date-fns';
+import { addHours, addDays, isBefore, differenceInHours } from 'date-fns';
 // Note: Using simplified timezone handling without date-fns-tz dependency
 
-const PHILIPPINES_TZ = 'Asia/Manila';
 
 /**
  * SLA Escalation Rule Types

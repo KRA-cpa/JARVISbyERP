@@ -16,7 +16,7 @@ import { API } from '../../api/googleSheet';
  */
 const AdminTicketTypeList = () => {
   const navigate = useNavigate();
-  const { success, error, warning, ToastContainer } = useToast();
+  const { success, error, ToastContainer } = useToast();
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingTicketType, setDeletingTicketType] = useState(null);

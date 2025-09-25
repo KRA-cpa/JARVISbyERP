@@ -195,7 +195,8 @@ export const UserProvider = ({ children }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // These functions are stable and don't need to be in the dependency array
 
   // Fetch user roles and companies from backend
   const fetchUserData = React.useCallback(async (user) => {

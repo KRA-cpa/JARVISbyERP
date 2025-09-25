@@ -576,6 +576,7 @@ class DropdownAPI extends BaseAPI {
 
     const response = await this.makeRequest('createDropdownList', {
       name: data.name.trim(),
+      description: data.description?.trim() || '',
       company_id: data.company_id || null,
       options: data.options
     });
@@ -586,6 +587,8 @@ class DropdownAPI extends BaseAPI {
     const response = await this.makeRequest('updateDropdownList', {
       id,
       name: data.name?.trim(),
+      description: data.description?.trim() || '',
+      company_id: data.company_id || null,
       options: data.options
     });
     return response.data;
@@ -887,7 +890,7 @@ class UserAPI extends BaseAPI {
   }
 
   // Bulk role assignment method for the dialog
-  async assignRole(assignmentData) {
+  async assignRoleBulk(assignmentData) {
     const response = await this.makeRequest('bulkAssignRole', {
       user_email: assignmentData.user_email,
       company_id: assignmentData.company_id,
@@ -927,6 +930,11 @@ class UserAPI extends BaseAPI {
     });
     cache.invalidate('user_preferences');
     return response.data;
+  }
+
+  async getAll() {
+    const response = await this.makeRequest('getUsers');
+    return response.data || [];
   }
 
   getMockData(action) {
@@ -1005,6 +1013,28 @@ class UserAPI extends BaseAPI {
             updated_at: new Date().toISOString(),
             preferences_updated: Object.keys(arguments[1] || {}).length
           }
+        };
+      case 'getUsers':
+        return {
+          success: true,
+          data: [
+            {
+              id: 'user123',
+              email: 'admin@example.com',
+              displayName: 'System Administrator',
+              roles: ['Admin'],
+              companies: ['Main Office'],
+              created_at: '2025-01-01T00:00:00.000Z'
+            },
+            {
+              id: 'user456',
+              email: 'user@example.com',
+              displayName: 'Regular User',
+              roles: ['User'],
+              companies: ['Main Office'],
+              created_at: '2025-01-02T00:00:00.000Z'
+            }
+          ]
         };
       default:
         return super.getMockData(action);

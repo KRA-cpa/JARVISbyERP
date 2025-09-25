@@ -49,11 +49,16 @@ export const DarkModeProvider = ({ children, user = null }) => {
   // Load user preferences on mount
   useEffect(() => {
     const loadUserPreferences = async () => {
-      if (!user?.id) return;
+      if (!user?.id) {
+        setIsLoading(false);
+        return;
+      }
 
       try {
         setIsLoading(true);
+        console.log('Loading user preferences for user:', user.id);
         const preferences = await API.Users.getPreferences(user.id);
+        console.log('User preferences loaded:', preferences);
         if (preferences.dark_mode !== undefined) {
           setIsDarkMode(preferences.dark_mode);
         }
@@ -66,6 +71,7 @@ export const DarkModeProvider = ({ children, user = null }) => {
         }
       } finally {
         setIsLoading(false);
+        console.log('User preferences loading complete');
       }
     };
 
@@ -74,10 +80,13 @@ export const DarkModeProvider = ({ children, user = null }) => {
 
   useEffect(() => {
     // Apply dark mode class to document
+    console.log('DarkMode useEffect triggered:', { isDarkMode, documentClasses: document.documentElement.classList.toString() });
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
+      console.log('Added dark class to document. Current classes:', document.documentElement.classList.toString());
     } else {
       document.documentElement.classList.remove('dark');
+      console.log('Removed dark class from document. Current classes:', document.documentElement.classList.toString());
     }
 
     // Save preference to localStorage (fallback)
@@ -107,6 +116,7 @@ export const DarkModeProvider = ({ children, user = null }) => {
 
   const toggleDarkMode = async () => {
     const newMode = !isDarkMode;
+    console.log('DarkMode toggle clicked:', { from: isDarkMode, to: newMode });
     setIsDarkMode(newMode);
 
     // Save to user preferences if authenticated

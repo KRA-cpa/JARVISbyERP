@@ -573,17 +573,19 @@ REACT_APP_USE_MOCK_DATA=false
 
 ## Technical Architecture
 
-### 🏗️ Complete File Structure (43 Files)
+### 🏗️ Complete File Structure (45 Files)
 ```
 src/
 ├── api/ (2 files)
 │   ├── googleSheet.js           # API client with caching & error handling
-│   └── models.js                # Data models & JSDoc type definitions
-├── components/ (19 files)
-│   ├── admin/ (6 files)
+│   └── models.js                # ✅ Enhanced with comprehensive audit fields
+├── components/ (21 files)
+│   ├── admin/ (8 files)
 │   │   ├── AdminCompanyManager.js     # Company CRUD management
+│   │   ├── AdminCustomFieldManager.js # ✅ Custom field builder with validation
 │   │   ├── AdminDropdownManager.js    # Dropdown list management
 │   │   ├── AdminRoleManager.js        # Role & permission management
+│   │   ├── AdminTicketTypeManager.js  # ✅ Ticket type CRUD with workflow integration
 │   │   ├── APIConnectionStatus.js     # Real-time API health monitoring
 │   │   ├── ConditionalWorkflowBuilder.js # Visual workflow condition builder
 │   │   └── RBACSettings.js            # Role-based access control settings
@@ -611,10 +613,13 @@ src/
 ├── hooks/ (2 files)
 │   ├── useAPI.js                      # React hooks for API data fetching
 │   └── useWorkflowRouter.js           # Workflow routing operations hooks
-├── pages/ (4 files)
-│   ├── AdminPage.js                   # Admin panel with tabbed interface
+├── pages/ (5 files)
+│   ├── AdminPage.js                   # ✅ Updated: Admin panel with reordered navigation (Overview > Companies > Ticket Types > Custom Fields > Dropdown Lists > Users > Roles)
+│   ├── AdminTicketTypeCreatePage.js   # Dedicated ticket type creation and editing page
+│   ├── AdminCustomFieldCreatePage.js  # Dedicated custom field creation and editing page
 │   ├── DashboardPage.js               # Main user dashboard with statistics
 │   ├── LoginPage.js                   # Google Sign-In authentication page
+│   ├── ProfilePage.js                 # ✅ NEW: User profile settings with tabbed interface (Profile, Preferences, Notifications, Security)
 │   └── UnauthorizedPage.js            # Access denied page
 ├── utils/ (7 files)
 │   ├── approvalRouter.js              # Intelligent workflow progression logic
@@ -1111,4 +1116,169 @@ Config (3) → Context (1) → Firebase/Google Sheets
 - **Implementation Guide:** Technical specifications and API contracts documented
 - **Risk Assessment:** High/Medium/Low risk categorization with mitigation strategies
 
-*Last Updated: September 22, 2025*
+---
+
+## 📋 Recent Changes & Updates (September 22, 2025)
+
+### ✅ ESLint Code Quality Improvements
+- **Fixed unnecessary escape character** in `models.js` regex pattern
+- **Removed unused variables** in multiple admin components:
+  - `AdminTicketTypeList.js`: Removed unused `warning` from useToast
+  - `AdminTicketTypeCreatePage.js`: Removed unused `warning` and `companiesLoading`
+  - `AdminTicketTypeManager.js`: Cleaned up unused imports and variables
+  - `App.test.js`: Removed unused `screen` import
+- **Fixed anonymous default exports** in `apiConfig.js` and `useAPI.js` with named variables
+- **Enhanced audit fields** in `models.js` with comprehensive database field mapping
+
+### ✅ Admin Panel Navigation Reordering
+- **Updated AdminPage.js** with new button sequence: Overview > Companies > Ticket Types > Custom Fields > Dropdown Lists > Users > Roles
+- **Added Users button** (disabled) with proper icon and description: "Per-user management and permissions"
+- **Created comprehensive plan** for per-user management feature in `USER_MANAGEMENT_FEATURE_PLAN.md`
+
+### ✅ Profile Settings Fix & New Component
+- **Fixed profile navigation issue** - /profile route was missing, causing dashboard redirect
+- **Created ProfilePage.js** - New component with tabbed interface for:
+  - Profile Information (Firebase auth-managed)
+  - Application Preferences (dashboard layout, items per page, auto-refresh)
+  - Notification Settings (email notifications, desktop notifications)
+  - Security Settings (Firebase-managed)
+- **Added ProfilePage route** to App.js with proper ProtectedRoute wrapper
+- **Integrated DarkModeToggle** component in preferences section
+
+### ✅ System Integration Verification
+- **Confirmed dark mode system** is properly implemented with DarkModeContext and DarkModeProvider
+- **Verified notification management** exists via `SLANotificationSystem.js` with comprehensive alert handling
+- **Updated file structure** documentation to reflect 45 total files (was 43)
+
+---
+
+## 🛡️ DROPDOWN CREATION SAFEGUARDS & LESSONS LEARNED (September 25, 2025)
+
+**Based on comprehensive analysis of 20+ appscript versions - DROPDOWN_CREATION_ISSUE_DEBRIEF.md**
+
+### **⚠️ CRITICAL DEVELOPMENT SAFEGUARDS**
+
+#### **1. PATTERN CONSISTENCY ENFORCEMENT (MANDATORY)**
+- **Golden Rule**: "If a simple pattern works elsewhere, use the same simple pattern everywhere"
+- **Standard Pattern**: `const dataObject = data.payload || { prop1: data.prop1, prop2: data.prop2 }`
+- **Prohibited**: Complex if/else validation patterns with multiple execution paths
+- **Pre-Development Check**: Compare new endpoint patterns with existing working endpoints
+
+#### **2. EXPERIMENTAL CODE MANAGEMENT**
+- **Debugging vs Production Separation**: Never add complex validation as debugging measure
+- **Version Control**: Maintain clean version history with clear experimental vs production code
+- **Rollback Readiness**: Complex debugging attempts can become the actual problem
+- **Architecture Lessons**: Simple, consistent patterns more reliable than sophisticated validation
+
+#### **3. PAYLOAD VALIDATION ARCHITECTURE**
+- **Single Path Execution**: Avoid multiple strategy validation approaches
+- **Frontend Compatibility**: Always test with actual frontend payload structures
+- **Silent Failure Prevention**: Ensure all operations have explicit success/failure logging
+- **Error Boundaries**: Comprehensive try-catch with meaningful error messages
+
+#### **4. TECHNICAL DOMAIN SEPARATION**
+- **API vs Database Issues**: Distinguish between API layer problems and database layer problems
+- **Schema vs Logic**: Keep database schema migrations separate from API endpoint logic changes
+- **Version Analysis**: Separate technical issues by architectural layer
+
+#### **5. DEPLOYMENT VERIFICATION PROTOCOLS**
+- **Version Consistency**: Verify deployed version matches code version (pingAPI vs header versions)
+- **Function Testing**: Test critical functions immediately after deployment
+- **Health Monitoring**: Use APIConnectionStatus component for real-time deployment verification
+- **Change Documentation**: Record all deployment history with precise timestamps
+
+### **📋 PRE-DEVELOPMENT CHECKLIST**
+
+**Before Any API Endpoint Development:**
+- [ ] **Pattern Analysis**: Review existing working endpoints for similar functionality
+- [ ] **Consistency Check**: Ensure new pattern matches established successful patterns
+- [ ] **Complexity Assessment**: Reject multi-strategy validation approaches
+- [ ] **Frontend Compatibility**: Verify payload structure matches frontend expectations
+
+**Before Any Complex Logic Implementation:**
+- [ ] **Architecture Review**: Compare with existing working implementations
+- [ ] **Simplicity Preference**: Choose simple, proven patterns over experimental approaches
+- [ ] **Debug Separation**: Keep debugging infrastructure separate from production logic
+- [ ] **Version Documentation**: Document pattern decisions for future consistency
+
+**Before Deployment:**
+- [ ] **Version Synchronization**: Update all version references (pingAPI, headers, mock responses)
+- [ ] **Critical Function Testing**: Verify core operations work with actual frontend payloads
+- [ ] **Health Check Verification**: Confirm APIConnectionStatus shows correct version
+- [ ] **Rollback Preparation**: Maintain clean version archives for rapid rollback
+
+### **🔍 DROPDOWN EVOLUTION LESSONS (6 Phases)**
+
+**Phase 0 (Pre-Sept 22)**: Handler-based working pattern with extractPayload utility ✅
+**Phase 1 (v3.0-v4.8)**: Working simple pattern - 18 hours stable ✅
+**Phase 2 (v5.3-v5.4)**: Enhanced simple pattern with comprehensive debug logging ✅
+**Phase 3 (v5.5-v5.6)**: Complex validation experiment - 2.5 hour failure period ❌
+**Phase 4 (v5.7)**: Return to simple pattern with lessons learned ✅
+**Phase 5 (v6.0)**: Systematic standardization across all endpoints ✅
+
+### **⚠️ NEVER REPEAT: Complex Validation Anti-Pattern**
+
+```javascript
+// ❌ FAILED PATTERN (v5.5-v5.6) - NEVER IMPLEMENT
+let dropdownData;
+if (data.name && data.options) {
+  dropdownData = { name: data.name, ... };
+} else if (data.payload) {
+  dropdownData = data.payload;
+} else {
+  throw new Error('Invalid request');
+}
+```
+
+**Why This Failed:**
+- Multiple execution paths created edge cases
+- Frontend structure didn't match validation conditions
+- Complex debugging became the actual problem
+- Multi-strategy approach was less reliable than simple pattern
+
+### **✅ ALWAYS USE: Simple Standardized Pattern**
+
+```javascript
+// ✅ PROVEN PATTERN (v5.7+) - USE FOR ALL ENDPOINTS
+const dropdownData = data.payload || {
+  name: data.name,
+  description: data.description || '',
+  company_id: data.company_id || null,
+  options: data.options || []
+};
+```
+
+**Why This Succeeds:**
+- Single assignment, single execution path
+- Compatible with both payload and flat structures
+- Comprehensive fallback values prevent undefined errors
+- Pattern consistency with other working endpoints
+
+### **🔧 TECHNICAL REQUIREMENTS**
+
+**For All New API Endpoints:**
+1. **Use proven simple pattern** from working endpoints
+2. **Add explicit logging** for payload processing debugging
+3. **Include comprehensive fallbacks** for all optional fields
+4. **Test with actual frontend payload** structures before deployment
+5. **Document pattern decisions** for future reference
+
+**For All Version Updates:**
+1. **Synchronize version numbers** across all references (pingAPI, headers, mocks)
+2. **Test deployment** with APIConnectionStatus component
+3. **Archive previous version** with timestamp and change description
+4. **Document deployment** in COMPREHENSIVE_DEPLOYMENT_HISTORY.md
+
+### **📚 REFERENCE DOCUMENTATION**
+- **DROPDOWN_CREATION_ISSUE_DEBRIEF.md** - Complete analysis of 48-hour debugging period
+- **APPSCRIPT_VERSION_EVOLUTION_ANALYSIS.md** - Technical deep-dive of 6-phase evolution
+- **COMPREHENSIVE_DEPLOYMENT_HISTORY.md** - Complete deployment timeline with lessons learned
+- **DEPLOYMENT_CONTEXT_ANALYSIS.md** - Version analysis methodology and findings
+
+### 🔄 Next Priority Items
+1. **Complete remaining ESLint fixes** - unused variables, missing dependencies, duplicate functions
+2. **Apply dropdown lessons** to all similar pattern implementations
+3. **Implement per-user management feature** following the documented plan
+4. **Address any remaining compilation warnings** for production readiness
+
+*Last Updated: September 25, 2025 - Added comprehensive dropdown creation safeguards*

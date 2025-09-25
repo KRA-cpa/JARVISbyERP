@@ -1,0 +1,480 @@
+/**
+ * =================================================================================
+ * DROPDOWN LIST MANAGEMENT FUNCTIONS - CLEAN IMPLEMENTATION
+ * Recreated based on documentation requirements
+ * Schema: id, name, description, company_id, is_active, created_at, created_by,
+ *         updated_at, updated_by, deactivated_at, deactivated_by, deactivation_reason
+ * =================================================================================
+ */
+
+/**
+ * Creates a new dropdown list
+ * @param {Object} payload - The dropdown data
+ * @param {string} payload.name - Name of the dropdown list (required)
+ * @param {string} payload.description - Description of the dropdown list
+ * @param {string|null} payload.company_id - Company ID or null for global
+ * @param {Array} payload.options - Array of options {label, value, parent_id?}
+ * @returns {Object} The created dropdown list
+ */
+function createDropdownList(payload) {
+  console.log('🚀 Creating dropdown list with payload:', JSON.stringify(payload, null, 2));
+
+  try {
+    // Validation
+    if (!payload || !payload.name) {
+      throw new Error('Dropdown list name is required');
+    }
+
+    // Get sheets
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+    const optionsSheet = ss.getSheetByName(SHEETS.DROPDOWN_OPTIONS);
+
+    if (!listsSheet || !optionsSheet) {
+      throw new Error('Required sheets not found');
+    }
+
+    // Prepare data
+    const currentTime = new Date().toISOString();
+    const currentUser = getCurrentUserId();
+    const listId = generateId('dd');
+
+    // Handle company_id (null for global, string for specific company)
+    const companyId = payload.company_id === 'global' ? null : (payload.company_id || null);
+
+    const dropdownData = {
+      id: listId,
+      name: payload.name.trim(),
+      description: (payload.description || '').trim(),
+      company_id: companyId,
+      is_active: true,
+      created_at: currentTime,
+      created_by: currentUser,
+      updated_at: currentTime,
+      updated_by: currentUser,
+      deactivated_at: null,
+      deactivated_by: null,
+      deactivation_reason: null
+    };
+
+    console.log('📝 Writing dropdown data to sheet:', JSON.stringify(dropdownData, null, 2));
+
+    // Write to dropdown_lists sheet
+    const rowData = [
+      dropdownData.id,
+      dropdownData.name,
+      dropdownData.description,
+      dropdownData.company_id,
+      dropdownData.is_active,
+      dropdownData.created_at,
+      dropdownData.created_by,
+      dropdownData.updated_at,
+      dropdownData.updated_by,
+      dropdownData.deactivated_at,
+      dropdownData.deactivated_by,
+      dropdownData.deactivation_reason
+    ];
+
+    const beforeCount = listsSheet.getLastRow();
+    listsSheet.appendRow(rowData);
+    const afterCount = listsSheet.getLastRow();
+
+    console.log(`📊 Row count: ${beforeCount} → ${afterCount} (${afterCount - beforeCount > 0 ? 'SUCCESS' : 'FAILED'})`);
+
+    // Add options if provided
+    if (payload.options && Array.isArray(payload.options)) {
+      console.log(`📋 Adding ${payload.options.length} options`);
+
+      payload.options.forEach((option, index) => {
+        if (option.label && option.value) {
+          const optionData = [
+            generateId('opt'),
+            listId,
+            option.label.trim(),
+            option.value.trim(),
+            option.parent_id || null
+          ];
+
+          console.log(`  Option ${index + 1}:`, JSON.stringify(optionData, null, 2));
+          optionsSheet.appendRow(optionData);
+        } else {
+          console.warn(`⚠️ Skipping invalid option ${index + 1}:`, option);
+        }
+      });
+    }
+
+    // Log admin action
+    logAdminAction('CREATE_DROPDOWN_LIST', listId, dropdownData);
+
+    console.log('✅ Dropdown list created successfully:', listId);
+    return dropdownData;
+
+  } catch (error) {
+    console.error('❌ Error creating dropdown list:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Retrieves dropdown lists with optional company filtering
+ * @param {Object} filters - Filter options
+ * @param {string|null} filters.company_id - Company ID to filter by, null for global, 'all' for no filtering
+ * @returns {Array} Array of dropdown lists
+ */
+function getDropdownLists(filters = {}) {
+  console.log('🔍 Retrieving dropdown lists with filters:', JSON.stringify(filters, null, 2));
+
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+
+    if (!listsSheet) {
+      console.warn('⚠️ Dropdown lists sheet not found');
+      return [];
+    }
+
+    const data = listsSheet.getDataRange().getValues();
+    console.log(`📊 Total rows in sheet: ${data.length}`);
+
+    if (data.length <= 1) {
+      console.log('ℹ️ No dropdown lists found (only header row)');
+      return [];
+    }
+
+    // Headers: id, name, description, company_id, is_active, created_at, created_by, updated_at, updated_by, deactivated_at, deactivated_by, deactivation_reason
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    console.log(`📋 Headers:`, JSON.stringify(headers, null, 2));
+    console.log(`📊 Data rows to process: ${rows.length}`);
+
+    const dropdowns = rows.map(row => ({
+      id: row[0],
+      name: row[1],
+      description: row[2],
+      company_id: row[3],
+      is_active: row[4],
+      created_at: row[5],
+      created_by: row[6],
+      updated_at: row[7],
+      updated_by: row[8],
+      deactivated_at: row[9],
+      deactivated_by: row[10],
+      deactivation_reason: row[11]
+    })).filter(dropdown => dropdown.id && dropdown.is_active);
+
+    console.log(`📋 Active dropdowns found: ${dropdowns.length}`);
+
+    // Apply company filtering
+    let filteredDropdowns = dropdowns;
+
+    if (filters.company_id !== undefined && filters.company_id !== 'all') {
+      const filterCompanyId = filters.company_id;
+
+      console.log(`🏢 Filtering by company_id: "${filterCompanyId}"`);
+
+      if (filterCompanyId === null || filterCompanyId === 'global') {
+        // Show global dropdowns (company_id is null or empty)
+        filteredDropdowns = dropdowns.filter(d => !d.company_id || d.company_id === null || d.company_id === '');
+        console.log(`🌐 Global filter applied, found: ${filteredDropdowns.length}`);
+      } else {
+        // Show dropdowns for specific company + global ones
+        filteredDropdowns = dropdowns.filter(d =>
+          d.company_id === filterCompanyId ||
+          !d.company_id ||
+          d.company_id === null ||
+          d.company_id === ''
+        );
+        console.log(`🏢 Company filter applied, found: ${filteredDropdowns.length}`);
+      }
+    }
+
+    console.log(`📤 Returning ${filteredDropdowns.length} filtered dropdown lists`);
+
+    // Debug log the first few results
+    filteredDropdowns.slice(0, 3).forEach((dropdown, index) => {
+      console.log(`  Result ${index + 1}:`, JSON.stringify({
+        id: dropdown.id,
+        name: dropdown.name,
+        company_id: dropdown.company_id
+      }, null, 2));
+    });
+
+    return filteredDropdowns;
+
+  } catch (error) {
+    console.error('❌ Error retrieving dropdown lists:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Updates an existing dropdown list
+ * @param {Object} payload - The update data
+ * @param {string} payload.id - Dropdown list ID (required)
+ * @param {string} payload.name - Updated name
+ * @param {string} payload.description - Updated description
+ * @param {string} payload.company_id - Updated company assignment
+ * @returns {Object} The updated dropdown list
+ */
+function updateDropdownList(payload) {
+  console.log('✏️ Updating dropdown list:', JSON.stringify(payload, null, 2));
+
+  try {
+    if (!payload || !payload.id) {
+      throw new Error('Dropdown list ID is required for update');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+
+    if (!listsSheet) {
+      throw new Error('Dropdown lists sheet not found');
+    }
+
+    // Find the row to update
+    const data = listsSheet.getDataRange().getValues();
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === payload.id) {
+        rowIndex = i + 1; // Sheet rows are 1-indexed
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error(`Dropdown list not found: ${payload.id}`);
+    }
+
+    const currentTime = new Date().toISOString();
+    const currentUser = getCurrentUserId();
+
+    // Update the row with new values
+    const existingRow = data[rowIndex - 1];
+    const updatedRow = [
+      existingRow[0], // id (unchanged)
+      payload.name || existingRow[1], // name
+      payload.description !== undefined ? payload.description : existingRow[2], // description
+      payload.company_id !== undefined ? (payload.company_id === 'global' ? null : payload.company_id) : existingRow[3], // company_id
+      existingRow[4], // is_active (unchanged)
+      existingRow[5], // created_at (unchanged)
+      existingRow[6], // created_by (unchanged)
+      currentTime, // updated_at
+      currentUser, // updated_by
+      existingRow[9], // deactivated_at (unchanged)
+      existingRow[10], // deactivated_by (unchanged)
+      existingRow[11] // deactivation_reason (unchanged)
+    ];
+
+    console.log(`📝 Updating row ${rowIndex} with data:`, JSON.stringify(updatedRow, null, 2));
+
+    // Write the updated row
+    const range = listsSheet.getRange(rowIndex, 1, 1, 12);
+    range.setValues([updatedRow]);
+
+    // Log admin action
+    logAdminAction('UPDATE_DROPDOWN_LIST', payload.id, payload);
+
+    console.log('✅ Dropdown list updated successfully');
+
+    return {
+      id: updatedRow[0],
+      name: updatedRow[1],
+      description: updatedRow[2],
+      company_id: updatedRow[3],
+      is_active: updatedRow[4],
+      created_at: updatedRow[5],
+      created_by: updatedRow[6],
+      updated_at: updatedRow[7],
+      updated_by: updatedRow[8],
+      deactivated_at: updatedRow[9],
+      deactivated_by: updatedRow[10],
+      deactivation_reason: updatedRow[11]
+    };
+
+  } catch (error) {
+    console.error('❌ Error updating dropdown list:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Soft deletes (deactivates) a dropdown list
+ * @param {string} listId - Dropdown list ID
+ * @param {string} reason - Reason for deactivation
+ * @returns {Object} The deactivated dropdown list
+ */
+function deactivateDropdownList(listId, reason = '') {
+  console.log(`🗑️ Deactivating dropdown list: ${listId}, reason: ${reason}`);
+
+  try {
+    if (!listId) {
+      throw new Error('Dropdown list ID is required for deactivation');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+
+    if (!listsSheet) {
+      throw new Error('Dropdown lists sheet not found');
+    }
+
+    // Find the row to deactivate
+    const data = listsSheet.getDataRange().getValues();
+    let rowIndex = -1;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][0] === listId) {
+        rowIndex = i + 1;
+        break;
+      }
+    }
+
+    if (rowIndex === -1) {
+      throw new Error(`Dropdown list not found: ${listId}`);
+    }
+
+    const currentTime = new Date().toISOString();
+    const currentUser = getCurrentUserId();
+
+    // Update the row to mark as inactive
+    const existingRow = data[rowIndex - 1];
+    const deactivatedRow = [
+      existingRow[0], // id
+      existingRow[1], // name
+      existingRow[2], // description
+      existingRow[3], // company_id
+      false, // is_active = false
+      existingRow[5], // created_at
+      existingRow[6], // created_by
+      currentTime, // updated_at
+      currentUser, // updated_by
+      currentTime, // deactivated_at
+      currentUser, // deactivated_by
+      reason // deactivation_reason
+    ];
+
+    console.log(`📝 Deactivating row ${rowIndex}:`, JSON.stringify(deactivatedRow, null, 2));
+
+    // Write the updated row
+    const range = listsSheet.getRange(rowIndex, 1, 1, 12);
+    range.setValues([deactivatedRow]);
+
+    // Log admin action
+    logAdminAction('DEACTIVATE_DROPDOWN_LIST', listId, { reason: reason });
+
+    console.log('✅ Dropdown list deactivated successfully');
+
+    return {
+      id: deactivatedRow[0],
+      name: deactivatedRow[1],
+      description: deactivatedRow[2],
+      company_id: deactivatedRow[3],
+      is_active: deactivatedRow[4],
+      created_at: deactivatedRow[5],
+      created_by: deactivatedRow[6],
+      updated_at: deactivatedRow[7],
+      updated_by: deactivatedRow[8],
+      deactivated_at: deactivatedRow[9],
+      deactivated_by: deactivatedRow[10],
+      deactivation_reason: deactivatedRow[11]
+    };
+
+  } catch (error) {
+    console.error('❌ Error deactivating dropdown list:', error.message);
+    throw error;
+  }
+}
+
+/**
+ * Gets all options for a specific dropdown list
+ * @param {string} listId - Dropdown list ID
+ * @returns {Array} Array of options
+ */
+function getDropdownOptions(listId) {
+  console.log(`📋 Getting options for dropdown list: ${listId}`);
+
+  try {
+    if (!listId) {
+      throw new Error('Dropdown list ID is required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const optionsSheet = ss.getSheetByName(SHEETS.DROPDOWN_OPTIONS);
+
+    if (!optionsSheet) {
+      console.warn('⚠️ Dropdown options sheet not found');
+      return [];
+    }
+
+    const data = optionsSheet.getDataRange().getValues();
+
+    if (data.length <= 1) {
+      console.log('ℹ️ No options found');
+      return [];
+    }
+
+    const rows = data.slice(1);
+    const options = rows
+      .filter(row => row[1] === listId) // Filter by dropdown_list_id
+      .map(row => ({
+        id: row[0],
+        dropdown_list_id: row[1],
+        label: row[2],
+        value: row[3],
+        parent_id: row[4] || null
+      }));
+
+    console.log(`📤 Found ${options.length} options for list ${listId}`);
+    return options;
+
+  } catch (error) {
+    console.error('❌ Error getting dropdown options:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Debug function to verify sheet structure and recent entries
+ */
+function debugDropdownListsSheet() {
+  console.log('🔍 DEBUG: Analyzing dropdown_lists sheet structure');
+
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const listsSheet = ss.getSheetByName(SHEETS.DROPDOWN_LISTS);
+
+    if (!listsSheet) {
+      console.error('❌ Sheet not found: dropdown_lists');
+      return { success: false, error: 'Sheet not found' };
+    }
+
+    const data = listsSheet.getDataRange().getValues();
+    console.log(`📊 Total rows: ${data.length}`);
+
+    if (data.length > 0) {
+      console.log('📋 Headers:', JSON.stringify(data[0], null, 2));
+
+      // Show last 5 entries
+      const recentEntries = data.slice(-5);
+      console.log('📈 Last 5 entries:');
+      recentEntries.forEach((row, index) => {
+        const rowNum = data.length - 5 + index + 1;
+        console.log(`  Row ${rowNum}:`, JSON.stringify(row, null, 2));
+      });
+    }
+
+    return {
+      success: true,
+      totalRows: data.length,
+      hasData: data.length > 1,
+      headers: data.length > 0 ? data[0] : null,
+      recentEntries: data.length > 1 ? data.slice(-3) : []
+    };
+
+  } catch (error) {
+    console.error('❌ Error debugging sheet:', error.message);
+    return { success: false, error: error.message };
+  }
+}

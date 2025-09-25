@@ -27,14 +27,14 @@ const Header = ({ user, userRole, notifications = [] }) => {
 
   const getActiveClasses = (path) => {
     return isActive(path)
-      ? 'bg-blue-100 text-blue-700 border-blue-300'
-      : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50 border-transparent';
+      ? 'bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-600'
+      : 'text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 border-transparent';
   };
 
   const unreadNotifications = notifications.filter(n => !n.read).length;
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow-sm border-b border-gray-200">
+    <header className="sticky top-0 z-50 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
 
@@ -43,7 +43,7 @@ const Header = ({ user, userRole, notifications = [] }) => {
             {/* Logo */}
             <Link to="/dashboard" className="flex items-center space-x-2">
               <Icons.Ticket size={28} className="text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">
+              <span className="text-xl font-bold text-gray-900 dark:text-white">
                 TicketFlow
               </span>
             </Link>
@@ -87,7 +87,7 @@ const Header = ({ user, userRole, notifications = [] }) => {
             <div className="relative">
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
-                className="relative p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors duration-200"
+                className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
               >
                 <Icons.Notification size={20} />
                 {unreadNotifications > 0 && (
@@ -157,7 +157,7 @@ const Header = ({ user, userRole, notifications = [] }) => {
             <div className="relative">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center space-x-2 p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-50 rounded-lg transition-colors duration-200"
+                className="flex items-center space-x-2 p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors duration-200"
               >
                 <Icons.User size={20} />
                 <span className="hidden sm:block text-sm font-medium">
@@ -201,7 +201,7 @@ const Header = ({ user, userRole, notifications = [] }) => {
                     <button
                       onClick={() => {
                         setShowUserMenu(false);
-                        // Handle preferences
+                        navigate('/profile?tab=preferences');
                       }}
                       className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
                     >

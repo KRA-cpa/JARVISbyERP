@@ -5,32 +5,51 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { API } from '../api/googleSheet';
+import { APILoopDetector, createProtectedAPICall } from '../utils/infiniteLoopPrevention';
 
-// Generic API hook
-export const useAPI = (apiCall, dependencies = []) => {
+// Generic API hook with infinite loop protection
+export const useAPI = (apiCall, dependencies = [], endpointName = 'unknown') => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [callCount, setCallCount] = useState(0);
 
   const fetchData = useCallback(async () => {
     try {
+      // Check for infinite loop before making call
+      if (APILoopDetector.isLoopDetected(endpointName)) {
+        console.error(`Infinite loop detected for ${endpointName}. Blocking call.`);
+        setError(`Infinite loop detected. Please refresh the page.`);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
+      setCallCount(prev => prev + 1);
+
       const result = await apiCall();
       setData(result);
+      APILoopDetector.recordSuccess(endpointName);
     } catch (err) {
-      setError(err.message);
+      APILoopDetector.recordFailure(endpointName);
+
+      if (err.code === 'INFINITE_LOOP_DETECTED') {
+        setError('Infinite loop detected. Please refresh the page to continue.');
+      } else {
+        setError(err.message);
+      }
       console.error('API Error:', err);
     } finally {
       setLoading(false);
     }
-  }, [apiCall]);
+  }, [...dependencies]); // Remove apiCall from dependencies to prevent infinite loops
 
   useEffect(() => {
     fetchData();
-  }, [...dependencies]); // Remove fetchData from dependencies to prevent infinite loops
+  }, [fetchData]);
 
-  return { data, loading, error, refetch: fetchData };
+  return { data, loading, error, refetch: fetchData, callCount };
 };
 
 // Enhanced API hook with caching and advanced options
@@ -39,7 +58,7 @@ export const useAPIData = (key, apiCall, options = {}) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const { enabled = true, staleTime = 0 } = options;
+  const { enabled = true } = options;
 
   const fetchData = useCallback(async () => {
     if (!enabled) {
@@ -58,7 +77,7 @@ export const useAPIData = (key, apiCall, options = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [apiCall, enabled]);
+  }, [enabled]); // Remove apiCall from dependencies to prevent infinite loops
 
   useEffect(() => {
     fetchData();
@@ -69,11 +88,11 @@ export const useAPIData = (key, apiCall, options = {}) => {
 
 // Companies hooks
 export const useCompanies = () => {
-  return useAPI(() => API.Companies.getAll());
+  return useAPI(() => API.Companies.getAll(), [], 'getCompanies');
 };
 
 export const useCompany = (id) => {
-  return useAPI(() => API.Companies.getById(id), [id]);
+  return useAPI(() => API.Companies.getById(id), [id], 'getCompany');
 };
 
 export const useCompanyMutations = () => {
@@ -127,12 +146,12 @@ export const useCompanyMutations = () => {
 
 // Ticket Types hooks
 export const useTicketTypes = (companyId = null) => {
-  return useAPI(() => API.TicketTypes?.getAll(companyId) || API.Tickets.getTicketTypes(companyId), [companyId]);
+  return useAPI(() => API.TicketTypes?.getAll(companyId) || API.Tickets.getTicketTypes(companyId), [companyId], 'getTicketTypes');
 };
 
 // Roles hooks
 export const useRoles = (companyId = null) => {
-  return useAPI(() => API.Roles.getAll(companyId), [companyId]);
+  return useAPI(() => API.Roles.getAll(companyId), [companyId], 'getRoles');
 };
 
 export const useRoleMutations = () => {
@@ -186,11 +205,11 @@ export const useRoleMutations = () => {
 
 // Dropdown hooks
 export const useDropdownLists = (companyId = null) => {
-  return useAPI(() => API.Dropdowns.getLists(companyId), [companyId]);
+  return useAPI(() => API.Dropdowns.getLists(companyId), [companyId], 'getDropdownLists');
 };
 
 export const useDropdownOptions = (listId) => {
-  return useAPI(() => API.Dropdowns.getOptions(listId), [listId]);
+  return useAPI(() => API.Dropdowns.getOptions(listId), [listId], 'getDropdownOptions');
 };
 
 export const useDropdownMutations = () => {
@@ -301,11 +320,11 @@ export const useCustomFieldMutations = () => {
 
 // Tickets hooks
 export const useTickets = (filters = {}) => {
-  return useAPI(() => API.Tickets.getAll(filters), [JSON.stringify(filters)]);
+  return useAPI(() => API.Tickets.getAll(filters), [JSON.stringify(filters)], 'getTickets');
 };
 
 export const useTicket = (id) => {
-  return useAPI(() => API.Tickets.getById(id), [id]);
+  return useAPI(() => API.Tickets.getById(id), [id], 'getTicket');
 };
 
 export const useTicketMutations = () => {
@@ -359,11 +378,11 @@ export const useTicketMutations = () => {
 
 // User hooks
 export const useUsers = () => {
-  return useAPI(() => API.Users.getAll());
+  return useAPI(() => API.Users.getAll(), [], 'getUsers');
 };
 
 export const useUser = (id) => {
-  return useAPI(() => API.Users.getById(id), [id]);
+  return useAPI(() => API.Users.getById(id), [id], 'getUser');
 };
 
 // System hooks
@@ -400,7 +419,7 @@ export const useAPIConnection = () => {
   const [loading, setLoading] = useState(false);
   const [lastChecked, setLastChecked] = useState(null);
 
-  const checkConnection = async () => {
+  const checkConnection = useCallback(async () => {
     try {
       setLoading(true);
       await API.System.ping();
@@ -413,11 +432,11 @@ export const useAPIConnection = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     checkConnection();
-  }, []);
+  }, [checkConnection]);
 
   return { status, loading, lastChecked, checkConnection };
 };
@@ -908,7 +927,7 @@ export const useSLANotificationMonitor = () => {
   };
 };
 
-export default {
+const useAPIModule = {
   useAPI,
   useCompanies,
   useRoles,
@@ -944,3 +963,5 @@ export default {
   useSLAEscalationMutations,
   useSLANotificationMonitor
 };
+
+export default useAPIModule;

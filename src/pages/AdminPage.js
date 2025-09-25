@@ -7,9 +7,11 @@ import DEV_CONFIG from '../config/development';
 import AdminCompanyManager from '../components/admin/AdminCompanyManager';
 import AdminRoleManager from '../components/admin/AdminRoleManager';
 import AdminDropdownManager from '../components/admin/AdminDropdownManager';
+import DropdownListCreate from '../components/admin/DropdownListCreate';
 import AdminTicketTypeList from '../components/admin/AdminTicketTypeList';
 import AdminCustomFieldList from '../components/admin/AdminCustomFieldList';
 import APIConnectionStatus from '../components/admin/APIConnectionStatus';
+import InfiniteLoopMonitor from '../components/shared/InfiniteLoopMonitor';
 
 const AdminPage = () => {
   const { user, userRoles } = useUser();
@@ -23,8 +25,8 @@ const AdminPage = () => {
   const { data: users, loading: usersLoading, error: usersError, refetch: refetchUsers } = useUsers();
   const { data: ticketTypes, loading: ticketTypesLoading, error: ticketTypesError, refetch: refetchTicketTypes } = useTicketTypes();
 
-  // Manual refresh all data
-  const refreshAllData = async () => {
+  // Manual refresh all data - memoized to prevent infinite loops
+  const refreshAllData = React.useCallback(async () => {
     try {
       await Promise.all([
         refetchCompanies(),
@@ -37,75 +39,21 @@ const AdminPage = () => {
     } catch (error) {
       console.error('Failed to refresh data:', error);
     }
-  };
+  }, [refetchCompanies, refetchRoles, refetchDropdowns, refetchTickets, refetchUsers, refetchTicketTypes]);
 
-  // Determine API health status
-  const getAPIHealthStatus = () => {
-    const errors = [companiesError, rolesError, dropdownsError, ticketsError, usersError, ticketTypesError].filter(Boolean);
-    const loading = companiesLoading || rolesLoading || dropdownsLoading || ticketsLoading || usersLoading || ticketTypesLoading;
+  // Simple API health status with minimal logic to prevent infinite loops
+  const apiHealth = React.useMemo(() => {
+    const hasErrors = Boolean(companiesError || rolesError || dropdownsError || ticketsError || usersError || ticketTypesError);
+    const isLoading = Boolean(companiesLoading || rolesLoading || dropdownsLoading || ticketsLoading || usersLoading || ticketTypesLoading);
 
-    if (errors.length > 0) {
-      // Analyze error types
-      const hasNetworkError = errors.some(err => err.includes('net::ERR_FAILED') || err.includes('Failed to fetch'));
-      const hasCORSError = errors.some(err => err.includes('CORS') || err.includes('blocked by CORS policy'));
-      const hasTimeoutError = errors.some(err => err.includes('timeout') || err.includes('AbortError'));
-      const hasServerError = errors.some(err => err.includes('500') || err.includes('502') || err.includes('503'));
-
-      if (hasNetworkError) {
-        return {
-          status: 'error',
-          type: 'NETWORK_ERROR',
-          code: 'NET_001',
-          message: 'Network connection failed',
-          details: 'Cannot connect to Google Apps Script API',
-          solution: 'Check deployment status and network connection'
-        };
-      }
-
-      if (hasCORSError) {
-        return {
-          status: 'error',
-          type: 'CORS_ERROR',
-          code: 'CORS_001',
-          message: 'Cross-Origin Request Blocked',
-          details: 'CORS policy preventing API access',
-          solution: 'Update Google Apps Script CORS configuration'
-        };
-      }
-
-      if (hasTimeoutError) {
-        return {
-          status: 'error',
-          type: 'TIMEOUT_ERROR',
-          code: 'API_002',
-          message: 'API Request Timeout',
-          details: 'Google Apps Script not responding within timeout',
-          solution: 'Check Apps Script execution logs and performance'
-        };
-      }
-
-      if (hasServerError) {
-        return {
-          status: 'error',
-          type: 'SERVER_ERROR',
-          code: 'API_003',
-          message: 'Server Error',
-          details: 'Google Apps Script internal error',
-          solution: 'Check Apps Script logs and deployment status'
-        };
-      }
-
+    if (hasErrors) {
       return {
         status: 'error',
-        type: 'UNKNOWN_ERROR',
-        code: 'API_999',
-        message: 'Unknown API Error',
-        details: errors[0],
-        solution: 'Check browser console and Apps Script logs'
+        message: 'API connection issues detected'
       };
     }
 
-    if (loading) {
+    if (isLoading) {
       return {
         status: 'loading',
         message: 'Loading data...'
@@ -116,9 +64,10 @@ const AdminPage = () => {
       status: 'healthy',
       message: 'All systems operational'
     };
-  };
-
-  const apiHealth = getAPIHealthStatus();
+  }, [
+    companiesError, rolesError, dropdownsError, ticketsError, usersError, ticketTypesError,
+    companiesLoading, rolesLoading, dropdownsLoading, ticketsLoading, usersLoading, ticketTypesLoading
+  ]);
 
   // Calculate statistics from real data
   const getCompanyStats = () => {
@@ -202,20 +151,6 @@ const AdminPage = () => {
       component: AdminCompanyManager
     },
     {
-      id: 'roles',
-      name: 'Roles',
-      icon: Icons.Role,
-      description: 'Define user roles and permissions',
-      component: AdminRoleManager
-    },
-    {
-      id: 'dropdown-lists',
-      name: 'Dropdown Lists',
-      icon: Icons.ChevronDown,
-      description: 'Manage dropdown options',
-      component: AdminDropdownManager
-    },
-    {
       id: 'ticket-types',
       name: 'Ticket Types',
       icon: Icons.Workflow,
@@ -228,6 +163,34 @@ const AdminPage = () => {
       icon: Icons.Edit,
       description: 'Build dynamic form fields for ticket types',
       component: AdminCustomFieldList
+    },
+    {
+      id: 'dropdown-create',
+      name: 'Create Dropdown List',
+      icon: Icons.Plus,
+      description: 'Create new dropdown lists with options',
+      component: DropdownListCreate
+    },
+    {
+      id: 'dropdown-manage',
+      name: 'Manage Dropdown Lists',
+      icon: Icons.ChevronDown,
+      description: 'Manage company assignments and deactivate lists',
+      component: AdminDropdownManager
+    },
+    {
+      id: 'roles',
+      name: 'Roles',
+      icon: Icons.Role,
+      description: 'Define user roles and permissions',
+      component: AdminRoleManager
+    },
+    {
+      id: 'users',
+      name: 'Users',
+      icon: Icons.User,
+      description: 'Per-user management and permissions',
+      disabled: true // Not yet available, but button implemented
     }
   ];
 
@@ -240,7 +203,9 @@ const AdminPage = () => {
       case 'roles':
         if (rolesLoading) return 'Loading...';
         return `${roles?.length || 0} roles`;
-      case 'dropdown-lists':
+      case 'dropdown-create':
+        return 'Create new lists';
+      case 'dropdown-manage':
         if (dropdownsLoading) return 'Loading...';
         return `${dropdownLists?.length || 0} lists`;
       case 'ticket-types':
@@ -253,7 +218,7 @@ const AdminPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900">
       {/* Header */}
       <Header
         user={user}
@@ -283,6 +248,29 @@ const AdminPage = () => {
               </div>
             </div>
           </div>
+
+          {/* System Overview Controls - Above Stats */}
+          {activeTab === 'overview' && (
+            <div className="mb-6">
+              <div className="bg-white shadow rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-medium text-gray-900">System Overview and Statistics</h2>
+                    <p className="text-sm text-gray-600">Monitor system health and refresh data</p>
+                  </div>
+                  <button
+                    onClick={refreshAllData}
+                    disabled={companiesLoading || rolesLoading || dropdownsLoading || ticketsLoading || usersLoading || ticketTypesLoading}
+                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-md disabled:opacity-50 disabled:cursor-not-allowed border border-green-200"
+                    title="Refresh all data"
+                  >
+                    <Icons.Refresh size={16} className={`mr-2 ${(companiesLoading || rolesLoading || dropdownsLoading || ticketsLoading || usersLoading || ticketTypesLoading) ? 'animate-spin' : ''}`} />
+                    Refresh All
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Admin Stats - Re-arranged */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
@@ -350,7 +338,7 @@ const AdminPage = () => {
                 </div>
                 <div className="flex flex-col space-y-2">
                   {apiHealth.status === 'healthy' && <Icons.Success size={32} className="text-green-600" />}
-                  {apiHealth.status === 'loading' && <Icons.Loading size={32} className="text-yellow-600" />}
+                  {apiHealth.status === 'loading' && <Icons.Loading size={32} className="text-yellow-600 animate-spin" />}
                   {apiHealth.status === 'error' && <Icons.Error size={32} className="text-red-600" />}
                   <button
                     onClick={refreshAllData}
@@ -504,6 +492,9 @@ const AdminPage = () => {
               <div className="space-y-6">
                 {/* API Connection Status */}
                 <APIConnectionStatus />
+
+                {/* Infinite Loop Monitor */}
+                <InfiniteLoopMonitor minimized={false} />
 
                 {/* Admin Stats - with toggle */}
                 {DEV_CONFIG.STATS_DISPLAY.SHOW_MODULE_STATS && (
