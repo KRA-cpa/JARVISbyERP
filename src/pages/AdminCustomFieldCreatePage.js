@@ -5,15 +5,17 @@ import Header from '../components/shared/Header';
 import Icons from '../components/shared/Icons';
 import ErrorBoundary130, { validateComponentReferences } from '../components/shared/ErrorBoundary130';
 import { useToast } from '../components/shared/Toast';
-import { useTicketTypes, useDropdownLists, useCustomFields } from '../hooks/useAPI';
+import { useTicketTypes, useDropdownLists, useCustomFields, useUserProfileTypes, useRoleTypes } from '../hooks/useAPI';
 import { API } from '../api/googleSheet';
 
 /**
  * AdminCustomFieldCreatePage Component
  *
- * Dedicated page for creating new custom fields with:
- * - Full-page form layout with enhanced field type selection
- * - Support for all field types including new date range
+ * Universal Entity Architecture - supports creating custom fields for:
+ * - Tickets (default, backward compatible)
+ * - User Profiles (entityCategory='user_profile')
+ * - Roles (entityCategory='role')
+ * - Enhanced field type selection with date range support
  * - Conditional field logic and dependencies
  * - Better validation and error handling
  */
@@ -24,17 +26,24 @@ const AdminCustomFieldCreatePage = () => {
   const { success, error: showError, warning, ToastContainer } = useToast();
   const [loading, setLoading] = useState(false);
 
-  // Get pre-selected ticket type from URL params
-  const preSelectedTicketType = searchParams.get('ticketType');
+  // Universal Entity Architecture: Get entity context from URL params
+  const entityCategory = searchParams.get('entityCategory') || 'ticket'; // Default to 'ticket' for backward compatibility
+  const preSelectedEntityType = searchParams.get('entityType') || searchParams.get('ticketType'); // Support both new and old params
 
-  // API data
+  // API data - Universal Entity Architecture
   const { data: ticketTypes, loading: ticketTypesLoading } = useTicketTypes();
+  const { data: userProfileTypes, loading: userProfileTypesLoading } = useUserProfileTypes();
+  const { data: roleTypes, loading: roleTypesLoading } = useRoleTypes();
   const { data: dropdownLists, loading: dropdownListsLoading } = useDropdownLists();
   const { data: customFields, refetch: refetchCustomFields } = useCustomFields();
 
-  // Form state
+  // Form state - Universal Entity Architecture
   const [formData, setFormData] = useState({
-    ticket_type_id: preSelectedTicketType || '',
+    // Universal Entity Architecture fields
+    entityCategory: entityCategory,
+    entityTypeId: preSelectedEntityType || '',
+    // Backward compatibility
+    ticket_type_id: entityCategory === 'ticket' ? (preSelectedEntityType || '') : '',
     name: '',
     label: '',
     type: 'text',
@@ -59,21 +68,28 @@ const AdminCustomFieldCreatePage = () => {
     { value: 'file', label: 'File Upload', icon: Icons.Attachment, description: 'File attachment capability' }
   ];
 
-  // Calculate next sort order
+  // Calculate next sort order - Universal Entity Architecture
   useEffect(() => {
-    if (formData.ticket_type_id && customFields) {
-      const fieldsForType = customFields.filter(f => f.ticket_type_id === formData.ticket_type_id);
-      const maxSortOrder = fieldsForType.length > 0 ? Math.max(...fieldsForType.map(f => f.sort_order)) : 0;
+    if (formData.entityTypeId && customFields) {
+      // Filter fields by both entity type and category
+      const fieldsForEntity = customFields.filter(f =>
+        (f.ticket_type_id === formData.entityTypeId || f.entityTypeId === formData.entityTypeId) &&
+        (f.entity_category === formData.entityCategory || (!f.entity_category && formData.entityCategory === 'ticket'))
+      );
+      const maxSortOrder = fieldsForEntity.length > 0 ? Math.max(...fieldsForEntity.map(f => f.sort_order)) : 0;
       setFormData(prev => ({ ...prev, sort_order: maxSortOrder + 1 }));
     }
-  }, [formData.ticket_type_id, customFields]);
+  }, [formData.entityTypeId, formData.entityCategory, customFields]);
 
-  // Validate form
+  // Validate form - Universal Entity Architecture
   const validateForm = () => {
     const errors = {};
 
-    if (!formData.ticket_type_id) {
-      errors.ticket_type_id = 'Please select a ticket type';
+    if (!formData.entityTypeId) {
+      const entityTypeName = formData.entityCategory === 'ticket' ? 'ticket type' :
+                             formData.entityCategory === 'user_profile' ? 'user profile type' :
+                             formData.entityCategory === 'role' ? 'role type' : 'entity type';
+      errors.entityTypeId = `Please select a ${entityTypeName}`;
     }
 
     if (!formData.name.trim()) {
@@ -90,14 +106,18 @@ const AdminCustomFieldCreatePage = () => {
       errors.dropdown_list_id = 'Please select a dropdown list';
     }
 
-    // Check for duplicate field names within the ticket type
-    if (formData.ticket_type_id && customFields) {
+    // Check for duplicate field names within the entity type - Universal Entity Architecture
+    if (formData.entityTypeId && customFields) {
       const duplicateField = customFields.find(f =>
-        f.ticket_type_id === formData.ticket_type_id &&
+        (f.ticket_type_id === formData.entityTypeId || f.entityTypeId === formData.entityTypeId) &&
+        (f.entity_category === formData.entityCategory || (!f.entity_category && formData.entityCategory === 'ticket')) &&
         f.name.toLowerCase() === formData.name.toLowerCase().trim()
       );
       if (duplicateField) {
-        errors.name = 'A field with this name already exists for this ticket type';
+        const entityTypeName = formData.entityCategory === 'ticket' ? 'ticket type' :
+                               formData.entityCategory === 'user_profile' ? 'user profile type' :
+                               formData.entityCategory === 'role' ? 'role type' : 'entity type';
+        errors.name = `A field with this name already exists for this ${entityTypeName}`;
       }
     }
 
@@ -121,13 +141,21 @@ const AdminCustomFieldCreatePage = () => {
         name: formData.name.trim(),
         label: formData.label.trim(),
         dropdown_list_id: formData.dropdown_list_id || null,
-        depends_on_field_id: formData.depends_on_field_id || null
+        depends_on_field_id: formData.depends_on_field_id || null,
+        // Universal Entity Architecture fields
+        entityTypeId: formData.entityTypeId,
+        entityCategory: formData.entityCategory
       };
 
       await API.CustomFields.create(fieldData);
       success('Custom field created successfully');
       refetchCustomFields();
-      navigate(`/admin?tab=custom-fields&ticketType=${formData.ticket_type_id}`);
+
+      // Navigate based on entity category
+      const navigationUrl = formData.entityCategory === 'ticket'
+        ? `/admin?tab=custom-fields&ticketType=${formData.entityTypeId}`
+        : `/admin?tab=custom-fields&entityCategory=${formData.entityCategory}&entityType=${formData.entityTypeId}`;
+      navigate(navigationUrl);
     } catch (err) {
       showError(err.message || 'Failed to create custom field');
     } finally {
@@ -148,9 +176,15 @@ const AdminCustomFieldCreatePage = () => {
       setFormData(prev => ({ ...prev, dropdown_list_id: '' }));
     }
 
-    // Clear depends_on_field_id if changing ticket type
-    if (name === 'ticket_type_id') {
-      setFormData(prev => ({ ...prev, depends_on_field_id: '' }));
+    // Clear depends_on_field_id if changing entity type
+    if (name === 'entityTypeId' || name === 'ticket_type_id') {
+      setFormData(prev => ({
+        ...prev,
+        depends_on_field_id: '',
+        // Sync both entityTypeId and ticket_type_id for backward compatibility
+        entityTypeId: name === 'entityTypeId' ? value : prev.entityTypeId,
+        ticket_type_id: prev.entityCategory === 'ticket' ? value : ''
+      }));
     }
 
     // Clear error when user starts typing
@@ -162,12 +196,13 @@ const AdminCustomFieldCreatePage = () => {
     setDraftSaved(false);
   };
 
-  // Get available dependency fields
+  // Get available dependency fields - Universal Entity Architecture
   const getAvailableDependencyFields = () => {
-    if (!formData.ticket_type_id || !customFields) return [];
+    if (!formData.entityTypeId || !customFields) return [];
 
     return customFields.filter(field =>
-      field.ticket_type_id === formData.ticket_type_id &&
+      (field.ticket_type_id === formData.entityTypeId || field.entityTypeId === formData.entityTypeId) &&
+      (field.entity_category === formData.entityCategory || (!field.entity_category && formData.entityCategory === 'ticket')) &&
       field.sort_order < formData.sort_order &&
       !field.is_hidden
     );
@@ -176,25 +211,28 @@ const AdminCustomFieldCreatePage = () => {
   // Get selected field type details
   const selectedFieldType = fieldTypes?.find(type => type.value === formData.type) || null;
 
-  // Auto-save draft functionality
+  // Auto-save draft functionality - Universal Entity Architecture
   const saveDraft = () => {
-    localStorage.setItem('customFieldDraft', JSON.stringify(formData));
+    localStorage.setItem(`customFieldDraft_${entityCategory}`, JSON.stringify(formData));
     setDraftSaved(true);
     setTimeout(() => setDraftSaved(false), 2000);
   };
 
-  // Load draft on component mount
+  // Load draft on component mount - Universal Entity Architecture
   useEffect(() => {
-    const savedDraft = localStorage.getItem('customFieldDraft');
-    if (savedDraft && !preSelectedTicketType) {
+    const savedDraft = localStorage.getItem(`customFieldDraft_${entityCategory}`);
+    if (savedDraft && !preSelectedEntityType) {
       try {
         const draft = JSON.parse(savedDraft);
-        setFormData(draft);
+        // Ensure draft matches current entity category
+        if (draft.entityCategory === entityCategory) {
+          setFormData(draft);
+        }
       } catch (err) {
         console.error('Failed to load draft:', err);
       }
     }
-  }, [preSelectedTicketType]);
+  }, [preSelectedEntityType, entityCategory]);
 
   // Development-time component validation to prevent Error #130
   useEffect(() => {
@@ -212,12 +250,14 @@ const AdminCustomFieldCreatePage = () => {
         hooks: [
           { name: 'useToast', expectedMethods: ['success', 'error', 'warning', 'ToastContainer'], hookResult: { success, error: showError, warning, ToastContainer } },
           { name: 'useTicketTypes', expectedMethods: ['data', 'loading', 'error'], hookResult: { data: ticketTypes, loading: ticketTypesLoading } },
+          { name: 'useUserProfileTypes', expectedMethods: ['data', 'loading', 'error'], hookResult: { data: userProfileTypes, loading: userProfileTypesLoading } },
+          { name: 'useRoleTypes', expectedMethods: ['data', 'loading', 'error'], hookResult: { data: roleTypes, loading: roleTypesLoading } },
           { name: 'useDropdownLists', expectedMethods: ['data', 'loading', 'error'], hookResult: { data: dropdownLists, loading: dropdownListsLoading } },
           { name: 'useCustomFields', expectedMethods: ['data', 'loading', 'error', 'refetch'], hookResult: { data: customFields, refetch: refetchCustomFields } }
         ]
       });
     }
-  }, [success, showError, warning, ToastContainer, ticketTypes, ticketTypesLoading, dropdownLists, dropdownListsLoading, customFields, refetchCustomFields]);  // Include dependencies
+  }, [success, showError, warning, ToastContainer, ticketTypes, ticketTypesLoading, userProfileTypes, userProfileTypesLoading, roleTypes, roleTypesLoading, dropdownLists, dropdownListsLoading, customFields, refetchCustomFields]);  // Include dependencies
 
   return (
     <ErrorBoundary130>
@@ -259,11 +299,22 @@ const AdminCustomFieldCreatePage = () => {
             </ol>
           </nav>
 
-          {/* Page Header */}
+          {/* Page Header - Dynamic based on entity category */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Create New Custom Field</h1>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Create New Custom Field
+              {entityCategory !== 'ticket' && (
+                <span className="text-blue-600">
+                  {entityCategory === 'user_profile' ? ' for User Profiles' :
+                   entityCategory === 'role' ? ' for Roles' : ` for ${entityCategory}`}
+                </span>
+              )}
+            </h1>
             <p className="mt-2 text-sm text-gray-600">
-              Add a dynamic form field to enhance ticket data collection with conditional logic and validation.
+              {entityCategory === 'ticket' ? 'Add a dynamic form field to enhance ticket data collection with conditional logic and validation.' :
+               entityCategory === 'user_profile' ? 'Create custom fields for user profile data collection and management.' :
+               entityCategory === 'role' ? 'Define custom fields for role-specific information and attributes.' :
+               'Add a dynamic form field with conditional logic and validation.'}
             </p>
             {draftSaved && (
               <div className="mt-2 flex items-center text-sm text-green-600">
@@ -280,28 +331,44 @@ const AdminCustomFieldCreatePage = () => {
                 <form onSubmit={handleSubmit}>
                   <div className="px-6 py-6">
                     <div className="space-y-6">
-                      {/* Ticket Type Selection */}
+                      {/* Universal Entity Type Selection */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700">
-                          Ticket Type *
+                          {entityCategory === 'ticket' ? 'Ticket Type' :
+                           entityCategory === 'user_profile' ? 'User Profile Type' :
+                           entityCategory === 'role' ? 'Role Type' : 'Entity Type'} *
                         </label>
                         <select
-                          name="ticket_type_id"
-                          value={formData.ticket_type_id}
+                          name="entityTypeId"
+                          value={formData.entityTypeId}
                           onChange={handleInputChange}
                           className={`mt-1 block w-full border rounded-md px-3 py-2 shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                            formErrors.ticket_type_id ? 'border-red-300' : 'border-gray-300'
+                            formErrors.entityTypeId ? 'border-red-300' : 'border-gray-300'
                           }`}
                         >
-                          <option value="">Select a ticket type</option>
-                          {ticketTypes?.map((type) => (
+                          <option value="">
+                            {entityCategory === 'ticket' ? 'Select a ticket type' :
+                             entityCategory === 'user_profile' ? 'Select a user profile type' :
+                             entityCategory === 'role' ? 'Select a role type' : 'Select an entity type'}
+                          </option>
+                          {entityCategory === 'ticket' && ticketTypes?.map((type) => (
                             <option key={type.id} value={type.id}>
                               {type.name} ({type.code})
                             </option>
                           ))}
+                          {entityCategory === 'user_profile' && userProfileTypes?.map((type) => (
+                            <option key={type.id} value={type.id}>
+                              {type.name} {type.code && `(${type.code})`}
+                            </option>
+                          ))}
+                          {entityCategory === 'role' && roleTypes?.map((type) => (
+                            <option key={type.id} value={type.id}>
+                              {type.name} {type.code && `(${type.code})`}
+                            </option>
+                          ))}
                         </select>
-                        {formErrors.ticket_type_id && (
-                          <p className="mt-1 text-sm text-red-600">{formErrors.ticket_type_id}</p>
+                        {formErrors.entityTypeId && (
+                          <p className="mt-1 text-sm text-red-600">{formErrors.entityTypeId}</p>
                         )}
                       </div>
 
@@ -640,20 +707,38 @@ const AdminCustomFieldCreatePage = () => {
                 </div>
               )}
 
-              {/* Help Documentation */}
+              {/* Help Documentation - Universal Entity Architecture */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
                 <h3 className="text-lg font-medium text-blue-900 mb-4">
                   <Icons.Info size={20} className="inline mr-2" />
-                  Field Type Guide
+                  {entityCategory === 'ticket' ? 'Field Type Guide' :
+                   entityCategory === 'user_profile' ? 'User Profile Field Guide' :
+                   entityCategory === 'role' ? 'Role Field Guide' : 'Field Type Guide'}
                 </h3>
                 <div className="space-y-3 text-sm">
                   <div>
+                    <h4 className="font-medium text-blue-900">Universal Entity Architecture</h4>
+                    <p className="text-blue-700">
+                      Same field builder works for tickets, user profiles, and roles
+                    </p>
+                  </div>
+                  <div>
                     <h4 className="font-medium text-blue-900">Text Fields</h4>
-                    <p className="text-blue-700">Use for names, IDs, short descriptions</p>
+                    <p className="text-blue-700">
+                      {entityCategory === 'ticket' ? 'Use for names, IDs, short descriptions' :
+                       entityCategory === 'user_profile' ? 'Employee ID, department, job title' :
+                       entityCategory === 'role' ? 'Role codes, permission levels, access groups' :
+                       'Use for names, IDs, short descriptions'}
+                    </p>
                   </div>
                   <div>
                     <h4 className="font-medium text-blue-900">Date Range (NEW)</h4>
-                    <p className="text-blue-700">Perfect for project timelines, leave periods, event durations</p>
+                    <p className="text-blue-700">
+                      {entityCategory === 'ticket' ? 'Perfect for project timelines, leave periods, event durations' :
+                       entityCategory === 'user_profile' ? 'Employment periods, project assignments, training dates' :
+                       entityCategory === 'role' ? 'Role validity periods, assignment durations' :
+                       'Perfect for project timelines, leave periods, event durations'}
+                    </p>
                   </div>
                   <div>
                     <h4 className="font-medium text-blue-900">Dropdowns</h4>

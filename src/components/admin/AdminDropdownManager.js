@@ -38,8 +38,8 @@ const AdminDropdownManager = () => {
   const handleUpdateCompanyAssignments = async (listId, companyAssignments) => {
     setIsSubmitting(true);
     try {
-      // For now, simulate the API call since it's not implemented yet
-      showError('Company assignment management is not yet implemented in the backend. This feature will be available soon.');
+      // Company assignment management is not yet implemented in AppScript v6.0
+      showError('Company assignment management is not yet implemented in the backend. This feature will be available in AppScript v6.1+');
 
       setShowCompanyAssignments(false);
       setManagingList(null);
@@ -59,8 +59,18 @@ const AdminDropdownManager = () => {
 
     setIsSubmitting(true);
     try {
-      // For now, simulate the API call since it's not implemented yet
-      showError('Dropdown deactivation is not yet implemented in the backend. This feature will be available soon.');
+      await dropdownAPI.updateList(list.id, { ...list, is_active: false });
+
+      success(`Dropdown list "${list.name}" deactivated successfully!`);
+
+      // Refresh dropdown lists
+      setTimeout(() => {
+        refetch();
+      }, 1000);
+
+      if (selectedList?.id === list.id) {
+        setSelectedList(null);
+      }
     } catch (error) {
       console.error('Deactivate dropdown list failed:', error);
       const errorMessage = error.message || 'Failed to deactivate dropdown list.';
@@ -101,7 +111,26 @@ const AdminDropdownManager = () => {
   };
 
   const getAssignedCompanies = (list) => {
-    // Work with the current schema where company_id is directly on the dropdown list
+    // Check if assignments are available in the list object
+    if (list.assignments) {
+      const globalAssignment = list.assignments.find(a => a.is_global && a.is_active);
+      if (globalAssignment) {
+        return 'Global (All Companies)';
+      }
+
+      const activeAssignments = list.assignments.filter(a => !a.is_global && a.is_active);
+      if (activeAssignments.length === 0) {
+        return 'No Company Access';
+      }
+
+      if (activeAssignments.length === 1) {
+        return getCompanyName(activeAssignments[0].company_id);
+      }
+
+      return `${activeAssignments.length} Companies`;
+    }
+
+    // Fallback to legacy schema
     if (!list.company_id) {
       return 'Global (All Companies)';
     }
@@ -143,7 +172,88 @@ const AdminDropdownManager = () => {
   };
 
   const CompanyAssignmentModal = () => {
-    const [selectedCompanyId, setSelectedCompanyId] = useState(managingList?.company_id || '');
+    const [assignments, setAssignments] = useState({});
+    const [isGlobal, setIsGlobal] = useState(false);
+    const [loading, setLoading] = useState(true);
+
+    // Load current assignments when modal opens
+    React.useEffect(() => {
+      if (managingList?.id) {
+        loadCurrentAssignments();
+      }
+    }, [managingList?.id]);
+
+    const loadCurrentAssignments = async () => {
+      try {
+        setLoading(true);
+        const currentAssignments = await dropdownAPI.getCompanyAssignments(managingList.id);
+
+        // Convert assignments array to object for easier manipulation
+        const assignmentMap = {};
+        let hasGlobalAssignment = false;
+
+        currentAssignments.forEach(assignment => {
+          if (assignment.is_global) {
+            hasGlobalAssignment = true;
+          } else if (assignment.company_id) {
+            assignmentMap[assignment.company_id] = assignment.is_active;
+          }
+        });
+
+        setIsGlobal(hasGlobalAssignment);
+        setAssignments(assignmentMap);
+      } catch (error) {
+        console.error('Failed to load company assignments:', error);
+        showError('Failed to load current assignments');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const handleSaveAssignments = async () => {
+      try {
+        const assignmentList = [];
+
+        if (isGlobal) {
+          assignmentList.push({
+            company_id: null,
+            is_global: true,
+            is_active: true
+          });
+        } else {
+          // Add specific company assignments
+          Object.entries(assignments).forEach(([companyId, isActive]) => {
+            if (isActive) {
+              assignmentList.push({
+                company_id: companyId,
+                is_global: false,
+                is_active: true
+              });
+            }
+          });
+        }
+
+        await handleUpdateCompanyAssignments(managingList.id, assignmentList);
+      } catch (error) {
+        console.error('Failed to save assignments:', error);
+        showError('Failed to save company assignments');
+      }
+    };
+
+    const toggleCompanyAssignment = (companyId) => {
+      setAssignments(prev => ({
+        ...prev,
+        [companyId]: !prev[companyId]
+      }));
+    };
+
+    const handleGlobalToggle = (checked) => {
+      setIsGlobal(checked);
+      if (checked) {
+        // Clear all company-specific assignments when going global
+        setAssignments({});
+      }
+    };
 
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -156,48 +266,92 @@ const AdminDropdownManager = () => {
               <button
                 onClick={() => setShowCompanyAssignments(false)}
                 className="text-gray-400 hover:text-gray-600"
+                disabled={isSubmitting}
               >
                 <Icons.Close size={20} />
               </button>
             </div>
           </div>
           <div className="p-6">
-            <div className="space-y-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
-                <div className="flex items-center space-x-2">
-                  <Icons.Warning size={16} className="text-yellow-600" />
-                  <span className="text-sm text-yellow-700">
-                    Company assignment management is not yet fully implemented. This feature will be available in a future update.
-                  </span>
+            {loading ? (
+              <div className="text-center py-4">
+                <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin mx-auto mb-2" />
+                <p className="text-sm text-gray-500">Loading assignments...</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Current Access Summary - Moved after title */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-center space-x-2">
+                    <Icons.Company size={16} className="text-blue-600" />
+                    <span className="text-sm font-medium text-blue-800">Current Access:</span>
+                  </div>
+                  <p className="text-sm text-blue-700 mt-1">
+                    {isGlobal
+                      ? 'Available to all companies'
+                      : `Available to ${Object.values(assignments).filter(Boolean).length} specific companies`
+                    }
+                  </p>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Current Assignment:
-                </label>
-                <select
-                  value={selectedCompanyId}
-                  onChange={(e) => setSelectedCompanyId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  disabled
-                >
-                  <option value="">Global (All Companies)</option>
-                  {companies?.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name} ({company.code})
-                    </option>
-                  ))}
-                </select>
+                {/* Global Assignment Option */}
+                <div className="border border-gray-200 rounded-lg p-4">
+                  <label className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      checked={isGlobal}
+                      onChange={(e) => handleGlobalToggle(e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      disabled={isSubmitting}
+                    />
+                    <div>
+                      <span className="text-sm font-medium text-gray-900">Global Access</span>
+                      <p className="text-xs text-gray-500">Available to all companies</p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Company-Specific Assignments */}
+                {!isGlobal && (
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-gray-900 mb-3">Company-Specific Access</h4>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
+                      {companies?.map((company) => (
+                        <label key={company.id} className="flex items-center space-x-3">
+                          <input
+                            type="checkbox"
+                            checked={!!assignments[company.id]}
+                            onChange={() => toggleCompanyAssignment(company.id)}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            disabled={isSubmitting}
+                          />
+                          <span className="text-sm text-gray-900">{company.name} ({company.code})</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
 
             <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
               <button
                 onClick={() => setShowCompanyAssignments(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors duration-200"
+                disabled={isSubmitting}
               >
-                Close
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveAssignments}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200 flex items-center space-x-2"
+                disabled={isSubmitting || loading}
+              >
+                {isSubmitting && (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                )}
+                <Icons.CheckCircle size={16} />
+                <span>Save Assignments</span>
               </button>
             </div>
           </div>

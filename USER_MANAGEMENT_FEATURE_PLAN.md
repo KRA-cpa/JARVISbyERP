@@ -1,168 +1,593 @@
-# Per-User Management Feature Plan
-**Feature**: Individual User Management & Permissions
-**Status**: Planning Phase
-**Priority**: Medium
-**Implementation**: Future Phase
+# Revolutionary User/Role Management System
+**Feature**: Unified User Profiles, Roles, and Custom Fields
+**Status**: Design Complete - Ready for Implementation
+**Priority**: High
+**Implementation**: Phase 10.0 - Revolutionary User Management
+**Updated**: September 27, 2025
 
-## 🎯 Feature Overview
+## 🎯 Revolutionary Design Overview
 
-The per-user management feature will provide administrators with granular control over individual users, their permissions, role assignments, and access patterns within the ticketing system.
+This system introduces a groundbreaking approach treating **user profiles AND roles like ticket types** with dynamic custom fields, creating the most flexible user management system possible.
 
-## 🏗️ Architecture Design
+### 🚀 Key Innovations:
+- **User Profile Types**: Like ticket types, but for users (Employee, Contractor, Vendor, etc.)
+- **Roles as Custom Field Entities**: Roles become configurable with their own custom fields
+- **Unified Dropdown System**: Prevents duplication across all entities (tickets, users, roles)
+- **Date-Based Management**: Time-limited assignments, auto-expiration, delegation
+- **Immediate Approver System**: Direct manager relationships with intelligent fallback logic
+- **Three-Tier Custom Fields**: Tickets, User Profiles, and Roles all support dynamic custom fields
 
-### **Database Schema Requirements**
+## 🏗️ Revolutionary Architecture Design - REUSE STRATEGY
 
-#### **Enhanced user_role_assignments Table:**
+### **🎯 CORE INNOVATION: Reuse Existing Tables with Minimal Changes**
+
 ```
-Current: id|user_id|ticket_type_id|role_id|validity_end_date|company_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+✅ SIMPLIFIED APPROACH - REUSE EXISTING INFRASTRUCTURE:
 
-Additional Fields Needed:
-- assignment_type (ENUM: 'permanent', 'temporary', 'project_based')
-- assigned_by_user_id (User ID who made the assignment)
-- approval_required (BOOLEAN - whether assignment needs approval)
-- auto_expire_days (INT - automatic expiration period)
-- assignment_notes (TEXT - reason/notes for assignment)
-```
-
-#### **New user_profiles Table:**
-```
-id|user_id|display_name|email|phone|department|job_title|manager_user_id|hire_date|status|timezone|language|profile_photo_url|last_login_at|login_count|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
-```
-
-#### **New user_permissions Table:**
-```
-id|user_id|permission_type|resource_type|resource_id|granted_by|granted_at|expires_at|is_active|created_at|created_by|updated_at|updated_by|revoked_at|revoked_by|revocation_reason
+📊 TICKETS (existing)     → ticket_types → custom_fields → custom_field_values
+👤 USER PROFILES (new)    → user_profile_types → custom_fields (entity_category='user_profile') → custom_field_values (entity_category='user_profile')
+🔐 ROLES (enhanced)       → role_types → custom_fields (entity_category='role') → custom_field_values (entity_category='role')
+🎯 WORKFLOW STEPS (future) → step_types → custom_fields (entity_category='workflow_step') → custom_field_values (entity_category='workflow_step')
 ```
 
-#### **New user_activity_log Table:**
-```
-id|user_id|activity_type|resource_type|resource_id|details|ip_address|user_agent|timestamp
+**🌟 KEY BENEFIT: Same tables, same functions, just add entity_category parameter!**
+
+### **🔄 MINIMAL SCHEMA CHANGES REQUIRED**
+
+#### **1. Enhance Existing Tables (Add 1 Column Each)**
+```sql
+-- Add entity_category to existing custom_fields table
+custom_fields (enhanced):
+id|ticket_type_id|entity_category|name|label|type|is_required|is_hidden|sort_order|dropdown_list_id|depends_on_field_id|is_active|created_at|created_by|updated_at|updated_by
+
+-- Add entity_category to existing custom_field_values table
+custom_field_values (enhanced):
+id|ticket_id|entity_category|custom_field_id|text_value|number_value|date_value|start_date_value|end_date_value|dropdown_option_id|is_active|created_at|created_by|updated_at|updated_by
+
+-- Entity categories: 'ticket' (default/existing), 'user_profile', 'role', 'workflow_step'
 ```
 
-### **Component Architecture**
+#### **2. Add Only Essential New Tables**
+```sql
+user_profile_types:
+id|name|description|code|company_id|is_active|created_at|created_by|updated_at|updated_by
 
-#### **Main Component: AdminUserManager.js**
+role_types:
+id|name|description|code|company_id|is_active|created_at|created_by|updated_at|updated_by
+
+user_profiles:
+user_id|user_profile_type_id|display_name|email|immediate_approver_id|backup_approver_id|status|hire_date|is_active|created_at|updated_at
+```
+
+### **📊 ENHANCED DATABASE SCHEMA**
+
+#### **1. User Profile Types (Like Ticket Types)**
+```sql
+user_profile_types:
+id|name|description|code|company_id|requires_approval_on_create|requires_background_check|auto_expire_days|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+-- Examples:
+-- upt_employee|Standard Employee|Regular full-time employee|EMP|comp_123|false|false|0
+-- upt_contractor|Contractor|External contractor/consultant|CTR|comp_123|true|true|365
+-- upt_vendor|Vendor Contact|External vendor contact|VND|comp_123|true|false|0
+-- upt_intern|Intern|Student intern or trainee|INT|comp_123|false|false|180
+```
+
+#### **2. Enhanced User Profiles (Core + Custom Fields)**
+```sql
+user_profiles:
+user_id|user_profile_type_id|display_name|email|phone|immediate_approver_id|backup_approver_id|status|hire_date|termination_date|last_login_at|is_active|created_at|created_by|updated_at|updated_by
+
+user_profile_custom_fields:
+id|user_profile_type_id|name|label|type|is_required|is_hidden|sort_order|dropdown_list_id|depends_on_field_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+user_profile_custom_field_values:
+id|user_id|custom_field_id|text_value|number_value|date_value|start_date_value|end_date_value|dropdown_option_id|is_active|created_at|created_by|updated_at|updated_by
+```
+
+#### **3. Roles as Custom Field Entities (NEW INNOVATION)**
+```sql
+role_types:
+id|name|description|code|company_id|permission_level|can_approve_steps|max_approval_amount|requires_certification|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+-- Examples:
+-- rt_approval|Approval Roles|Roles that can approve workflow steps|APR|comp_123|3|true|50000|false
+-- rt_department|Department Roles|Departmental management roles|DEP|comp_123|2|true|10000|false
+-- rt_system|System Roles|Administrative system roles|SYS|comp_123|5|true|0|true
+
+roles (enhanced):
+id|role_type_id|name|company_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+role_custom_fields:
+id|role_type_id|name|label|type|is_required|is_hidden|sort_order|dropdown_list_id|depends_on_field_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+role_custom_field_values:
+id|role_id|custom_field_id|text_value|number_value|date_value|start_date_value|end_date_value|dropdown_option_id|is_active|created_at|created_by|updated_at|updated_by
+```
+
+#### **4. Enhanced Date-Based Role Assignments**
+```sql
+user_role_assignments (revolutionary enhancement):
+id|user_id|role_id|ticket_type_id|company_id|assignment_type|effective_start_date|effective_end_date|auto_expire_days|assigned_by_user_id|approval_required|assignment_notes|validity_end_date|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+-- Assignment Types:
+-- 'permanent'    - No expiration
+-- 'temporary'    - Fixed end date
+-- 'project_based'- Tied to project completion
+-- 'emergency'    - Short-term urgent assignment
+-- 'delegation'   - Temporary delegation during OOO
+```
+
+#### **5. Unified Dropdown Integration**
+```sql
+dropdown_field_mappings (unified system):
+id|entity_type|entity_id|field_name|dropdown_list_id|company_id|is_required|display_order|field_label|help_text|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+-- Entity Types:
+-- 'ticket_type'       - Custom fields for tickets
+-- 'user_profile_type' - Custom fields for user profiles
+-- 'role_type'         - Custom fields for roles
+-- 'workflow_step'     - Custom fields for workflow steps (future)
+```
+
+### **🎨 Revolutionary Component Architecture**
+
+#### **Main Component: AdminUnifiedEntityManager.js**
 ```javascript
 /**
- * AdminUserManager Component
+ * AdminUnifiedEntityManager Component - Revolutionary Design
+ *
+ * This single component manages ALL entity types with custom fields:
+ * - Ticket Types (existing)
+ * - User Profile Types (new)
+ * - Role Types (new)
+ * - Workflow Step Types (future)
  *
  * Features:
- * - User search and filtering
- * - Individual user profile management
- * - Role assignment interface
- * - Permission matrix display
- * - Activity monitoring
- * - Bulk operations
+ * - Dynamic entity type selection
+ * - Universal custom field builder
+ * - Unified dropdown management
+ * - Cross-entity relationship mapping
+ * - Bulk operations across all entity types
  */
 
-// Key sections:
-// 1. User List with Search/Filter
-// 2. User Detail Panel
-// 3. Role Assignment Matrix
-// 4. Permission Override Interface
-// 5. Activity Timeline
-// 6. User Status Management
+// Revolutionary sections:
+// 1. Entity Type Selector (Tickets/Users/Roles/Workflows)
+// 2. Dynamic Type Builder (creates types for any entity)
+// 3. Universal Custom Field Builder
+// 4. Unified Dropdown Management Interface
+// 5. Cross-Entity Relationship Mapper
+// 6. Bulk Operations Manager
 ```
 
-#### **Sub-Components:**
+#### **User-Specific Components:**
 
-**1. UserProfileCard.js**
-- Display user basic information
-- Status indicators (active, inactive, locked)
-- Quick actions (edit, deactivate, reset password)
-
-**2. UserRoleMatrix.js**
-- Visual matrix of user roles across companies/ticket types
-- Drag-and-drop role assignment
-- Validity period management
-- Approval workflow integration
-
-**3. UserPermissionOverrides.js**
-- Special permissions beyond role-based access
-- Resource-specific permissions
-- Time-limited access grants
-
-**4. UserActivityTimeline.js**
-- Login history
-- Action audit trail
-- Performance metrics
-- Security events
-
-**5. UserBulkActions.js**
-- Mass role assignments
-- Bulk user imports
-- Department-wide changes
-- Notification broadcasts
-
-### **API Endpoints Required**
-
-#### **Google Apps Script Functions:**
-
+**1. UserProfileTypeBuilder.js**
 ```javascript
-// User Management
-function getAllUsers(filters = {})
-function getUserById(userId)
-function createUser(userData)
-function updateUser(userId, userData)
-function deactivateUser(userId, reason)
-function reactivateUser(userId)
-
-// Role Assignments
-function getUserRoles(userId, companyId = null)
-function assignRoleToUser(userId, roleId, ticketTypeId, companyId, validityPeriod)
-function removeRoleFromUser(userId, roleId, ticketTypeId, companyId)
-function bulkAssignRoles(assignments)
-
-// Permissions
-function getUserPermissions(userId)
-function grantPermission(userId, permissionData)
-function revokePermission(userId, permissionId)
-function checkUserPermission(userId, resource, action)
-
-// Activity & Monitoring
-function getUserActivity(userId, filters = {})
-function getUserLoginHistory(userId, limit = 50)
-function getUserPerformanceMetrics(userId, dateRange)
-
-// Bulk Operations
-function bulkUpdateUsers(userUpdates)
-function importUsers(userData)
-function exportUsers(filters = {})
+/**
+ * Creates and manages user profile types like ticket types
+ * - Employee, Contractor, Vendor, Intern profiles
+ * - Custom fields for each profile type
+ * - Company-specific customization
+ * - Auto-approval and background check settings
+ */
 ```
 
-### **React Hooks Integration**
+**2. RoleTypeBuilder.js**
+```javascript
+/**
+ * Creates and manages role types with custom fields
+ * - Approval Roles, Department Roles, System Roles
+ * - Permission levels and approval limits
+ * - Certification requirements
+ * - Custom role attributes via fields
+ */
+```
 
-#### **New Hooks in useAPI.js:**
+**3. DynamicUserProfileForm.js**
+```javascript
+/**
+ * Dynamically generated user profile forms
+ * - Based on selected user profile type
+ * - Renders custom fields automatically
+ * - Handles all field types (text, date, dropdown, etc.)
+ * - Validation and submission logic
+ */
+```
+
+**4. DateBasedRoleAssignmentManager.js**
+```javascript
+/**
+ * Advanced role assignment with date management
+ * - Start/end dates for assignments
+ * - Auto-expiration with notifications
+ * - Temporary delegation during OOO
+ * - Assignment approval workflows
+ */
+```
+
+**5. ImmediateApproverManager.js**
+```javascript
+/**
+ * Manager relationships and approval routing
+ * - Direct supervisor assignments
+ * - Backup approver configuration
+ * - Organizational hierarchy visualization
+ * - Approval routing logic
+ */
+```
+
+#### **Revolutionary Sub-Components:**
+
+**1. UniversalEntityCard.js**
+- Works for any entity type (users, roles, tickets)
+- Dynamic display based on entity custom fields
+- Status indicators and quick actions
+- Relationship visualization
+
+**2. DateBasedRoleMatrix.js**
+- Visual matrix with time-based assignments
+- Drag-and-drop with date range selection
+- Color-coded expiration indicators
+- Delegation and approval workflows
+- Auto-expiration notifications
+
+**3. RoleCustomFieldEditor.js**
+- Edit custom fields for specific roles
+- Role-specific attributes and permissions
+- Certification tracking
+- Performance metrics integration
+
+**4. UnifiedCustomFieldBuilder.js**
+- Universal custom field builder for all entity types
+- Field type selection (text, date, dropdown, etc.)
+- Dependency management between fields
+- Validation rule configuration
+- Company-specific field customization
+
+**5. DropdownFieldMapper.js**
+- Maps dropdown lists to any entity type
+- Prevents duplication across entities
+- Company-specific dropdown assignments
+- Global vs. company-specific dropdown management
+
+### **🔄 REUSE STRATEGY: EXISTING FUNCTION ENHANCEMENT**
+
+#### **1. AppScript Functions - Minimal Changes Required**
+
+##### **Existing Custom Field Functions (Enhance with entity_category)**
+```javascript
+// BEFORE: Only worked for tickets
+function getCustomFields(ticketTypeId) {
+  // existing implementation
+}
+
+// AFTER: Works for any entity type
+function getCustomFields(entityTypeId, entityCategory = 'ticket') {
+  const sheet = getSheet('custom_fields');
+  const data = sheet.getDataRange().getValues();
+
+  return data.slice(1).filter(row => {
+    // Backward compatibility: if no category or 'ticket', use original logic
+    if (!entityCategory || entityCategory === 'ticket') {
+      return row[1] === entityTypeId && (!row[2] || row[2] === 'ticket');
+    }
+
+    // New entities: match both entity_type_id and category
+    return row[1] === entityTypeId && row[2] === entityCategory;
+  });
+}
+
+// BEFORE: Only worked for tickets
+function createCustomField(ticketTypeId, fieldData) {
+  // existing implementation
+}
+
+// AFTER: Works for any entity type
+function createCustomField(entityTypeId, fieldData, entityCategory = 'ticket') {
+  const sheet = getSheet('custom_fields');
+  const id = generateUniqueId();
+
+  sheet.appendRow([
+    id,
+    entityTypeId,
+    entityCategory,  // NEW: Add entity category
+    fieldData.name,
+    fieldData.label,
+    fieldData.type,
+    fieldData.is_required,
+    fieldData.is_hidden,
+    fieldData.sort_order,
+    fieldData.dropdown_list_id,
+    fieldData.depends_on_field_id,
+    true, // is_active
+    new Date(),
+    fieldData.created_by
+  ]);
+
+  return id;
+}
+
+// BEFORE: Only worked for tickets
+function setCustomFieldValue(ticketId, fieldId, value) {
+  // existing implementation
+}
+
+// AFTER: Works for any entity
+function setCustomFieldValue(entityId, fieldId, value, entityCategory = 'ticket') {
+  const sheet = getSheet('custom_field_values');
+
+  // Find existing value row
+  const data = sheet.getDataRange().getValues();
+  const existingRowIndex = data.findIndex(row =>
+    row[1] === entityId &&
+    row[2] === entityCategory &&  // NEW: Check entity category
+    row[3] === fieldId
+  );
+
+  if (existingRowIndex > 0) {
+    updateCustomFieldValueRow(existingRowIndex, value);
+  } else {
+    createNewCustomFieldValue(entityId, entityCategory, fieldId, value);
+  }
+}
+```
+
+##### **New Entity Type Management Functions (Minimal Addition)**
+```javascript
+// User Profile Types
+function getUserProfileTypes(companyId = null) {
+  return getEntityTypes('user_profile_types', companyId);
+}
+
+function createUserProfileType(profileTypeData) {
+  return createEntityType('user_profile_types', profileTypeData);
+}
+
+// Role Types
+function getRoleTypes(companyId = null) {
+  return getEntityTypes('role_types', companyId);
+}
+
+function createRoleType(roleTypeData) {
+  return createEntityType('role_types', roleTypeData);
+}
+
+// Universal helper function
+function getEntityTypes(tableName, companyId = null) {
+  const sheet = getSheet(tableName);
+  const data = sheet.getDataRange().getValues();
+
+  return data.slice(1)
+    .filter(row => !companyId || row[4] === companyId || row[4] === null)
+    .map(row => ({
+      id: row[0],
+      name: row[1],
+      description: row[2],
+      code: row[3],
+      company_id: row[4],
+      is_active: row[5]
+    }));
+}
+```
+
+#### **2. Frontend Components - Reuse with Enhancement**
+
+##### **Existing Components to Enhance (Add entity_category support)**
+```javascript
+// BEFORE: AdminCustomFieldBuilder.js (only for tickets)
+const AdminCustomFieldBuilder = ({ ticketTypeId }) => {
+  const { data: customFields } = useCustomFields(ticketTypeId);
+  // existing implementation
+}
+
+// AFTER: AdminCustomFieldBuilder.js (universal)
+const AdminCustomFieldBuilder = ({
+  entityTypeId,
+  entityCategory = 'ticket',
+  entityTypeName = 'Ticket Type'
+}) => {
+  const { data: customFields } = useCustomFields(entityTypeId, entityCategory);
+
+  return (
+    <div>
+      <h3>Custom Fields for {entityTypeName}</h3>
+      {/* Same UI, just enhanced hooks */}
+      <CustomFieldList
+        fields={customFields}
+        onFieldCreate={(fieldData) => createCustomField(entityTypeId, fieldData, entityCategory)}
+        onFieldUpdate={(fieldId, fieldData) => updateCustomField(fieldId, fieldData, entityCategory)}
+      />
+    </div>
+  );
+}
+
+// Usage examples:
+// <AdminCustomFieldBuilder entityTypeId="tt_purchase" entityCategory="ticket" entityTypeName="Purchase Request" />
+// <AdminCustomFieldBuilder entityTypeId="upt_employee" entityCategory="user_profile" entityTypeName="Employee Profile" />
+// <AdminCustomFieldBuilder entityTypeId="rt_manager" entityCategory="role" entityTypeName="Manager Role" />
+```
+
+##### **Existing Hooks to Enhance (Add entity_category parameter)**
+```javascript
+// BEFORE: useAPI.js (only for tickets)
+export const useCustomFields = (ticketTypeId) => {
+  return useQuery(['customFields', ticketTypeId], () =>
+    API.getCustomFields(ticketTypeId)
+  );
+}
+
+// AFTER: useAPI.js (universal)
+export const useCustomFields = (entityTypeId, entityCategory = 'ticket') => {
+  return useQuery(['customFields', entityTypeId, entityCategory], () =>
+    API.getCustomFields(entityTypeId, entityCategory)
+  );
+}
+
+export const useCustomFieldValues = (entityId, entityCategory = 'ticket') => {
+  return useQuery(['customFieldValues', entityId, entityCategory], () =>
+    API.getCustomFieldValues(entityId, entityCategory)
+  );
+}
+
+export const useSetCustomFieldValue = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation(
+    ({ entityId, fieldId, value, entityCategory = 'ticket' }) =>
+      API.setCustomFieldValue(entityId, fieldId, value, entityCategory),
+    {
+      onSuccess: (_, { entityId, entityCategory }) => {
+        queryClient.invalidateQueries(['customFieldValues', entityId, entityCategory]);
+      }
+    }
+  );
+}
+```
+
+### **🚀 Revolutionary API Endpoints**
+
+#### **Enhanced Existing + New Functions (Google Apps Script):**
 
 ```javascript
-// User Management Hooks
-export const useUserManagement = () => {
-  // CRUD operations for users
+// Universal Entity Type Management
+function getEntityTypes(entityCategory) // 'user_profile', 'role', 'ticket', 'workflow_step'
+function createEntityType(entityCategory, typeData)
+function updateEntityType(entityCategory, typeId, typeData)
+function copyEntityType(sourceTypeId, targetCompanyId)
+
+// Universal Custom Fields (works for all entity types)
+function getEntityCustomFields(entityType, entityTypeId)
+function createEntityCustomField(entityType, entityTypeId, fieldData)
+function updateEntityCustomField(entityType, fieldId, fieldData)
+function deleteEntityCustomField(entityType, fieldId)
+
+// Universal Custom Field Values (works for all entity instances)
+function getEntityCustomFieldValues(entityType, entityId)
+function setEntityCustomFieldValue(entityType, entityId, fieldId, value)
+function bulkUpdateEntityCustomFields(entityType, updates)
+
+// User Profile Type Management
+function getUserProfileTypes(companyId = null)
+function createUserProfileType(profileTypeData)
+function getUserProfileCustomFields(profileTypeId)
+function createUserWithProfileType(userData, profileTypeId)
+
+// Role Type Management (NEW INNOVATION)
+function getRoleTypes(companyId = null)
+function createRoleType(roleTypeData)
+function getRoleCustomFields(roleTypeId)
+function createRoleWithType(roleData, roleTypeId)
+function setRoleCustomFieldValue(roleId, fieldId, value)
+
+// Date-Based Role Assignments
+function assignRoleWithDates(userId, roleId, assignmentData)
+function getExpiringAssignments(daysAhead = 30)
+function processPendingExpirations()
+function delegateRoleTemporarily(fromUserId, toUserId, roleId, startDate, endDate)
+
+// Immediate Approver Management
+function setImmediateApprover(userId, approverId)
+function getApprovalHierarchy(userId)
+function getDirectReports(managerId)
+function findApproverForTicket(ticketId, stepRequirement)
+
+// Unified Dropdown Field Mapping
+function mapDropdownToEntityField(entityType, entityId, fieldName, dropdownListId)
+function getDropdownFieldMappings(entityType, entityId)
+function createSystemDropdownMappings() // Initialize system defaults
+```
+
+### **🎣 Revolutionary React Hooks Integration**
+
+#### **Universal Entity Hooks in useAPI.js:**
+
+```javascript
+// Universal Entity Management Hooks
+export const useEntityTypes = (entityCategory) => {
+  // Get all types for any entity category (user_profile, role, ticket, workflow_step)
 }
 
-export const useUserRoles = (userId) => {
-  // Get user's role assignments
+export const useEntityCustomFields = (entityType, entityTypeId) => {
+  // Get custom fields for any entity type
 }
 
-export const useUserPermissions = (userId) => {
-  // Get user's specific permissions
+export const useEntityCustomFieldValues = (entityType, entityId) => {
+  // Get custom field values for any entity instance
 }
 
-export const useUserActivity = (userId, filters = {}) => {
-  // Get user activity history
+export const useUniversalEntityBuilder = () => {
+  // Universal CRUD for any entity type with custom fields
+  return {
+    createEntityType,
+    updateEntityType,
+    deleteEntityType,
+    copyEntityType,
+    createCustomField,
+    updateCustomField,
+    setCustomFieldValue
+  };
 }
 
-export const useUserBulkOperations = () => {
-  // Bulk user operations
+// User Profile Type Hooks
+export const useUserProfileTypes = (companyId) => {
+  // Get available user profile types
 }
 
-// Permission Checking Hooks
-export const useUserCan = (userId, resource, action) => {
-  // Check if user has permission
+export const useDynamicUserProfile = (userId, profileTypeId) => {
+  // Get user profile with dynamic custom fields
 }
 
-export const useCurrentUserPermissions = () => {
-  // Get current user's permissions
+export const useUserProfileBuilder = () => {
+  // Build user profiles with custom fields
+}
+
+// Role Type Hooks (NEW INNOVATION)
+export const useRoleTypes = (companyId) => {
+  // Get available role types
+}
+
+export const useRoleWithCustomFields = (roleId) => {
+  // Get role with its custom field values
+}
+
+export const useRoleCustomFieldEditor = (roleId) => {
+  // Edit custom fields for specific role
+}
+
+// Date-Based Role Assignment Hooks
+export const useDateBasedRoleAssignments = (userId) => {
+  // Get user's time-based role assignments
+}
+
+export const useExpiringAssignments = (daysAhead = 30) => {
+  // Get assignments expiring soon
+}
+
+export const useRoleDelegation = () => {
+  // Manage temporary role delegation
+}
+
+// Immediate Approver Hooks
+export const useImmediateApprover = (userId) => {
+  // Get user's immediate approver
+}
+
+export const useApprovalHierarchy = (userId) => {
+  // Get full approval chain for user
+}
+
+export const useDirectReports = (managerId) => {
+  // Get users who report to this manager
+}
+
+// Unified Dropdown Integration Hooks
+export const useDropdownFieldMappings = (entityType, entityId) => {
+  // Get dropdown mappings for any entity
+}
+
+export const useUnifiedDropdowns = () => {
+  // Manage dropdowns across all entity types
 }
 ```
 

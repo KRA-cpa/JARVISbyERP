@@ -1,30 +1,46 @@
 # JarvisByERP Dependency Mapping
 
-**Date**: September 17, 2025
-**Purpose**: Map all component dependencies, imports, and exports to prevent circular dependencies and ensure proper architecture
+**Date**: September 27, 2025 - 🚀 **UNIVERSAL ENTITY SYSTEM UPDATE**
+**Purpose**: Map all component dependencies, imports, and exports to prevent circular dependencies and ensure proper architecture with revolutionary user/role system integration
 
 ### **🔬 PROOF OF CONCEPT BACKEND ARCHITECTURE**
 **Database**: Google Sheets + Apps Script Web App (15+ normalized tables)
 **API Layer**: RESTful endpoints via Google Apps Script
 **Production Note**: Not suitable for high-volume production use - migration to traditional database planned
 
-## Dependency Architecture Overview
+## 🚀 Universal Entity System Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
+│                  🌟 UNIVERSAL ENTITY LAYER                  │
+├─────────────────────────────────────────────────────────────┤
+│  📊 Tickets | 👤 User Profiles | 🔐 Roles | ⚡ Workflows    │
+│  ALL use same custom_fields infrastructure with entity_category │
+├─────────────────────────────────────────────────────────────┤
 │                     Application Layer                       │
 ├─────────────────────────────────────────────────────────────┤
-│  Pages (4) → Components (19) → Shared Components (9)       │
+│  Pages (5) → Components (19) → Shared Components (9)       │
+│  🔄 ENHANCED: AdminPage + tabs for entity types            │
+│  🔄 ENHANCED: AdminCustomFieldBuilder + entityCategory     │
 ├─────────────────────────────────────────────────────────────┤
 │                     Business Logic Layer                    │
 ├─────────────────────────────────────────────────────────────┤
 │  Hooks (3) → Utils (7) → API Layer (2)                     │
+│  🔄 ENHANCED: useAPI hooks + entityCategory parameters     │
+│  🔄 ENHANCED: API functions + entityCategory support       │
 ├─────────────────────────────────────────────────────────────┤
 │                     Infrastructure Layer                    │
 ├─────────────────────────────────────────────────────────────┤
 │  Config (3) → Context (1) → Firebase/Google Sheets         │
+│  🔄 ENHANCED: Google Sheets + entity_category columns      │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### **🎯 REVOLUTIONARY CHANGE: Zero New Components**
+Instead of creating new components, existing components are enhanced with:
+- **entityCategory parameter** (tickets, user_profile, role)
+- **Dynamic UI text** based on entity type
+- **Same component logic** works for all entity types
 
 ## Core Dependencies Map
 
@@ -218,6 +234,56 @@ Config
 5. **API** layer is purely data access, no UI concerns
 
 ---
+
+## 🚀 UNIVERSAL ENTITY SYSTEM DEPENDENCIES (September 27, 2025)
+
+### **🔄 ENHANCED COMPONENT DEPENDENCIES**
+
+#### **AdminCustomFieldBuilder.js (Universal Enhanced)**
+- **NEW Props**: `entityCategory`, `entityTypeName`
+- **Enhanced Exports**: Works for tickets, user_profiles, roles
+- **Dependencies**: Same existing dependencies + entityCategory parameter
+- **Used by**: AdminPage (all entity tabs), future EntityTypeManager
+- **Status**: ✅ Ready for enhancement
+
+#### **useAPI.js Hooks (Enhanced with entityCategory)**
+- **Enhanced Hooks**:
+  - `useCustomFields(entityTypeId, entityCategory='ticket')`
+  - `useCustomFieldValues(entityId, entityCategory='ticket')`
+  - `useSetCustomFieldValue()` with entityCategory support
+- **Backward Compatibility**: ✅ All existing calls work unchanged
+- **Dependencies**: Same existing + entityCategory parameter passing
+- **Status**: ✅ Ready for enhancement
+
+#### **googleSheet.js API Functions (Enhanced)**
+- **Enhanced Functions**:
+  - `getCustomFields(entityTypeId, entityCategory='ticket')`
+  - `createCustomField(entityTypeId, fieldData, entityCategory='ticket')`
+  - `setCustomFieldValue(entityId, fieldId, value, entityCategory='ticket')`
+- **Backward Compatibility**: ✅ All existing ticket calls work unchanged
+- **Dependencies**: Enhanced Google Sheets access with entity_category column
+- **Status**: ✅ Ready for enhancement
+
+#### **AdminPage.js (Tab Enhancement)**
+- **NEW Tabs**: User Profiles, Roles (reusing existing components)
+- **Enhanced Navigation**: Tab-based entity type switching
+- **Dependencies**: Same existing + enhanced AdminCustomFieldBuilder
+- **Component Reuse**: ✅ Zero new components needed
+- **Status**: ✅ Ready for tab addition
+
+### **📊 DEPENDENCY IMPACT ANALYSIS**
+
+#### **Zero Breaking Changes**
+- All existing component imports work unchanged
+- All existing hook calls work unchanged
+- All existing API calls work unchanged
+- Backward compatibility maintained 100%
+
+#### **Enhanced Capabilities**
+- Same components work for multiple entity types
+- Same hooks support all entity categories
+- Same API functions handle all entities
+- Same validation and UI logic reused
 
 ## 🛡️ ARCHITECTURAL SAFEGUARDS (September 25, 2025)
 

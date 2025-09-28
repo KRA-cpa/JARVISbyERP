@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useUser } from '../contexts/UserContext';
-import { useCompanies, useRoles, useDropdownLists, useTickets, useUsers, useTicketTypes } from '../hooks/useAPI';
+import { useCompanies, useRoles, useDropdownLists, useTickets, useUsers, useTicketTypes, useUserProfileTypes, useRoleTypes } from '../hooks/useAPI';
 import Header from '../components/shared/Header';
 import Icons from '../components/shared/Icons';
 import DEV_CONFIG from '../config/development';
@@ -10,12 +10,17 @@ import AdminDropdownManager from '../components/admin/AdminDropdownManager';
 import DropdownListCreate from '../components/admin/DropdownListCreate';
 import AdminTicketTypeList from '../components/admin/AdminTicketTypeList';
 import AdminCustomFieldList from '../components/admin/AdminCustomFieldList';
+import AdminUserProfileTypeList from '../components/admin/AdminUserProfileTypeList';
+import AdminRoleTypeList from '../components/admin/AdminRoleTypeList';
+import AdminUserList from '../components/admin/AdminUserList';
 import APIConnectionStatus from '../components/admin/APIConnectionStatus';
-import InfiniteLoopMonitor from '../components/shared/InfiniteLoopMonitor';
+import Footer from '../components/shared/Footer';
 
 const AdminPage = () => {
   const { user, userRoles } = useUser();
   const [activeTab, setActiveTab] = useState('overview');
+  const [activeSubTab, setActiveSubTab] = useState(null);
+  const [showBackendInfo, setShowBackendInfo] = useState(false);
 
   // Fetch real data from API with manual refresh capability
   const { data: companies, loading: companiesLoading, error: companiesError, refetch: refetchCompanies } = useCompanies();
@@ -24,6 +29,8 @@ const AdminPage = () => {
   const { data: tickets, loading: ticketsLoading, error: ticketsError, refetch: refetchTickets } = useTickets();
   const { data: users, loading: usersLoading, error: usersError, refetch: refetchUsers } = useUsers();
   const { data: ticketTypes, loading: ticketTypesLoading, error: ticketTypesError, refetch: refetchTicketTypes } = useTicketTypes();
+  const { data: userProfileTypes, loading: userProfileTypesLoading, error: userProfileTypesError, refetch: refetchUserProfileTypes } = useUserProfileTypes();
+  const { data: roleTypes, loading: roleTypesLoading, error: roleTypesError, refetch: refetchRoleTypes } = useRoleTypes();
 
   // Manual refresh all data - memoized to prevent infinite loops
   const refreshAllData = React.useCallback(async () => {
@@ -34,17 +41,19 @@ const AdminPage = () => {
         refetchDropdowns(),
         refetchTickets(),
         refetchUsers(),
-        refetchTicketTypes()
+        refetchTicketTypes(),
+        refetchUserProfileTypes(),
+        refetchRoleTypes()
       ]);
     } catch (error) {
       console.error('Failed to refresh data:', error);
     }
-  }, [refetchCompanies, refetchRoles, refetchDropdowns, refetchTickets, refetchUsers, refetchTicketTypes]);
+  }, [refetchCompanies, refetchRoles, refetchDropdowns, refetchTickets, refetchUsers, refetchTicketTypes, refetchUserProfileTypes, refetchRoleTypes]);
 
   // Simple API health status with minimal logic to prevent infinite loops
   const apiHealth = React.useMemo(() => {
-    const hasErrors = Boolean(companiesError || rolesError || dropdownsError || ticketsError || usersError || ticketTypesError);
-    const isLoading = Boolean(companiesLoading || rolesLoading || dropdownsLoading || ticketsLoading || usersLoading || ticketTypesLoading);
+    const hasErrors = Boolean(companiesError || rolesError || dropdownsError || ticketsError || usersError || ticketTypesError || userProfileTypesError || roleTypesError);
+    const isLoading = Boolean(companiesLoading || rolesLoading || dropdownsLoading || ticketsLoading || usersLoading || ticketTypesLoading || userProfileTypesLoading || roleTypesLoading);
 
     if (hasErrors) {
       return {
@@ -65,8 +74,8 @@ const AdminPage = () => {
       message: 'All systems operational'
     };
   }, [
-    companiesError, rolesError, dropdownsError, ticketsError, usersError, ticketTypesError,
-    companiesLoading, rolesLoading, dropdownsLoading, ticketsLoading, usersLoading, ticketTypesLoading
+    companiesError, rolesError, dropdownsError, ticketsError, usersError, ticketTypesError, userProfileTypesError, roleTypesError,
+    companiesLoading, rolesLoading, dropdownsLoading, ticketsLoading, usersLoading, ticketTypesLoading, userProfileTypesLoading, roleTypesLoading
   ]);
 
   // Calculate statistics from real data
@@ -135,7 +144,7 @@ const AdminPage = () => {
     }
   ];
 
-  // Admin tabs configuration
+  // Consolidated admin tabs configuration with grouped sections
   const adminTabs = [
     {
       id: 'overview',
@@ -165,32 +174,67 @@ const AdminPage = () => {
       component: AdminCustomFieldList
     },
     {
-      id: 'dropdown-create',
-      name: 'Create Dropdown List',
-      icon: Icons.Plus,
-      description: 'Create new dropdown lists with options',
-      component: DropdownListCreate
-    },
-    {
-      id: 'dropdown-manage',
-      name: 'Manage Dropdown Lists',
+      id: 'dropdowns',
+      name: 'Dropdown Lists',
       icon: Icons.ChevronDown,
-      description: 'Manage company assignments and deactivate lists',
-      component: AdminDropdownManager
-    },
-    {
-      id: 'roles',
-      name: 'Roles',
-      icon: Icons.Role,
-      description: 'Define user roles and permissions',
-      component: AdminRoleManager
+      description: 'Manage dropdown lists and company assignments',
+      hasSubTabs: true,
+      subTabs: [
+        {
+          id: 'dropdown-create',
+          name: 'Create Lists',
+          description: 'Create new dropdown lists with options',
+          component: DropdownListCreate
+        },
+        {
+          id: 'dropdown-manage',
+          name: 'Manage Lists',
+          description: 'Manage company assignments and deactivate lists',
+          component: AdminDropdownManager
+        }
+      ]
     },
     {
       id: 'users',
       name: 'Users',
-      icon: Icons.User,
-      description: 'Per-user management and permissions',
-      disabled: true // Not yet available, but button implemented
+      icon: Icons.Users,
+      description: 'User management and profile configuration',
+      hasSubTabs: true,
+      subTabs: [
+        {
+          id: 'user-profiles',
+          name: 'User Admin',
+          description: 'Per-user management and permissions',
+          component: AdminUserList
+        },
+        {
+          id: 'user-profile-types',
+          name: 'Profile Types',
+          description: 'Define user profile categories with custom fields',
+          component: AdminUserProfileTypeList
+        }
+      ]
+    },
+    {
+      id: 'roles',
+      name: 'Roles',
+      icon: Icons.Shield,
+      description: 'Role management and configuration',
+      hasSubTabs: true,
+      subTabs: [
+        {
+          id: 'role-assignments',
+          name: 'Role Admin',
+          description: 'Define user roles and permissions',
+          component: AdminRoleManager
+        },
+        {
+          id: 'role-types',
+          name: 'Role Types',
+          description: 'Configure role categories with custom permissions',
+          component: AdminRoleTypeList
+        }
+      ]
     }
   ];
 
@@ -200,21 +244,49 @@ const AdminPage = () => {
       case 'companies':
         if (companiesLoading) return 'Loading...';
         return `${companies?.length || 0} companies`;
-      case 'roles':
-        if (rolesLoading) return 'Loading...';
-        return `${roles?.length || 0} roles`;
-      case 'dropdown-create':
-        return 'Create new lists';
-      case 'dropdown-manage':
-        if (dropdownsLoading) return 'Loading...';
-        return `${dropdownLists?.length || 0} lists`;
       case 'ticket-types':
         return 'Phase 8.5 - Available';
       case 'custom-fields':
         return 'Phase 8.5 - Available';
+      case 'dropdowns':
+        if (dropdownsLoading) return 'Loading...';
+        return `${dropdownLists?.length || 0} lists`;
+      case 'users':
+        const userCount = users?.length || 0;
+        const profileCount = userProfileTypes?.length || 0;
+        return `${userCount} users, ${profileCount} profile types`;
+      case 'roles':
+        const roleCount = roles?.length || 0;
+        const roleTypeCount = roleTypes?.length || 0;
+        return `${roleCount} roles, ${roleTypeCount} types`;
       default:
         return 'Coming Soon';
     }
+  };
+
+  // Handle tab selection with sub-tab support
+  const handleTabSelect = (tabId) => {
+    setActiveTab(tabId);
+    const tab = adminTabs.find(t => t.id === tabId);
+    if (tab?.hasSubTabs && tab.subTabs.length > 0) {
+      // Auto-select first available sub-tab
+      const firstAvailableSubTab = tab.subTabs.find(st => !st.disabled);
+      setActiveSubTab(firstAvailableSubTab?.id || null);
+    } else {
+      setActiveSubTab(null);
+    }
+  };
+
+  // Get currently active component
+  const getActiveComponent = () => {
+    const currentTab = adminTabs.find(t => t.id === activeTab);
+
+    if (currentTab?.hasSubTabs && activeSubTab) {
+      const currentSubTab = currentTab.subTabs.find(st => st.id === activeSubTab);
+      return currentSubTab?.component || null;
+    }
+
+    return currentTab?.component || null;
   };
 
   return (
@@ -406,7 +478,7 @@ const AdminPage = () => {
                 {adminTabs.map((tab) => (
                   <button
                     key={tab.id}
-                    onClick={() => !tab.disabled && setActiveTab(tab.id)}
+                    onClick={() => !tab.disabled && handleTabSelect(tab.id)}
                     className={`py-3 px-2 sm:py-4 sm:px-1 border-b-2 font-medium text-sm flex items-center space-x-2 transition-colors duration-200 flex-shrink-0 ${
                       activeTab === tab.id
                         ? 'border-blue-500 text-blue-600'
@@ -424,65 +496,53 @@ const AdminPage = () => {
                   </button>
                 ))}
               </nav>
+
+              {/* Sub-tab Navigation */}
+              {(() => {
+                const currentTab = adminTabs.find(t => t.id === activeTab);
+                if (currentTab?.hasSubTabs && currentTab.subTabs.length > 0) {
+                  return (
+                    <div className="px-4 sm:px-6 py-2 bg-gray-50 border-t border-gray-100">
+                      <nav className="flex space-x-6" aria-label="Sub Tabs">
+                        {currentTab.subTabs.map((subTab) => (
+                          <button
+                            key={subTab.id}
+                            onClick={() => !subTab.disabled && setActiveSubTab(subTab.id)}
+                            className={`py-2 px-3 text-sm font-medium rounded-md transition-colors duration-200 ${
+                              activeSubTab === subTab.id
+                                ? 'bg-blue-100 text-blue-700'
+                                : subTab.disabled
+                                ? 'text-gray-400 cursor-not-allowed'
+                                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                            }`}
+                            disabled={subTab.disabled}
+                          >
+                            {subTab.name}
+                            {subTab.disabled && (
+                              <Icons.Clock size={12} className="ml-1 inline text-gray-400" />
+                            )}
+                          </button>
+                        ))}
+                      </nav>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
             </div>
 
-            {/* Tab Description with Refresh Controls */}
-            <div className="px-6 py-3 bg-gray-50 flex justify-between items-center">
+            {/* Tab Description */}
+            <div className="px-6 py-3 bg-gray-50">
               <p className="text-sm text-gray-600">
-                {adminTabs.find(tab => tab.id === activeTab)?.description}
+                {(() => {
+                  const currentTab = adminTabs.find(tab => tab.id === activeTab);
+                  if (currentTab?.hasSubTabs && activeSubTab) {
+                    const currentSubTab = currentTab.subTabs.find(st => st.id === activeSubTab);
+                    return currentSubTab?.description || currentTab.description;
+                  }
+                  return currentTab?.description;
+                })()}
               </p>
-
-              {/* Refresh Controls for Data Tabs */}
-              <div className="flex items-center space-x-2">
-                {activeTab === 'companies' && (
-                  <button
-                    onClick={refetchCompanies}
-                    disabled={companiesLoading}
-                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Refresh companies data"
-                  >
-                    <Icons.Refresh size={12} className={`mr-1 ${companiesLoading ? 'animate-spin' : ''}`} />
-                    Refresh Companies
-                  </button>
-                )}
-
-                {activeTab === 'roles' && (
-                  <button
-                    onClick={refetchRoles}
-                    disabled={rolesLoading}
-                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Refresh roles data"
-                  >
-                    <Icons.Refresh size={12} className={`mr-1 ${rolesLoading ? 'animate-spin' : ''}`} />
-                    Refresh Roles
-                  </button>
-                )}
-
-                {activeTab === 'dropdowns' && (
-                  <button
-                    onClick={refetchDropdowns}
-                    disabled={dropdownsLoading}
-                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Refresh dropdown data"
-                  >
-                    <Icons.Refresh size={12} className={`mr-1 ${dropdownsLoading ? 'animate-spin' : ''}`} />
-                    Refresh Dropdowns
-                  </button>
-                )}
-
-                {/* Universal refresh for overview */}
-                {activeTab === 'overview' && (
-                  <button
-                    onClick={refreshAllData}
-                    disabled={companiesLoading || rolesLoading || dropdownsLoading || ticketsLoading || usersLoading || ticketTypesLoading}
-                    className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-600 bg-green-50 hover:bg-green-100 rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Refresh all data"
-                  >
-                    <Icons.Refresh size={12} className={`mr-1 ${(companiesLoading || rolesLoading || dropdownsLoading || ticketsLoading || usersLoading || ticketTypesLoading) ? 'animate-spin' : ''}`} />
-                    Refresh All
-                  </button>
-                )}
-              </div>
             </div>
           </div>
 
@@ -493,17 +553,14 @@ const AdminPage = () => {
                 {/* API Connection Status */}
                 <APIConnectionStatus />
 
-                {/* Infinite Loop Monitor */}
-                <InfiniteLoopMonitor minimized={false} />
-
                 {/* Admin Stats - with toggle */}
                 {DEV_CONFIG.STATS_DISPLAY.SHOW_MODULE_STATS && (
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                    {adminTabs.filter(tab => tab.component).map((tab) => (
+                    {adminTabs.filter(tab => tab.component || tab.hasSubTabs).map((tab) => (
                       <div
                         key={tab.id}
                         className="bg-gray-50 border border-gray-200 rounded-lg p-6 hover:shadow-md transition-all duration-200 cursor-pointer"
-                        onClick={() => setActiveTab(tab.id)}
+                        onClick={() => handleTabSelect(tab.id)}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex items-center space-x-3">
@@ -560,8 +617,7 @@ const AdminPage = () => {
               </div>
             ) : (
               (() => {
-                const activeTabConfig = adminTabs.find(tab => tab.id === activeTab);
-                const Component = activeTabConfig?.component;
+                const Component = getActiveComponent();
                 return Component ? <Component /> : (
                   <div className="text-center py-12">
                     <Icons.Clock size={48} className="mx-auto text-gray-400 mb-4" />
@@ -573,42 +629,66 @@ const AdminPage = () => {
             )}
           </div>
 
-          {/* Backend Integration Status - with toggle */}
+          {/* Backend Integration Status - Collapsible */}
           {DEV_CONFIG.STATS_DISPLAY.SHOW_BACKEND_INFO && (
-            <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-              <div className="flex items-start space-x-3">
-                <Icons.Info size={24} className="text-blue-600 mt-0.5 flex-shrink-0" />
-                <div>
-                  <h3 className="text-lg font-medium text-blue-800 mb-2">
-                    Backend Integration Status
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg">
+              <button
+                onClick={() => setShowBackendInfo(!showBackendInfo)}
+                className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-blue-100 transition-colors duration-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <div className="flex items-center space-x-3">
+                  <Icons.Info size={24} className="text-blue-600 flex-shrink-0" />
+                  <div>
+                    <h3 className="text-lg font-medium text-blue-800">
+                      Backend Integration Status
+                    </h3>
+                    <p className="text-sm text-blue-600">
+                      {showBackendInfo ? 'Click to collapse' : 'Click to expand backend details'}
+                    </p>
+                  </div>
+                </div>
+                <Icons.ChevronDown
+                  size={20}
+                  className={`text-blue-600 transition-transform duration-200 ${
+                    showBackendInfo ? 'transform rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {showBackendInfo && (
+                <div className="px-6 pb-6 border-t border-blue-200">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm pt-4">
                     <div>
                       <p className="font-medium text-blue-700">✅ Available APIs:</p>
                       <ul className="mt-2 space-y-1 text-blue-600">
                         <li>• Companies CRUD</li>
                         <li>• Roles CRUD</li>
                         <li>• Dropdown Lists CRUD</li>
-                        <li>• User Login Logging</li>
-                        <li>• Ticket Creation</li>
+                        <li>• User Management</li>
+                        <li>• Universal Entity Architecture</li>
+                        <li>• Ticket Creation & Workflows</li>
+                        <li>• Custom Fields System</li>
                       </ul>
                     </div>
                     <div>
                       <p className="font-medium text-blue-700">🚧 Implementation Status:</p>
                       <ul className="mt-2 space-y-1 text-blue-600">
                         <li>• Google Apps Script: Production Ready</li>
-                        <li>• Frontend Integration: Phase 4</li>
-                        <li>• UI Components: Phase 5</li>
-                        <li>• Testing: Phase 9</li>
+                        <li>• Frontend Integration: Phase 10.1</li>
+                        <li>• Universal Entity Architecture: Complete</li>
+                        <li>• Admin Interface: Phase 10.1</li>
+                        <li>• Testing Infrastructure: Complete</li>
                       </ul>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
+
         </div>
       </div>
+      <Footer />
     </div>
   );
 };

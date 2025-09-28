@@ -1,0 +1,30 @@
+import React from 'react';
+
+/**
+ * Footer Component
+ *
+ * Copyright masthead for all pages
+ * Displays proof of concept attribution and copyright notice
+ */
+const Footer = ({ className = "" }) => {
+  return (
+    <footer className={`bg-white border-t border-gray-200 ${className}`}>
+      <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <div className="text-center">
+          <div className="text-sm text-gray-500">
+            <p className="font-medium">Proof of Concept</p>
+            <p className="mt-1">
+              Designed by <span className="font-medium text-gray-700">Kenneth Advento</span>
+            </p>
+            <p className="mt-1">
+              Developed through <span className="font-medium text-gray-700">Claude.ai and Claude CLI</span>
+            </p>
+            <p className="mt-1">Copyright © 2025. All rights reserved.</p>
+          </div>
+        </div>
+      </div>
+    </footer>
+  );
+};
+
+export default Footer;

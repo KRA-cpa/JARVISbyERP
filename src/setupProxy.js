@@ -3,10 +3,51 @@
  * Matches the Vercel API proxy behavior exactly using direct fetch instead of proxy middleware
  */
 
+const fs = require('fs');
+const path = require('path');
+
 const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyeSHLU8sW3S87yEZ7BAGJWBdaMEvJfkz3OzjPjE8XaP0pOjmGxxYQWmUwvgoIvMQArXA/exec';
+
+const express = require('express');
 
 module.exports = function(app) {
   console.log('📦 setupProxy.js loaded - Development proxy active (direct fetch mode)');
+
+  // Log saving endpoint for local development
+  app.post('/api/save-log', express.json(), (req, res) => {
+    try {
+      const { fileName, content, logType } = req.body;
+
+      if (!fileName || !content) {
+        return res.status(400).json({ success: false, error: 'Missing fileName or content' });
+      }
+
+      // Create logs directory if it doesn't exist
+      const logsDir = path.join(__dirname, '..', '..', 'logs');
+      if (!fs.existsSync(logsDir)) {
+        fs.mkdirSync(logsDir, { recursive: true });
+      }
+
+      // Save log file to project/logs directory
+      const filePath = path.join(logsDir, fileName);
+      fs.writeFileSync(filePath, content, 'utf8');
+
+      console.log(`💾 Log saved: ${filePath}`);
+      res.json({
+        success: true,
+        message: `Log saved to ${filePath}`,
+        logType: logType || 'general'
+      });
+
+    } catch (error) {
+      console.error('Failed to save log:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to save log file',
+        details: error.message
+      });
+    }
+  });
 
   // Handle all methods for /api/appscript-proxy
   app.use('/api/appscript-proxy', async (req, res) => {

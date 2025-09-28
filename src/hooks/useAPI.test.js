@@ -4,7 +4,7 @@
  */
 
 import { renderHook, waitFor } from '@testing-library/react';
-import { useCompanies, useUsers, useTickets, useTicketTypes } from './useAPI';
+import { useCompanies, useUsers, useTickets, useTicketTypes, useUserProfileTypes, useRoleTypes, useUserProfileTypeMutations, useRoleTypeMutations } from './useAPI';
 import { mockAPI, mockAPIResponses } from '../utils/testUtils';
 
 // Mock the API module
@@ -21,6 +21,18 @@ jest.mock('../api/googleSheet', () => ({
     },
     TicketTypes: {
       getAll: jest.fn()
+    },
+    UserProfileTypes: {
+      getAll: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn()
+    },
+    RoleTypes: {
+      getAll: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn()
     },
     System: {
       ping: jest.fn()
@@ -293,6 +305,174 @@ describe('useAPI Hooks', () => {
 
       // Should trigger additional API call
       expect(API.Tickets.getAll.mock.calls.length).toBe(initialCallCount + 1);
+    });
+  });
+
+  describe('Universal Entity Architecture Hooks', () => {
+    describe('useUserProfileTypes', () => {
+      it('should fetch user profile types successfully', async () => {
+        const { API } = require('../api/googleSheet');
+        const mockUserProfileTypes = [
+          { id: 'upt_1', name: 'Employee', code: 'EMP' },
+          { id: 'upt_2', name: 'Contractor', code: 'CTR' }
+        ];
+        API.UserProfileTypes.getAll.mockResolvedValue(mockUserProfileTypes);
+
+        const { result } = renderHook(() => useUserProfileTypes());
+
+        // Initially loading
+        expect(result.current.loading).toBe(true);
+        expect(result.current.data).toBe(null);
+        expect(result.current.error).toBe(null);
+
+        // Wait for data to load
+        await waitFor(() => {
+          expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.data).toEqual(mockUserProfileTypes);
+        expect(result.current.error).toBe(null);
+        expect(API.UserProfileTypes.getAll).toHaveBeenCalledTimes(1);
+      });
+
+      it('should handle user profile type API errors gracefully', async () => {
+        const { API } = require('../api/googleSheet');
+        const errorMessage = 'Failed to fetch user profile types';
+        API.UserProfileTypes.getAll.mockRejectedValue(new Error(errorMessage));
+
+        const { result } = renderHook(() => useUserProfileTypes());
+
+        await waitFor(() => {
+          expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.data).toBe(null);
+        expect(result.current.error).toBe(errorMessage);
+      });
+    });
+
+    describe('useRoleTypes', () => {
+      it('should fetch role types successfully', async () => {
+        const { API } = require('../api/googleSheet');
+        const mockRoleTypes = [
+          { id: 'rt_1', name: 'Approver', code: 'APR' },
+          { id: 'rt_2', name: 'Administrator', code: 'ADM' }
+        ];
+        API.RoleTypes.getAll.mockResolvedValue(mockRoleTypes);
+
+        const { result } = renderHook(() => useRoleTypes());
+
+        await waitFor(() => {
+          expect(result.current.loading).toBe(false);
+        });
+
+        expect(result.current.data).toEqual(mockRoleTypes);
+        expect(result.current.error).toBe(null);
+        expect(API.RoleTypes.getAll).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    describe('useUserProfileTypeMutations', () => {
+      it('should create user profile types successfully', async () => {
+        const { API } = require('../api/googleSheet');
+        const mockCreatedType = { id: 'upt_new', name: 'New Profile Type' };
+        API.UserProfileTypes.create.mockResolvedValue(mockCreatedType);
+
+        const { result } = renderHook(() => useUserProfileTypeMutations());
+
+        const createData = {
+          name: 'New Profile Type',
+          description: 'Test description',
+          code: 'NEW'
+        };
+
+        const createdType = await result.current.createUserProfileType(createData);
+
+        expect(createdType).toEqual(mockCreatedType);
+        expect(API.UserProfileTypes.create).toHaveBeenCalledWith(createData);
+        expect(result.current.loading).toBe(false);
+        expect(result.current.error).toBe(null);
+      });
+
+      it('should handle creation errors', async () => {
+        const { API } = require('../api/googleSheet');
+        const errorMessage = 'User profile type name already exists';
+        API.UserProfileTypes.create.mockRejectedValue(new Error(errorMessage));
+
+        const { result } = renderHook(() => useUserProfileTypeMutations());
+
+        try {
+          await result.current.createUserProfileType({
+            name: 'Duplicate Type'
+          });
+        } catch (error) {
+          expect(error.message).toBe(errorMessage);
+        }
+
+        expect(result.current.loading).toBe(false);
+        expect(result.current.error).toBe(errorMessage);
+      });
+    });
+
+    describe('useRoleTypeMutations', () => {
+      it('should create role types successfully', async () => {
+        const { API } = require('../api/googleSheet');
+        const mockCreatedType = { id: 'rt_new', name: 'New Role Type' };
+        API.RoleTypes.create.mockResolvedValue(mockCreatedType);
+
+        const { result } = renderHook(() => useRoleTypeMutations());
+
+        const createData = {
+          name: 'New Role Type',
+          description: 'Test role description',
+          code: 'NEW_ROLE'
+        };
+
+        const createdType = await result.current.createRoleType(createData);
+
+        expect(createdType).toEqual(mockCreatedType);
+        expect(API.RoleTypes.create).toHaveBeenCalledWith(createData);
+        expect(result.current.loading).toBe(false);
+        expect(result.current.error).toBe(null);
+      });
+    });
+  });
+
+  describe('Universal Entity Architecture Integration', () => {
+    it('should handle cross-entity operations without conflicts', async () => {
+      const { API } = require('../api/googleSheet');
+
+      // Mock data for different entity types
+      API.UserProfileTypes.getAll.mockResolvedValue([
+        { id: 'upt_1', name: 'Employee' }
+      ]);
+      API.RoleTypes.getAll.mockResolvedValue([
+        { id: 'rt_1', name: 'Approver' }
+      ]);
+      API.TicketTypes.getAll.mockResolvedValue([
+        { id: 'tt_1', name: 'Purchase Request' }
+      ]);
+
+      // Render all hooks simultaneously
+      const { result: userProfileResult } = renderHook(() => useUserProfileTypes());
+      const { result: roleResult } = renderHook(() => useRoleTypes());
+      const { result: ticketResult } = renderHook(() => useTicketTypes());
+
+      await waitFor(() => {
+        expect(userProfileResult.current.loading).toBe(false);
+        expect(roleResult.current.loading).toBe(false);
+        expect(ticketResult.current.loading).toBe(false);
+      });
+
+      // All should load independently without conflicts
+      expect(userProfileResult.current.data).toHaveLength(1);
+      expect(roleResult.current.data).toHaveLength(1);
+      expect(ticketResult.current.data).toHaveLength(1);
+
+      // Each should call its respective API
+      expect(API.UserProfileTypes.getAll).toHaveBeenCalledTimes(1);
+      expect(API.RoleTypes.getAll).toHaveBeenCalledTimes(1);
+      expect(API.TicketTypes.getAll).toHaveBeenCalledTimes(1);
     });
   });
 });

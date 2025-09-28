@@ -1,0 +1,51 @@
+# DUPLICATE FUNCTIONS FOUND IN APPSCRIPT.txt
+# Analysis Date: September 27, 2025
+# Total Duplicates Found: 8 functions
+
+## INITIALIZATION FUNCTIONS (6 duplicates)
+
+### 1. initializeCompaniesSheet()
+- Location 1: Line 462
+- Location 2: Line 2682
+
+### 2. initializeRolesSheet()
+- Location 1: Line 474
+- Location 2: Line 2694
+
+### 3. initializeTicketTypesSheet()
+- Location 1: Line 482
+- Location 2: Line 2724
+
+### 4. initializeAdminActionLogsSheet()
+- Location 1: Line 490
+- Location 2: Line 2734
+
+### 5. initializeDropdownListsSheet()
+- Location 1: Line 498
+- Location 2: Line 2704
+
+### 6. initializeDropdownOptionsSheet()
+- Location 1: Line 510
+- Location 2: Line 2714
+
+## CUSTOM FIELD FUNCTIONS (2 duplicates)
+
+### 7. getCustomFields()
+- Location 1: Line 4687 - getCustomFields(ticketTypeId = null, companyId = null)
+- Location 2: Line 10389 - getCustomFields(entityTypeId, entityCategory = 'ticket')
+
+### 8. createCustomField()
+- Location 1: Line 4731 - createCustomField(payload)
+- Location 2: Line 10440 - createCustomField(entityTypeId, fieldData, entityCategory = 'ticket')
+
+## ANALYSIS NOTES:
+- Initialization functions appear to be exact duplicates
+- Custom field functions have different signatures (old vs Universal Entity Architecture versions)
+- Need to compare actual function code to determine if implementations are identical
+- Duplicates will cause JavaScript runtime errors if not resolved
+
+## NEXT STEPS:
+1. Compare function implementations line by line
+2. Determine which versions to keep vs remove
+3. Create cleanup recommendations
+4. Remove duplicates from APPSCRIPT.txt

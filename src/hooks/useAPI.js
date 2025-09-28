@@ -927,6 +927,113 @@ export const useSLANotificationMonitor = () => {
   };
 };
 
+// Universal Entity Architecture hooks
+export const useUserProfileTypes = (companyId = null) => {
+  return useAPI(() => API.UserProfileTypes.getAll(companyId), [companyId], 'getUserProfileTypes');
+};
+
+export const useUserProfileTypeMutations = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const createUserProfileType = async (data) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await API.UserProfileTypes.create(data);
+      return result;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateUserProfileType = async (id, data) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await API.UserProfileTypes.update(id, data);
+      return result;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteUserProfileType = async (id) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await API.UserProfileTypes.delete(id);
+      return result;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { createUserProfileType, updateUserProfileType, deleteUserProfileType, loading, error };
+};
+
+export const useRoleTypes = (companyId = null) => {
+  return useAPI(() => API.RoleTypes.getAll(companyId), [companyId], 'getRoleTypes');
+};
+
+export const useRoleTypeMutations = () => {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const createRoleType = async (data) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await API.RoleTypes.create(data);
+      return result;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateRoleType = async (id, data) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await API.RoleTypes.update(id, data);
+      return result;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteRoleType = async (id) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await API.RoleTypes.delete(id);
+      return result;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { createRoleType, updateRoleType, deleteRoleType, loading, error };
+};
+
 const useAPIModule = {
   useAPI,
   useCompanies,
@@ -961,7 +1068,12 @@ const useAPIModule = {
   // SLA Escalation hooks
   useSLAEscalationRules,
   useSLAEscalationMutations,
-  useSLANotificationMonitor
+  useSLANotificationMonitor,
+  // Universal Entity Architecture hooks
+  useUserProfileTypes,
+  useUserProfileTypeMutations,
+  useRoleTypes,
+  useRoleTypeMutations
 };
 
 export default useAPIModule;

@@ -1,0 +1,1800 @@
+    });
+  }
+}
+
+// =================================================================================
+// APPSCRIPT v7.0 - PHASE 1B: STEP APPROVERS MANAGEMENT SYSTEM
+// Functions: getStepApprovers, createStepApprover, deleteStepApprover, bulkUpdateStepApprovers, getStepsByRole, cloneStepApprovers
+// Implementation Date: September 26, 2025
+// =================================================================================
+
+/**
+ * Get all approvers for a specific workflow step
+ * Includes role information and company context
+ */
+function getStepApprovers(stepId) {
+  const startTime = Date.now();
+
+  try {
+    if (!stepId) {
+      return createErrorResponse('MISSING_STEP_ID', 'Step ID is required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const stepApproversSheet = ss.getSheetByName('step_approvers');
+    const rolesSheet = ss.getSheetByName('roles');
+    const companiesSheet = ss.getSheetByName('companies');
+
+    if (!stepApproversSheet || !rolesSheet || !companiesSheet) {
+      return createErrorResponse('SHEETS_NOT_FOUND', 'Required sheets not found: step_approvers, roles, or companies');
+    }
+
+    // Get step approvers data
+    const stepApproversData = stepApproversSheet.getDataRange().getValues();
+    const stepApproversHeaders = stepApproversData[0];
+    const stepApproversRows = stepApproversData.slice(1);
+
+    // Get roles data
+    const rolesData = rolesSheet.getDataRange().getValues();
+    const rolesHeaders = rolesData[0];
+    const rolesRows = rolesData.slice(1);
+
+    // Get companies data
+    const companiesData = companiesSheet.getDataRange().getValues();
+    const companiesHeaders = companiesData[0];
+    const companiesRows = companiesData.slice(1);
+
+    // Build roles lookup
+    const rolesLookup = {};
+    rolesRows.forEach(row => {
+      const roleData = {};
+      rolesHeaders.forEach((header, index) => {
+        roleData[header] = row[index];
+      });
+      rolesLookup[roleData.id] = roleData;
+    });
+
+    // Build companies lookup
+    const companiesLookup = {};
+    companiesRows.forEach(row => {
+      const companyData = {};
+      companiesHeaders.forEach((header, index) => {
+        companyData[header] = row[index];
+      });
+      companiesLookup[companyData.id] = companyData;
+    });
+
+    // Filter step approvers and enrich with role/company info
+    const stepApprovers = [];
+    stepApproversRows.forEach(row => {
+      const stepApproverData = {};
+      stepApproversHeaders.forEach((header, index) => {
+        stepApproverData[header] = row[index];
+      });
+
+      if (stepApproverData.step_id === stepId) {
+        const roleInfo = rolesLookup[stepApproverData.role_id] || {};
+        const companyInfo = companiesLookup[roleInfo.company_id] || {};
+
+        stepApprovers.push({
+          step_id: stepApproverData.step_id,
+          role_id: stepApproverData.role_id,
+          role_name: roleInfo.name || 'Unknown Role',
+          role_company_id: roleInfo.company_id,
+          company_name: companyInfo.name || 'Global Role',
+          created_at: stepApproverData.created_at,
+          created_by: stepApproverData.created_by
+        });
+      }
+    });
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse(stepApprovers,
+      `Retrieved ${stepApprovers.length} approvers for step ${stepId}`,
+      { responseTime, stepId, approverCount: stepApprovers.length });
+
+  } catch (error) {
+    return createErrorResponse('GET_STEP_APPROVERS_ERROR', error.toString(), {
+      stepId,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+/**
+ * Add a role as approver to a workflow step
+ */
+function createStepApprover(payload) {
+  const startTime = Date.now();
+
+  try {
+    const { step_id, role_id, created_by } = payload;
+
+    if (!step_id || !role_id) {
+      return createErrorResponse('MISSING_REQUIRED_FIELDS', 'step_id and role_id are required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const stepApproversSheet = ss.getSheetByName('step_approvers');
+
+    if (!stepApproversSheet) {
+      return createErrorResponse('SHEET_NOT_FOUND', 'step_approvers sheet not found');
+    }
+
+    // Check if step-role combination already exists
+    const data = stepApproversSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const existingEntry = rows.find(row => {
+      const rowData = {};
+      headers.forEach((header, index) => {
+        rowData[header] = row[index];
+      });
+      return rowData.step_id === step_id && rowData.role_id === role_id;
+    });
+
+    if (existingEntry) {
+      return createErrorResponse('STEP_APPROVER_EXISTS', 'This role is already an approver for this step');
+    }
+
+    // Create new step approver entry
+    const newRow = [
+      step_id,                          // step_id
+      role_id                           // role_id
+    ];
+
+    stepApproversSheet.appendRow(newRow);
+
+    const newStepApprover = {
+      step_id,
+      role_id,
+      created_at: new Date().toISOString(),
+      created_by: created_by || 'system'
+    };
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse(newStepApprover,
+      'Step approver created successfully',
+      { responseTime, step_id, role_id });
+
+  } catch (error) {
+    return createErrorResponse('CREATE_STEP_APPROVER_ERROR', error.toString(), {
+      payload,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+/**
+ * Remove a role from step approvers
+ */
+function deleteStepApprover(stepId, roleId, deleteInfo = {}) {
+  const startTime = Date.now();
+
+  try {
+    if (!stepId || !roleId) {
+      return createErrorResponse('MISSING_IDENTIFIERS', 'stepId and roleId are required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const stepApproversSheet = ss.getSheetByName('step_approvers');
+
+    if (!stepApproversSheet) {
+      return createErrorResponse('SHEET_NOT_FOUND', 'step_approvers sheet not found');
+    }
+
+    const data = stepApproversSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    // Find and remove the step approver entry
+    let deletedRowIndex = -1;
+    let deletedData = {};
+
+    rows.forEach((row, index) => {
+      const rowData = {};
+      headers.forEach((header, headerIndex) => {
+        rowData[header] = row[headerIndex];
+      });
+
+      if (rowData.step_id === stepId && rowData.role_id === roleId) {
+        deletedRowIndex = index + 2; // +2 for header row and 0-based index
+        deletedData = rowData;
+      }
+    });
+
+    if (deletedRowIndex === -1) {
+      return createErrorResponse('STEP_APPROVER_NOT_FOUND', 'Step approver not found');
+    }
+
+    // Delete the row
+    stepApproversSheet.deleteRow(deletedRowIndex);
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse({
+      step_id: stepId,
+      role_id: roleId,
+      deleted_at: new Date().toISOString(),
+      deleted_by: deleteInfo.deleted_by || 'system'
+    }, 'Step approver deleted successfully',
+    { responseTime, stepId, roleId });
+
+  } catch (error) {
+    return createErrorResponse('DELETE_STEP_APPROVER_ERROR', error.toString(), {
+      stepId, roleId, deleteInfo,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+/**
+ * Bulk update step approvers (replace all approvers for a step)
+ */
+function bulkUpdateStepApprovers(stepId, roleIds, updateInfo = {}) {
+  const startTime = Date.now();
+
+  try {
+    if (!stepId || !Array.isArray(roleIds)) {
+      return createErrorResponse('INVALID_PARAMETERS', 'stepId and roleIds array are required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const stepApproversSheet = ss.getSheetByName('step_approvers');
+
+    if (!stepApproversSheet) {
+      return createErrorResponse('SHEET_NOT_FOUND', 'step_approvers sheet not found');
+    }
+
+    // First, remove all existing approvers for this step
+    const data = stepApproversSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    // Collect rows to delete (in reverse order to maintain indices)
+    const rowsToDelete = [];
+    rows.forEach((row, index) => {
+      const rowData = {};
+      headers.forEach((header, headerIndex) => {
+        rowData[header] = row[headerIndex];
+      });
+
+      if (rowData.step_id === stepId) {
+        rowsToDelete.unshift(index + 2); // +2 for header row and 0-based index
+      }
+    });
+
+    // Delete existing approvers
+    rowsToDelete.forEach(rowIndex => {
+      stepApproversSheet.deleteRow(rowIndex);
+    });
+
+    // Add new approvers
+    const newApprovers = [];
+    const timestamp = new Date().toISOString();
+
+    roleIds.forEach(roleId => {
+      if (roleId) { // Skip empty/null role IDs
+        const newRow = [
+          stepId,                       // step_id
+          roleId                        // role_id
+        ];
+
+        stepApproversSheet.appendRow(newRow);
+        newApprovers.push({
+          step_id: stepId,
+          role_id: roleId,
+          created_at: timestamp,
+          created_by: updateInfo.updated_by || 'system'
+        });
+      }
+    });
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse(newApprovers,
+      `Updated step approvers: removed ${rowsToDelete.length}, added ${newApprovers.length}`,
+      { responseTime, stepId, removedCount: rowsToDelete.length, addedCount: newApprovers.length });
+
+  } catch (error) {
+    return createErrorResponse('BULK_UPDATE_STEP_APPROVERS_ERROR', error.toString(), {
+      stepId, roleIds, updateInfo,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+/**
+ * Get all workflow steps where a specific role is an approver
+ * Useful for role management and impact analysis
+ */
+function getStepsByRole(roleId, companyId = null) {
+  const startTime = Date.now();
+
+  try {
+    if (!roleId) {
+      return createErrorResponse('MISSING_ROLE_ID', 'Role ID is required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const stepApproversSheet = ss.getSheetByName('step_approvers');
+    const workflowStepsSheet = ss.getSheetByName('workflow_steps');
+    const ticketTypesSheet = ss.getSheetByName('ticket_types');
+
+    if (!stepApproversSheet || !workflowStepsSheet || !ticketTypesSheet) {
+      return createErrorResponse('SHEETS_NOT_FOUND', 'Required sheets not found');
+    }
+
+    // Get step approvers data
+    const stepApproversData = stepApproversSheet.getDataRange().getValues();
+    const stepApproversHeaders = stepApproversData[0];
+    const stepApproversRows = stepApproversData.slice(1);
+
+    // Get workflow steps data
+    const workflowStepsData = workflowStepsSheet.getDataRange().getValues();
+    const workflowStepsHeaders = workflowStepsData[0];
+    const workflowStepsRows = workflowStepsData.slice(1);
+
+    // Get ticket types data
+    const ticketTypesData = ticketTypesSheet.getDataRange().getValues();
+    const ticketTypesHeaders = ticketTypesData[0];
+    const ticketTypesRows = ticketTypesData.slice(1);
+
+    // Build ticket types lookup
+    const ticketTypesLookup = {};
+    ticketTypesRows.forEach(row => {
+      const ttData = {};
+      ticketTypesHeaders.forEach((header, index) => {
+        ttData[header] = row[index];
+      });
+      ticketTypesLookup[ttData.id] = ttData;
+    });
+
+    // Build workflow steps lookup
+    const workflowStepsLookup = {};
+    workflowStepsRows.forEach(row => {
+      const stepData = {};
+      workflowStepsHeaders.forEach((header, index) => {
+        stepData[header] = row[index];
+      });
+      workflowStepsLookup[stepData.id] = stepData;
+    });
+
+    // Find steps where this role is an approver
+    const roleSteps = [];
+    stepApproversRows.forEach(row => {
+      const approverData = {};
+      stepApproversHeaders.forEach((header, index) => {
+        approverData[header] = row[index];
+      });
+
+      if (approverData.role_id === roleId) {
+        const stepInfo = workflowStepsLookup[approverData.step_id];
+        if (stepInfo && (!companyId || stepInfo.company_id === companyId)) {
+          const ticketTypeInfo = ticketTypesLookup[stepInfo.ticket_type_id] || {};
+
+          roleSteps.push({
+            step_id: stepInfo.id,
+            step_name: stepInfo.name,
+            step_type: stepInfo.step_type,
+            sort_order: stepInfo.sort_order,
+            ticket_type_id: stepInfo.ticket_type_id,
+            ticket_type_name: ticketTypeInfo.name || 'Unknown',
+            ticket_type_code: ticketTypeInfo.code || 'UNK',
+            company_id: stepInfo.company_id,
+            status_on_reach: stepInfo.status_on_reach,
+            is_active: stepInfo.is_active
+          });
+        }
+      }
+    });
+
+    // Sort by ticket type, then sort order
+    roleSteps.sort((a, b) => {
+      if (a.ticket_type_name !== b.ticket_type_name) {
+        return a.ticket_type_name.localeCompare(b.ticket_type_name);
+      }
+      return (a.sort_order || 0) - (b.sort_order || 0);
+    });
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse(roleSteps,
+      `Found ${roleSteps.length} workflow steps where role ${roleId} is an approver`,
+      { responseTime, roleId, companyId, stepCount: roleSteps.length });
+
+  } catch (error) {
+    return createErrorResponse('GET_STEPS_BY_ROLE_ERROR', error.toString(), {
+      roleId, companyId,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+/**
+ * Clone all approvers from one step to another
+ * Useful for workflow template copying
+ */
+function cloneStepApprovers(fromStepId, toStepId, cloneInfo = {}) {
+  const startTime = Date.now();
+
+  try {
+    if (!fromStepId || !toStepId) {
+      return createErrorResponse('MISSING_STEP_IDS', 'Both fromStepId and toStepId are required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const stepApproversSheet = ss.getSheetByName('step_approvers');
+
+    if (!stepApproversSheet) {
+      return createErrorResponse('SHEET_NOT_FOUND', 'step_approvers sheet not found');
+    }
+
+    // Get source step approvers
+    const data = stepApproversSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const sourceApprovers = [];
+    rows.forEach(row => {
+      const rowData = {};
+      headers.forEach((header, index) => {
+        rowData[header] = row[index];
+      });
+
+      if (rowData.step_id === fromStepId) {
+        sourceApprovers.push(rowData.role_id);
+      }
+    });
+
+    if (sourceApprovers.length === 0) {
+      return createSuccessResponse([],
+        `No approvers found in source step ${fromStepId} to clone`,
+        { responseTime: Date.now() - startTime, fromStepId, toStepId });
+    }
+
+    // Check for existing approvers in target step
+    const existingApprovers = [];
+    rows.forEach(row => {
+      const rowData = {};
+      headers.forEach((header, index) => {
+        rowData[header] = row[index];
+      });
+
+      if (rowData.step_id === toStepId) {
+        existingApprovers.push(rowData.role_id);
+      }
+    });
+
+    // Add only new approvers (avoid duplicates)
+    const newApprovers = [];
+    const timestamp = new Date().toISOString();
+    const clonedBy = cloneInfo.cloned_by || 'system';
+
+    sourceApprovers.forEach(roleId => {
+      if (!existingApprovers.includes(roleId)) {
+        const newRow = [
+          toStepId,                     // step_id
+          roleId                        // role_id
+        ];
+
+        stepApproversSheet.appendRow(newRow);
+        newApprovers.push({
+          step_id: toStepId,
+          role_id: roleId,
+          created_at: timestamp,
+          created_by: clonedBy
+        });
+      }
+    });
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse(newApprovers,
+      `Cloned ${newApprovers.length} approvers from step ${fromStepId} to ${toStepId} (${existingApprovers.length} already existed)`,
+      { responseTime, fromStepId, toStepId, clonedCount: newApprovers.length, skippedCount: sourceApprovers.length - newApprovers.length });
+
+  } catch (error) {
+    return createErrorResponse('CLONE_STEP_APPROVERS_ERROR', error.toString(), {
+      fromStepId, toStepId, cloneInfo,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+// =================================================================================
+// APPSCRIPT v7.0 - PHASE 1C: USER ROLE ASSIGNMENTS MANAGEMENT SYSTEM
+// Functions: getUserRoleAssignments, createUserRoleAssignment, updateUserRoleAssignment, deleteUserRoleAssignment, getUsersByRole, cloneUserRoleAssignments
+// Implementation Date: September 26, 2025
+// =================================================================================
+
+/**
+ * Get all role assignments for a user, optionally filtered by company and ticket type
+ */
+function getUserRoleAssignments(userId, companyId = null, ticketTypeId = null) {
+  const startTime = Date.now();
+
+  try {
+    if (!userId) {
+      return createErrorResponse('MISSING_USER_ID', 'User ID is required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const userRoleAssignmentsSheet = ss.getSheetByName('user_role_assignments');
+    const rolesSheet = ss.getSheetByName('roles');
+    const companiesSheet = ss.getSheetByName('companies');
+    const ticketTypesSheet = ss.getSheetByName('ticket_types');
+
+    if (!userRoleAssignmentsSheet || !rolesSheet || !companiesSheet || !ticketTypesSheet) {
+      return createErrorResponse('SHEETS_NOT_FOUND', 'Required sheets not found');
+    }
+
+    // Get all data
+    const assignmentsData = userRoleAssignmentsSheet.getDataRange().getValues();
+    const assignmentsHeaders = assignmentsData[0];
+    const assignmentsRows = assignmentsData.slice(1);
+
+    const rolesData = rolesSheet.getDataRange().getValues();
+    const rolesHeaders = rolesData[0];
+    const rolesRows = rolesData.slice(1);
+
+    const companiesData = companiesSheet.getDataRange().getValues();
+    const companiesHeaders = companiesData[0];
+    const companiesRows = companiesData.slice(1);
+
+    const ticketTypesData = ticketTypesSheet.getDataRange().getValues();
+    const ticketTypesHeaders = ticketTypesData[0];
+    const ticketTypesRows = ticketTypesData.slice(1);
+
+    // Build lookup tables
+    const rolesLookup = {};
+    rolesRows.forEach(row => {
+      const roleData = {};
+      rolesHeaders.forEach((header, index) => {
+        roleData[header] = row[index];
+      });
+      rolesLookup[roleData.id] = roleData;
+    });
+
+    const companiesLookup = {};
+    companiesRows.forEach(row => {
+      const companyData = {};
+      companiesHeaders.forEach((header, index) => {
+        companyData[header] = row[index];
+      });
+      companiesLookup[companyData.id] = companyData;
+    });
+
+    const ticketTypesLookup = {};
+    ticketTypesRows.forEach(row => {
+      const ttData = {};
+      ticketTypesHeaders.forEach((header, index) => {
+        ttData[header] = row[index];
+      });
+      ticketTypesLookup[ttData.id] = ttData;
+    });
+
+    // Filter and enrich user role assignments
+    const userAssignments = [];
+    const currentDate = new Date();
+
+    assignmentsRows.forEach(row => {
+      const assignmentData = {};
+      assignmentsHeaders.forEach((header, index) => {
+        assignmentData[header] = row[index];
+      });
+
+      // Filter by user ID and optional filters
+      if (assignmentData.user_id === userId &&
+          (!companyId || assignmentData.company_id === companyId) &&
+          (!ticketTypeId || assignmentData.ticket_type_id === ticketTypeId)) {
+
+        // Check if assignment is still valid
+        const validityEndDate = assignmentData.validity_end_date ? new Date(assignmentData.validity_end_date) : null;
+        const isValid = !validityEndDate || validityEndDate > currentDate;
+
+        const roleInfo = rolesLookup[assignmentData.role_id] || {};
+        const companyInfo = companiesLookup[assignmentData.company_id] || {};
+        const ticketTypeInfo = ticketTypesLookup[assignmentData.ticket_type_id] || {};
+
+        userAssignments.push({
+          user_id: assignmentData.user_id,
+          ticket_type_id: assignmentData.ticket_type_id,
+          ticket_type_name: ticketTypeInfo.name || 'Unknown',
+          ticket_type_code: ticketTypeInfo.code || 'UNK',
+          role_id: assignmentData.role_id,
+          role_name: roleInfo.name || 'Unknown Role',
+          validity_end_date: assignmentData.validity_end_date,
+          company_id: assignmentData.company_id,
+          company_name: companyInfo.name || 'Unknown Company',
+          is_valid: isValid,
+          created_at: assignmentData.created_at,
+          created_by: assignmentData.created_by
+        });
+      }
+    });
+
+    // Sort by ticket type, then role
+    userAssignments.sort((a, b) => {
+      if (a.ticket_type_name !== b.ticket_type_name) {
+        return a.ticket_type_name.localeCompare(b.ticket_type_name);
+      }
+      return a.role_name.localeCompare(b.role_name);
+    });
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse(userAssignments,
+      `Retrieved ${userAssignments.length} role assignments for user ${userId}`,
+      { responseTime, userId, companyId, ticketTypeId, assignmentCount: userAssignments.length });
+
+  } catch (error) {
+    return createErrorResponse('GET_USER_ROLE_ASSIGNMENTS_ERROR', error.toString(), {
+      userId, companyId, ticketTypeId,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+/**
+ * Create a new user role assignment
+ */
+function createUserRoleAssignment(payload) {
+  const startTime = Date.now();
+
+  try {
+    const { user_id, ticket_type_id, role_id, validity_end_date, company_id, created_by } = payload;
+
+    if (!user_id || !ticket_type_id || !role_id || !company_id) {
+      return createErrorResponse('MISSING_REQUIRED_FIELDS', 'user_id, ticket_type_id, role_id, and company_id are required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const userRoleAssignmentsSheet = ss.getSheetByName('user_role_assignments');
+
+    if (!userRoleAssignmentsSheet) {
+      return createErrorResponse('SHEET_NOT_FOUND', 'user_role_assignments sheet not found');
+    }
+
+    // Check if assignment already exists
+    const data = userRoleAssignmentsSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const existingAssignment = rows.find(row => {
+      const rowData = {};
+      headers.forEach((header, index) => {
+        rowData[header] = row[index];
+      });
+      return rowData.user_id === user_id &&
+             rowData.ticket_type_id === ticket_type_id &&
+             rowData.role_id === role_id &&
+             rowData.company_id === company_id;
+    });
+
+    if (existingAssignment) {
+      return createErrorResponse('ASSIGNMENT_EXISTS', 'This user role assignment already exists');
+    }
+
+    // Create new assignment
+    const newRow = [
+      user_id,                          // user_id
+      ticket_type_id,                   // ticket_type_id
+      role_id,                          // role_id
+      validity_end_date || '',          // validity_end_date
+      company_id,                       // company_id
+      new Date().toISOString(),         // created_at
+      created_by || 'system',           // created_by
+      '',                               // updated_at
+      '',                               // updated_by
+      '',                               // deactivated_at
+      '',                               // deactivated_by
+      ''                                // deactivation_reason
+    ];
+
+    userRoleAssignmentsSheet.appendRow(newRow);
+
+    const newAssignment = {
+      user_id,
+      ticket_type_id,
+      role_id,
+      validity_end_date: validity_end_date || null,
+      company_id,
+      created_at: newRow[5],
+      created_by: newRow[6]
+    };
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse(newAssignment,
+      'User role assignment created successfully',
+      { responseTime, user_id, ticket_type_id, role_id, company_id });
+
+  } catch (error) {
+    return createErrorResponse('CREATE_USER_ROLE_ASSIGNMENT_ERROR', error.toString(), {
+      payload,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+/**
+ * Update a user role assignment (mainly for validity date changes)
+ */
+function updateUserRoleAssignment(userId, ticketTypeId, roleId, companyId, payload) {
+  const startTime = Date.now();
+
+  try {
+    const { validity_end_date, updated_by } = payload;
+
+    if (!userId || !ticketTypeId || !roleId || !companyId) {
+      return createErrorResponse('MISSING_IDENTIFIERS', 'userId, ticketTypeId, roleId, and companyId are required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const userRoleAssignmentsSheet = ss.getSheetByName('user_role_assignments');
+
+    if (!userRoleAssignmentsSheet) {
+      return createErrorResponse('SHEET_NOT_FOUND', 'user_role_assignments sheet not found');
+    }
+
+    const data = userRoleAssignmentsSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    // Find the assignment
+    let updatedRowIndex = -1;
+    let existingData = {};
+
+    rows.forEach((row, index) => {
+      const rowData = {};
+      headers.forEach((header, headerIndex) => {
+        rowData[header] = row[headerIndex];
+      });
+
+      if (rowData.user_id === userId &&
+          rowData.ticket_type_id === ticketTypeId &&
+          rowData.role_id === roleId &&
+          rowData.company_id === companyId) {
+        updatedRowIndex = index + 2;
+        existingData = rowData;
+      }
+    });
+
+    if (updatedRowIndex === -1) {
+      return createErrorResponse('ASSIGNMENT_NOT_FOUND', 'User role assignment not found');
+    }
+
+    // Update the assignment
+    const updatedRow = [
+      existingData.user_id,
+      existingData.ticket_type_id,
+      existingData.role_id,
+      validity_end_date !== undefined ? validity_end_date : existingData.validity_end_date,
+      existingData.company_id,
+      existingData.created_at,
+      existingData.created_by,
+      new Date().toISOString(),         // updated_at
+      updated_by || 'system',           // updated_by
+      existingData.deactivated_at || '',
+      existingData.deactivated_by || '',
+      existingData.deactivation_reason || ''
+    ];
+
+    userRoleAssignmentsSheet.getRange(updatedRowIndex, 1, 1, updatedRow.length).setValues([updatedRow]);
+
+    const updatedAssignment = {
+      user_id: userId,
+      ticket_type_id: ticketTypeId,
+      role_id: roleId,
+      validity_end_date: updatedRow[3],
+      company_id: companyId,
+      updated_at: updatedRow[7],
+      updated_by: updatedRow[8]
+    };
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse(updatedAssignment,
+      'User role assignment updated successfully',
+      { responseTime, userId, ticketTypeId, roleId, companyId });
+
+  } catch (error) {
+    return createErrorResponse('UPDATE_USER_ROLE_ASSIGNMENT_ERROR', error.toString(), {
+      userId, ticketTypeId, roleId, companyId, payload,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+/**
+ * Delete (deactivate) a user role assignment
+ */
+function deleteUserRoleAssignment(userId, ticketTypeId, roleId, companyId, deleteInfo = {}) {
+  const startTime = Date.now();
+
+  try {
+    if (!userId || !ticketTypeId || !roleId || !companyId) {
+      return createErrorResponse('MISSING_IDENTIFIERS', 'userId, ticketTypeId, roleId, and companyId are required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const userRoleAssignmentsSheet = ss.getSheetByName('user_role_assignments');
+
+    if (!userRoleAssignmentsSheet) {
+      return createErrorResponse('SHEET_NOT_FOUND', 'user_role_assignments sheet not found');
+    }
+
+    const data = userRoleAssignmentsSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    // Find and deactivate the assignment (soft delete)
+    let updatedRowIndex = -1;
+    let existingData = {};
+
+    rows.forEach((row, index) => {
+      const rowData = {};
+      headers.forEach((header, headerIndex) => {
+        rowData[header] = row[headerIndex];
+      });
+
+      if (rowData.user_id === userId &&
+          rowData.ticket_type_id === ticketTypeId &&
+          rowData.role_id === roleId &&
+          rowData.company_id === companyId) {
+        updatedRowIndex = index + 2;
+        existingData = rowData;
+      }
+    });
+
+    if (updatedRowIndex === -1) {
+      return createErrorResponse('ASSIGNMENT_NOT_FOUND', 'User role assignment not found');
+    }
+
+    // Deactivate the assignment
+    const deactivatedRow = [
+      existingData.user_id,
+      existingData.ticket_type_id,
+      existingData.role_id,
+      existingData.validity_end_date,
+      existingData.company_id,
+      existingData.created_at,
+      existingData.created_by,
+      existingData.updated_at || '',
+      existingData.updated_by || '',
+      new Date().toISOString(),         // deactivated_at
+      deleteInfo.deleted_by || 'system', // deactivated_by
+      deleteInfo.reason || 'Manual deactivation' // deactivation_reason
+    ];
+
+    userRoleAssignmentsSheet.getRange(updatedRowIndex, 1, 1, deactivatedRow.length).setValues([deactivatedRow]);
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse({
+      user_id: userId,
+      ticket_type_id: ticketTypeId,
+      role_id: roleId,
+      company_id: companyId,
+      deactivated_at: deactivatedRow[9],
+      deactivated_by: deactivatedRow[10],
+      deactivation_reason: deactivatedRow[11]
+    }, 'User role assignment deactivated successfully',
+    { responseTime, userId, ticketTypeId, roleId, companyId });
+
+  } catch (error) {
+    return createErrorResponse('DELETE_USER_ROLE_ASSIGNMENT_ERROR', error.toString(), {
+      userId, ticketTypeId, roleId, companyId, deleteInfo,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+/**
+ * Get all users assigned to a specific role, optionally filtered by company and ticket type
+ */
+function getUsersByRole(roleId, companyId = null, ticketTypeId = null) {
+  const startTime = Date.now();
+
+  try {
+    if (!roleId) {
+      return createErrorResponse('MISSING_ROLE_ID', 'Role ID is required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const userRoleAssignmentsSheet = ss.getSheetByName('user_role_assignments');
+    const usersSheet = ss.getSheetByName('users');
+    const companiesSheet = ss.getSheetByName('companies');
+    const ticketTypesSheet = ss.getSheetByName('ticket_types');
+
+    if (!userRoleAssignmentsSheet || !usersSheet || !companiesSheet || !ticketTypesSheet) {
+      return createErrorResponse('SHEETS_NOT_FOUND', 'Required sheets not found');
+    }
+
+    // Get all data
+    const assignmentsData = userRoleAssignmentsSheet.getDataRange().getValues();
+    const assignmentsHeaders = assignmentsData[0];
+    const assignmentsRows = assignmentsData.slice(1);
+
+    const usersData = usersSheet.getDataRange().getValues();
+    const usersHeaders = usersData[0];
+    const usersRows = usersData.slice(1);
+
+    const companiesData = companiesSheet.getDataRange().getValues();
+    const companiesHeaders = companiesData[0];
+    const companiesRows = companiesData.slice(1);
+
+    const ticketTypesData = ticketTypesSheet.getDataRange().getValues();
+    const ticketTypesHeaders = ticketTypesData[0];
+    const ticketTypesRows = ticketTypesData.slice(1);
+
+    // Build lookup tables
+    const usersLookup = {};
+    usersRows.forEach(row => {
+      const userData = {};
+      usersHeaders.forEach((header, index) => {
+        userData[header] = row[index];
+      });
+      usersLookup[userData.id] = userData;
+    });
+
+    const companiesLookup = {};
+    companiesRows.forEach(row => {
+      const companyData = {};
+      companiesHeaders.forEach((header, index) => {
+        companyData[header] = row[index];
+      });
+      companiesLookup[companyData.id] = companyData;
+    });
+
+    const ticketTypesLookup = {};
+    ticketTypesRows.forEach(row => {
+      const ttData = {};
+      ticketTypesHeaders.forEach((header, index) => {
+        ttData[header] = row[index];
+      });
+      ticketTypesLookup[ttData.id] = ttData;
+    });
+
+    // Filter assignments and get user info
+    const roleUsers = [];
+    const currentDate = new Date();
+
+    assignmentsRows.forEach(row => {
+      const assignmentData = {};
+      assignmentsHeaders.forEach((header, index) => {
+        assignmentData[header] = row[index];
+      });
+
+      // Filter by role ID and optional filters, exclude deactivated assignments
+      if (assignmentData.role_id === roleId &&
+          (!companyId || assignmentData.company_id === companyId) &&
+          (!ticketTypeId || assignmentData.ticket_type_id === ticketTypeId) &&
+          !assignmentData.deactivated_at) {
+
+        // Check if assignment is still valid
+        const validityEndDate = assignmentData.validity_end_date ? new Date(assignmentData.validity_end_date) : null;
+        const isValid = !validityEndDate || validityEndDate > currentDate;
+
+        if (isValid) {
+          const userInfo = usersLookup[assignmentData.user_id] || {};
+          const companyInfo = companiesLookup[assignmentData.company_id] || {};
+          const ticketTypeInfo = ticketTypesLookup[assignmentData.ticket_type_id] || {};
+
+          roleUsers.push({
+            user_id: assignmentData.user_id,
+            user_name: userInfo.name || 'Unknown User',
+            user_email: userInfo.email || 'Unknown Email',
+            ticket_type_id: assignmentData.ticket_type_id,
+            ticket_type_name: ticketTypeInfo.name || 'Unknown',
+            ticket_type_code: ticketTypeInfo.code || 'UNK',
+            company_id: assignmentData.company_id,
+            company_name: companyInfo.name || 'Unknown Company',
+            validity_end_date: assignmentData.validity_end_date,
+            created_at: assignmentData.created_at
+          });
+        }
+      }
+    });
+
+    // Remove duplicates and sort
+    const uniqueUsers = roleUsers.filter((user, index, self) =>
+      index === self.findIndex(u => u.user_id === user.user_id && u.ticket_type_id === user.ticket_type_id)
+    );
+
+    uniqueUsers.sort((a, b) => {
+      if (a.user_name !== b.user_name) {
+        return a.user_name.localeCompare(b.user_name);
+      }
+      return a.ticket_type_name.localeCompare(b.ticket_type_name);
+    });
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse(uniqueUsers,
+      `Found ${uniqueUsers.length} users assigned to role ${roleId}`,
+      { responseTime, roleId, companyId, ticketTypeId, userCount: uniqueUsers.length });
+
+  } catch (error) {
+    return createErrorResponse('GET_USERS_BY_ROLE_ERROR', error.toString(), {
+      roleId, companyId, ticketTypeId,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+/**
+ * Clone all role assignments from one user to another
+ */
+function cloneUserRoleAssignments(fromUserId, toUserId, companyId = null, cloneInfo = {}) {
+  const startTime = Date.now();
+
+  try {
+    if (!fromUserId || !toUserId) {
+      return createErrorResponse('MISSING_USER_IDS', 'Both fromUserId and toUserId are required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const userRoleAssignmentsSheet = ss.getSheetByName('user_role_assignments');
+
+    if (!userRoleAssignmentsSheet) {
+      return createErrorResponse('SHEET_NOT_FOUND', 'user_role_assignments sheet not found');
+    }
+
+    // Get source user assignments
+    const data = userRoleAssignmentsSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const sourceAssignments = [];
+    const currentDate = new Date();
+
+    rows.forEach(row => {
+      const rowData = {};
+      headers.forEach((header, index) => {
+        rowData[header] = row[index];
+      });
+
+      // Get active assignments for source user, optionally filtered by company
+      if (rowData.user_id === fromUserId &&
+          !rowData.deactivated_at &&
+          (!companyId || rowData.company_id === companyId)) {
+
+        // Check validity
+        const validityEndDate = rowData.validity_end_date ? new Date(rowData.validity_end_date) : null;
+        const isValid = !validityEndDate || validityEndDate > currentDate;
+
+        if (isValid) {
+          sourceAssignments.push({
+            ticket_type_id: rowData.ticket_type_id,
+            role_id: rowData.role_id,
+            company_id: rowData.company_id,
+            validity_end_date: rowData.validity_end_date
+          });
+        }
+      }
+    });
+
+    if (sourceAssignments.length === 0) {
+      return createSuccessResponse([],
+        `No active role assignments found for user ${fromUserId} to clone`,
+        { responseTime: Date.now() - startTime, fromUserId, toUserId });
+    }
+
+    // Check existing assignments for target user
+    const existingAssignments = new Set();
+    rows.forEach(row => {
+      const rowData = {};
+      headers.forEach((header, index) => {
+        rowData[header] = row[index];
+      });
+
+      if (rowData.user_id === toUserId && !rowData.deactivated_at) {
+        existingAssignments.add(`${rowData.ticket_type_id}-${rowData.role_id}-${rowData.company_id}`);
+      }
+    });
+
+    // Clone assignments that don't already exist
+    const clonedAssignments = [];
+    const timestamp = new Date().toISOString();
+    const clonedBy = cloneInfo.cloned_by || 'system';
+
+    sourceAssignments.forEach(assignment => {
+      const assignmentKey = `${assignment.ticket_type_id}-${assignment.role_id}-${assignment.company_id}`;
+
+      if (!existingAssignments.has(assignmentKey)) {
+        const newRow = [
+          toUserId,                           // user_id
+          assignment.ticket_type_id,          // ticket_type_id
+          assignment.role_id,                 // role_id
+          assignment.validity_end_date || '', // validity_end_date
+          assignment.company_id,              // company_id
+          timestamp,                          // created_at
+          clonedBy,                           // created_by
+          '',                                 // updated_at
+          '',                                 // updated_by
+          '',                                 // deactivated_at
+          '',                                 // deactivated_by
+          ''                                  // deactivation_reason
+        ];
+
+        userRoleAssignmentsSheet.appendRow(newRow);
+        clonedAssignments.push({
+          user_id: toUserId,
+          ticket_type_id: assignment.ticket_type_id,
+          role_id: assignment.role_id,
+          company_id: assignment.company_id,
+          validity_end_date: assignment.validity_end_date,
+          created_at: timestamp,
+          created_by: clonedBy
+        });
+      }
+    });
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse(clonedAssignments,
+      `Cloned ${clonedAssignments.length} role assignments from user ${fromUserId} to ${toUserId} (${sourceAssignments.length - clonedAssignments.length} already existed)`,
+      { responseTime, fromUserId, toUserId, companyId, clonedCount: clonedAssignments.length, skippedCount: sourceAssignments.length - clonedAssignments.length });
+
+  } catch (error) {
+    return createErrorResponse('CLONE_USER_ROLE_ASSIGNMENTS_ERROR', error.toString(), {
+      fromUserId, toUserId, companyId, cloneInfo,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+// =================================================================================
+// APPSCRIPT v7.0 - PHASE 1D: STEP SLA MANAGEMENT SYSTEM
+// Functions: getStepSLAs, createStepSLA, updateStepSLA, deleteStepSLA, calculateSLADueDate, cloneStepSLAs
+// Implementation Date: September 26, 2025
+// =================================================================================
+
+/**
+ * Get SLA configuration for workflow steps
+ */
+function getStepSLAs(stepId = null, ticketTypeId = null, companyId = null) {
+  const startTime = Date.now();
+
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const stepSLAsSheet = ss.getSheetByName('step_slas');
+    const workflowStepsSheet = ss.getSheetByName('workflow_steps');
+    const ticketTypesSheet = ss.getSheetByName('ticket_types');
+
+    if (!stepSLAsSheet || !workflowStepsSheet || !ticketTypesSheet) {
+      return createErrorResponse('SHEETS_NOT_FOUND', 'Required sheets not found: step_slas, workflow_steps, or ticket_types');
+    }
+
+    // Get all data
+    const slaData = stepSLAsSheet.getDataRange().getValues();
+    const slaHeaders = slaData[0];
+    const slaRows = slaData.slice(1);
+
+    const stepsData = workflowStepsSheet.getDataRange().getValues();
+    const stepsHeaders = stepsData[0];
+    const stepsRows = stepsData.slice(1);
+
+    const ticketTypesData = ticketTypesSheet.getDataRange().getValues();
+    const ticketTypesHeaders = ticketTypesData[0];
+    const ticketTypesRows = ticketTypesData.slice(1);
+
+    // Build lookup tables
+    const stepsLookup = {};
+    stepsRows.forEach(row => {
+      const stepData = {};
+      stepsHeaders.forEach((header, index) => {
+        stepData[header] = row[index];
+      });
+      stepsLookup[stepData.id] = stepData;
+    });
+
+    const ticketTypesLookup = {};
+    ticketTypesRows.forEach(row => {
+      const ttData = {};
+      ticketTypesHeaders.forEach((header, index) => {
+        ttData[header] = row[index];
+      });
+      ticketTypesLookup[ttData.id] = ttData;
+    });
+
+    // Filter and enrich SLA data
+    const stepSLAs = [];
+    slaRows.forEach(row => {
+      const slaRowData = {};
+      slaHeaders.forEach((header, index) => {
+        slaRowData[header] = row[index];
+      });
+
+      const stepInfo = stepsLookup[slaRowData.step_id] || {};
+      const ticketTypeInfo = ticketTypesLookup[stepInfo.ticket_type_id] || {};
+
+      // Apply filters
+      if ((!stepId || slaRowData.step_id === stepId) &&
+          (!ticketTypeId || stepInfo.ticket_type_id === ticketTypeId) &&
+          (!companyId || stepInfo.company_id === companyId)) {
+
+        stepSLAs.push({
+          step_id: slaRowData.step_id,
+          step_name: stepInfo.name || 'Unknown Step',
+          duration: slaRowData.duration,
+          unit: slaRowData.unit,
+          exclude_weekends: slaRowData.exclude_weekends,
+          ticket_type_id: stepInfo.ticket_type_id,
+          ticket_type_name: ticketTypeInfo.name || 'Unknown',
+          ticket_type_code: ticketTypeInfo.code || 'UNK',
+          company_id: stepInfo.company_id,
+          sort_order: stepInfo.sort_order,
+          created_at: slaRowData.created_at,
+          created_by: slaRowData.created_by,
+          updated_at: slaRowData.updated_at,
+          updated_by: slaRowData.updated_by
+        });
+      }
+    });
+
+    // Sort by ticket type, then step order
+    stepSLAs.sort((a, b) => {
+      if (a.ticket_type_name !== b.ticket_type_name) {
+        return a.ticket_type_name.localeCompare(b.ticket_type_name);
+      }
+      return (a.sort_order || 0) - (b.sort_order || 0);
+    });
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse(stepSLAs,
+      `Retrieved ${stepSLAs.length} step SLA configurations`,
+      { responseTime, stepId, ticketTypeId, companyId, slaCount: stepSLAs.length });
+
+  } catch (error) {
+    return createErrorResponse('GET_STEP_SLAS_ERROR', error.toString(), {
+      stepId, ticketTypeId, companyId,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+/**
+ * Create SLA configuration for a workflow step
+ */
+function createStepSLA(payload) {
+  const startTime = Date.now();
+
+  try {
+    const { step_id, duration, unit, exclude_weekends, created_by } = payload;
+
+    if (!step_id || !duration || !unit) {
+      return createErrorResponse('MISSING_REQUIRED_FIELDS', 'step_id, duration, and unit are required');
+    }
+
+    // Validate unit
+    const validUnits = ['hours', 'days'];
+    if (!validUnits.includes(unit)) {
+      return createErrorResponse('INVALID_UNIT', 'Unit must be either "hours" or "days"');
+    }
+
+    // Validate duration
+    if (typeof duration !== 'number' || duration <= 0) {
+      return createErrorResponse('INVALID_DURATION', 'Duration must be a positive number');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const stepSLAsSheet = ss.getSheetByName('step_slas');
+
+    if (!stepSLAsSheet) {
+      return createErrorResponse('SHEET_NOT_FOUND', 'step_slas sheet not found');
+    }
+
+    // Check if SLA already exists for this step
+    const data = stepSLAsSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    const existingSLA = rows.find(row => {
+      const rowData = {};
+      headers.forEach((header, index) => {
+        rowData[header] = row[index];
+      });
+      return rowData.step_id === step_id;
+    });
+
+    if (existingSLA) {
+      return createErrorResponse('SLA_EXISTS', 'SLA configuration already exists for this step');
+    }
+
+    // Create new SLA
+    const newRow = [
+      step_id,                          // step_id
+      duration,                         // duration
+      unit,                             // unit
+      exclude_weekends === true,        // exclude_weekends
+      new Date().toISOString(),         // created_at
+      created_by || 'system',           // created_by
+      '',                               // updated_at
+      ''                                // updated_by
+    ];
+
+    stepSLAsSheet.appendRow(newRow);
+
+    const newSLA = {
+      step_id,
+      duration,
+      unit,
+      exclude_weekends: exclude_weekends === true,
+      created_at: newRow[4],
+      created_by: newRow[5]
+    };
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse(newSLA,
+      'Step SLA configuration created successfully',
+      { responseTime, step_id, duration, unit });
+
+  } catch (error) {
+    return createErrorResponse('CREATE_STEP_SLA_ERROR', error.toString(), {
+      payload,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+/**
+ * Update SLA configuration for a workflow step
+ */
+function updateStepSLA(stepId, payload) {
+  const startTime = Date.now();
+
+  try {
+    const { duration, unit, exclude_weekends, updated_by } = payload;
+
+    if (!stepId) {
+      return createErrorResponse('MISSING_STEP_ID', 'Step ID is required');
+    }
+
+    // Validate unit if provided
+    if (unit !== undefined) {
+      const validUnits = ['hours', 'days'];
+      if (!validUnits.includes(unit)) {
+        return createErrorResponse('INVALID_UNIT', 'Unit must be either "hours" or "days"');
+      }
+    }
+
+    // Validate duration if provided
+    if (duration !== undefined && (typeof duration !== 'number' || duration <= 0)) {
+      return createErrorResponse('INVALID_DURATION', 'Duration must be a positive number');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const stepSLAsSheet = ss.getSheetByName('step_slas');
+
+    if (!stepSLAsSheet) {
+      return createErrorResponse('SHEET_NOT_FOUND', 'step_slas sheet not found');
+    }
+
+    const data = stepSLAsSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    // Find the SLA configuration
+    let updatedRowIndex = -1;
+    let existingData = {};
+
+    rows.forEach((row, index) => {
+      const rowData = {};
+      headers.forEach((header, headerIndex) => {
+        rowData[header] = row[headerIndex];
+      });
+
+      if (rowData.step_id === stepId) {
+        updatedRowIndex = index + 2;
+        existingData = rowData;
+      }
+    });
+
+    if (updatedRowIndex === -1) {
+      return createErrorResponse('SLA_NOT_FOUND', 'SLA configuration not found for this step');
+    }
+
+    // Update the SLA
+    const updatedRow = [
+      existingData.step_id,
+      duration !== undefined ? duration : existingData.duration,
+      unit !== undefined ? unit : existingData.unit,
+      exclude_weekends !== undefined ? exclude_weekends === true : existingData.exclude_weekends,
+      existingData.created_at,
+      existingData.created_by,
+      new Date().toISOString(),         // updated_at
+      updated_by || 'system'            // updated_by
+    ];
+
+    stepSLAsSheet.getRange(updatedRowIndex, 1, 1, updatedRow.length).setValues([updatedRow]);
+
+    const updatedSLA = {
+      step_id: stepId,
+      duration: updatedRow[1],
+      unit: updatedRow[2],
+      exclude_weekends: updatedRow[3],
+      updated_at: updatedRow[6],
+      updated_by: updatedRow[7]
+    };
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse(updatedSLA,
+      'Step SLA configuration updated successfully',
+      { responseTime, stepId });
+
+  } catch (error) {
+    return createErrorResponse('UPDATE_STEP_SLA_ERROR', error.toString(), {
+      stepId, payload,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+/**
+ * Delete SLA configuration for a workflow step
+ */
+function deleteStepSLA(stepId, deleteInfo = {}) {
+  const startTime = Date.now();
+
+  try {
+    if (!stepId) {
+      return createErrorResponse('MISSING_STEP_ID', 'Step ID is required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const stepSLAsSheet = ss.getSheetByName('step_slas');
+
+    if (!stepSLAsSheet) {
+      return createErrorResponse('SHEET_NOT_FOUND', 'step_slas sheet not found');
+    }
+
+    const data = stepSLAsSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    // Find and remove the SLA configuration
+    let deletedRowIndex = -1;
+    let deletedData = {};
+
+    rows.forEach((row, index) => {
+      const rowData = {};
+      headers.forEach((header, headerIndex) => {
+        rowData[header] = row[headerIndex];
+      });
+
+      if (rowData.step_id === stepId) {
+        deletedRowIndex = index + 2;
+        deletedData = rowData;
+      }
+    });
+
+    if (deletedRowIndex === -1) {
+      return createErrorResponse('SLA_NOT_FOUND', 'SLA configuration not found for this step');
+    }
+
+    // Delete the row
+    stepSLAsSheet.deleteRow(deletedRowIndex);
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse({
+      step_id: stepId,
+      duration: deletedData.duration,
+      unit: deletedData.unit,
+      exclude_weekends: deletedData.exclude_weekends,
+      deleted_at: new Date().toISOString(),
+      deleted_by: deleteInfo.deleted_by || 'system'
+    }, 'Step SLA configuration deleted successfully',
+    { responseTime, stepId });
+
+  } catch (error) {
+    return createErrorResponse('DELETE_STEP_SLA_ERROR', error.toString(), {
+      stepId, deleteInfo,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+/**
+ * Calculate SLA due date for a ticket at a specific step
+ * Considers Philippine timezone (UTC+8) and weekend exclusions
+ */
+function calculateSLADueDate(stepId, startDate = null) {
+  const startTime = Date.now();
+
+  try {
+    if (!stepId) {
+      return createErrorResponse('MISSING_STEP_ID', 'Step ID is required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const stepSLAsSheet = ss.getSheetByName('step_slas');
+
+    if (!stepSLAsSheet) {
+      return createErrorResponse('SHEET_NOT_FOUND', 'step_slas sheet not found');
+    }
+
+    // Get SLA configuration for the step
+    const data = stepSLAsSheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    let slaConfig = null;
+    rows.forEach(row => {
+      const rowData = {};
+      headers.forEach((header, index) => {
+        rowData[header] = row[index];
+      });
+
+      if (rowData.step_id === stepId) {
+        slaConfig = rowData;
+      }
+    });
+
+    if (!slaConfig) {
+      return createErrorResponse('SLA_NOT_FOUND', 'No SLA configuration found for this step');
+    }
+
+    // Start date (default to current Philippine time)
+    const philippineOffset = 8; // UTC+8
+    const now = new Date();
+    const philippineNow = new Date(now.getTime() + (philippineOffset * 60 * 60 * 1000));
+    const calculationStartDate = startDate ? new Date(startDate) : philippineNow;
+
+    // Calculate due date
+    let dueDate = new Date(calculationStartDate);
+    const duration = slaConfig.duration;
+    const unit = slaConfig.unit;
+    const excludeWeekends = slaConfig.exclude_weekends;
+
+    if (unit === 'hours') {
+      if (excludeWeekends) {
+        // Add business hours only (skip weekends)
+        let hoursToAdd = duration;
+        let currentDate = new Date(dueDate);
+
+        while (hoursToAdd > 0) {
+          const dayOfWeek = currentDate.getDay(); // 0=Sunday, 6=Saturday
+
+          if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Not weekend
+            const hoursToEndOfDay = 24 - currentDate.getHours();
+            if (hoursToAdd <= hoursToEndOfDay) {
+              currentDate.setHours(currentDate.getHours() + hoursToAdd);
+              hoursToAdd = 0;
+            } else {
+              hoursToAdd -= hoursToEndOfDay;
+              // Move to next day
+              currentDate.setDate(currentDate.getDate() + 1);
+              currentDate.setHours(0, 0, 0, 0);
+            }
+          } else {
+            // Skip weekend day
+            currentDate.setDate(currentDate.getDate() + 1);
+            currentDate.setHours(0, 0, 0, 0);
+          }
+        }
+        dueDate = currentDate;
+      } else {
+        // Simple hour addition
+        dueDate.setHours(dueDate.getHours() + duration);
+      }
+    } else if (unit === 'days') {
+      if (excludeWeekends) {
+        // Add business days only
+        let daysToAdd = duration;
+        let currentDate = new Date(dueDate);
+
+        while (daysToAdd > 0) {
+          currentDate.setDate(currentDate.getDate() + 1);
+          const dayOfWeek = currentDate.getDay();
+
+          if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Not weekend
+            daysToAdd--;
+          }
+        }
+        dueDate = currentDate;
+      } else {
+        // Simple day addition
+        dueDate.setDate(dueDate.getDate() + duration);
+      }
+    }
+
+    // Calculate time remaining
+    const timeRemaining = dueDate.getTime() - philippineNow.getTime();
+    const isOverdue = timeRemaining < 0;
+
+    // Format time remaining
+    const absTimeRemaining = Math.abs(timeRemaining);
+    const daysRemaining = Math.floor(absTimeRemaining / (24 * 60 * 60 * 1000));
+    const hoursRemaining = Math.floor((absTimeRemaining % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+    const minutesRemaining = Math.floor((absTimeRemaining % (60 * 60 * 1000)) / (60 * 1000));
+
+    let timeRemainingText = '';
+    if (daysRemaining > 0) {
+      timeRemainingText = `${daysRemaining}d ${hoursRemaining}h ${minutesRemaining}m`;
+    } else if (hoursRemaining > 0) {
+      timeRemainingText = `${hoursRemaining}h ${minutesRemaining}m`;
+    } else {
+      timeRemainingText = `${minutesRemaining}m`;
+    }
+
+    const slaStatus = isOverdue ? 'OVERDUE' : (timeRemaining < 60 * 60 * 1000 ? 'DUE_SOON' : 'ON_TIME'); // Due soon if less than 1 hour
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse({
+      step_id: stepId,
+      start_date: calculationStartDate.toISOString(),
+      due_date: dueDate.toISOString(),
+      duration: duration,
+      unit: unit,
+      exclude_weekends: excludeWeekends,
+      time_remaining_ms: timeRemaining,
+      time_remaining_text: (isOverdue ? 'OVERDUE by ' : '') + timeRemainingText,
+      sla_status: slaStatus,
+      is_overdue: isOverdue,
+      philippine_time: philippineNow.toISOString()
+    }, `SLA due date calculated for step ${stepId}`,
+    { responseTime, stepId, slaStatus });
+
+  } catch (error) {
+    return createErrorResponse('CALCULATE_SLA_DUE_DATE_ERROR', error.toString(), {
+      stepId, startDate,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+/**
+ * Clone SLA configurations from one ticket type to another
+ */
+function cloneStepSLAs(fromTicketTypeId, fromCompanyId, toTicketTypeId, toCompanyId, cloneInfo = {}) {
+  const startTime = Date.now();
+
+  try {
+    if (!fromTicketTypeId || !fromCompanyId || !toTicketTypeId || !toCompanyId) {
+      return createErrorResponse('MISSING_REQUIRED_FIELDS', 'All ticket type and company IDs are required');
+    }
+
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const stepSLAsSheet = ss.getSheetByName('step_slas');
+    const workflowStepsSheet = ss.getSheetByName('workflow_steps');
+
+    if (!stepSLAsSheet || !workflowStepsSheet) {
+      return createErrorResponse('SHEETS_NOT_FOUND', 'Required sheets not found: step_slas or workflow_steps');
+    }
+
+    // Get workflow steps for source and target
+    const stepsData = workflowStepsSheet.getDataRange().getValues();
+    const stepsHeaders = stepsData[0];
+    const stepsRows = stepsData.slice(1);
+
+    // Build step mappings
+    const sourceSteps = [];
+    const targetSteps = [];
+
+    stepsRows.forEach(row => {
+      const stepData = {};
+      stepsHeaders.forEach((header, index) => {
+        stepData[header] = row[index];
+      });
+
+      if (stepData.ticket_type_id === fromTicketTypeId && stepData.company_id === fromCompanyId) {
+        sourceSteps.push(stepData);
+      } else if (stepData.ticket_type_id === toTicketTypeId && stepData.company_id === toCompanyId) {
+        targetSteps.push(stepData);
+      }
+    });
+
+    // Sort by sort_order for mapping
+    sourceSteps.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+    targetSteps.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+    if (sourceSteps.length === 0) {
+      return createSuccessResponse([],
+        `No workflow steps found for source ticket type ${fromTicketTypeId}`,
+        { responseTime: Date.now() - startTime });
+    }
+
+    if (targetSteps.length === 0) {
+      return createSuccessResponse([],
+        `No workflow steps found for target ticket type ${toTicketTypeId}`,
+        { responseTime: Date.now() - startTime });
+    }
+
+    // Get existing SLA configurations
+    const slaData = stepSLAsSheet.getDataRange().getValues();
+    const slaHeaders = slaData[0];
+    const slaRows = slaData.slice(1);
+
+    const sourceSLAs = {};
+    slaRows.forEach(row => {
+      const slaRowData = {};
+      slaHeaders.forEach((header, index) => {
+        slaRowData[header] = row[index];
+      });
+
+      sourceSLAs[slaRowData.step_id] = slaRowData;
+    });
+
+    // Clone SLA configurations
+    const clonedSLAs = [];
+    const timestamp = new Date().toISOString();
+    const clonedBy = cloneInfo.cloned_by || 'system';
+
+    // Map source steps to target steps by position
+    const maxMappings = Math.min(sourceSteps.length, targetSteps.length);
+
+    for (let i = 0; i < maxMappings; i++) {
+      const sourceStep = sourceSteps[i];
+      const targetStep = targetSteps[i];
+      const sourceSLA = sourceSLAs[sourceStep.id];
+
+      if (sourceSLA) {
+        // Check if target step already has SLA
+        const existingTargetSLA = slaRows.find(row => {
+          const rowData = {};
+          slaHeaders.forEach((header, index) => {
+            rowData[header] = row[index];
+          });
+          return rowData.step_id === targetStep.id;
+        });
+
+        if (!existingTargetSLA) {
+          const newRow = [
+            targetStep.id,                    // step_id
+            sourceSLA.duration,               // duration
+            sourceSLA.unit,                   // unit
+            sourceSLA.exclude_weekends,       // exclude_weekends
+            timestamp,                        // created_at
+            clonedBy,                         // created_by
+            '',                               // updated_at
+            ''                                // updated_by
+          ];
+
+          stepSLAsSheet.appendRow(newRow);
+          clonedSLAs.push({
+            step_id: targetStep.id,
+            step_name: targetStep.name,
+            duration: sourceSLA.duration,
+            unit: sourceSLA.unit,
+            exclude_weekends: sourceSLA.exclude_weekends,
+            created_at: timestamp,
+            created_by: clonedBy
+          });
+        }
+      }
+    }
+
+    const responseTime = Date.now() - startTime;
+
+    return createSuccessResponse(clonedSLAs,
+      `Cloned ${clonedSLAs.length} SLA configurations from ${fromTicketTypeId} to ${toTicketTypeId}`,
+      { responseTime, fromTicketTypeId, fromCompanyId, toTicketTypeId, toCompanyId, clonedCount: clonedSLAs.length });
+
+  } catch (error) {
+    return createErrorResponse('CLONE_STEP_SLAS_ERROR', error.toString(), {
+      fromTicketTypeId, fromCompanyId, toTicketTypeId, toCompanyId, cloneInfo,
+      responseTime: Date.now() - startTime
+    });
+  }
+}
+
+// =================================================================================
+// END OF APPSCRIPT v7.0 - PHASE 1B & 1C: STEP APPROVERS & USER ROLE ASSIGNMENTS
+// Functions Added: Phase 1B (6 functions) + Phase 1C (6 functions) + Phase 1D (6 functions)
+// Total Functions: v6.4 (53 functions) + v7.0 Phase 1A (6 functions) + v7.0 Phase 1B (6 functions) + v7.0 Phase 1C (6 functions) + v7.0 Phase 1D (6 functions) = 77 enterprise-grade functions
+// Status: ✅ APPSCRIPT v7.0 PHASE 1 COMPLETE (All 4 phases: 1A, 1B, 1C, 1D)
+// Next Phase: Ready for Phase 2 implementation or frontend integration
+// Version: 7.0 Phase 1 Complete
+// Implementation Date: September 26, 2025
+// =================================================================================

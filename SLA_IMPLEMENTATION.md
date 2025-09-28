@@ -1,8 +1,8 @@
 # SLA Implementation Documentation
 
-**Date**: September 21, 2025
-**Version**: 2.0
-**Status**: Phase 5 Complete - Advanced SLA Features with Dashboard Integration
+**Date**: September 27, 2025 - 🚀 **USER/ROLE SYSTEM INTEGRATION UPDATE**
+**Version**: 2.1
+**Status**: Phase 5 Complete + Universal Entity SLA Integration Ready
 
 ## 🚨 MANDATORY SLA RESOLUTION RULE
 
@@ -18,6 +18,7 @@
 - **API SLA**: Use working SLA hooks from useAPI.js (useSLAStatus, useWorkflowStepSLA)
 - **AppScript SLA**: Use working SLA calculation functions from backend
 - **Schema SLA**: Use working step_slas table structure and relationships
+- **🚀 NEW: Universal Entity SLA**: SLA calculations work for tickets, user profiles, and roles using same tables/fields with entity_category
 
 **3. SLA WORKING PATTERNS:**
 - **Reference**: slaCalculator.js (proven UTC+8 calculations)

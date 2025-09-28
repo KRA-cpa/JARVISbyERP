@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useUser } from '../contexts/UserContext';
 import { useLocation } from 'react-router-dom';
 import Header from '../components/shared/Header';
+import Footer from '../components/shared/Footer';
 import Icons from '../components/shared/Icons';
 import DarkModeToggle from '../components/shared/DarkModeToggle';
 
@@ -332,6 +333,7 @@ const ProfilePage = () => {
             </div>
           </div>
         </div>
+        <Footer />
       </div>
     </div>
   );

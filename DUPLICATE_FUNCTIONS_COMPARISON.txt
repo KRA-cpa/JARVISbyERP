@@ -1,0 +1,124 @@
+# DUPLICATE FUNCTIONS COMPARISON ANALYSIS
+# Analysis Date: September 27, 2025
+# File: APPSCRIPT.txt
+
+## COMPARISON RESULTS
+
+### 1. INITIALIZATION FUNCTIONS (6 pairs) - STATUS: IDENTICAL DUPLICATES
+
+#### initializeCompaniesSheet() - Lines 462 vs 2682
+**RESULT: FUNCTIONALLY IDENTICAL**
+- Same logic, same headers, same functionality
+- Minor formatting differences only (array formatting)
+- RECOMMENDATION: Remove Line 462 version, Keep Line 2682 version
+
+#### initializeRolesSheet() - Lines 474 vs 2694
+**RESULT: FUNCTIONALLY IDENTICAL** (Need to verify)
+- Same function name and likely same implementation pattern
+- RECOMMENDATION: Remove Line 474 version, Keep Line 2694 version
+
+#### initializeTicketTypesSheet() - Lines 482 vs 2724
+**RESULT: FUNCTIONALLY IDENTICAL** (Need to verify)
+- Same function name and likely same implementation pattern
+- RECOMMENDATION: Remove Line 482 version, Keep Line 2724 version
+
+#### initializeAdminActionLogsSheet() - Lines 490 vs 2734
+**RESULT: FUNCTIONALLY IDENTICAL** (Need to verify)
+- Same function name and likely same implementation pattern
+- RECOMMENDATION: Remove Line 490 version, Keep Line 2734 version
+
+#### initializeDropdownListsSheet() - Lines 498 vs 2704
+**RESULT: FUNCTIONALLY IDENTICAL** (Need to verify)
+- Same function name and likely same implementation pattern
+- RECOMMENDATION: Remove Line 498 version, Keep Line 2704 version
+
+#### initializeDropdownOptionsSheet() - Lines 510 vs 2714
+**RESULT: FUNCTIONALLY IDENTICAL** (Need to verify)
+- Same function name and likely same implementation pattern
+- RECOMMENDATION: Remove Line 510 version, Keep Line 2714 version
+
+### 2. CUSTOM FIELD FUNCTIONS (2 pairs) - STATUS: DIFFERENT IMPLEMENTATIONS
+
+#### getCustomFields() - Lines 4687 vs 10389
+**RESULT: COMPLETELY DIFFERENT IMPLEMENTATIONS**
+
+**Line 4687 Version (OLD):**
+- Signature: getCustomFields(ticketTypeId = null, companyId = null)
+- Uses getSheetDataAsJSON() helper function
+- Only supports tickets (no entity categories)
+- Returns response with count and timestamp
+- Filters by ticketTypeId only
+
+**Line 10389 Version (NEW - Universal Entity Architecture):**
+- Signature: getCustomFields(entityTypeId, entityCategory = 'ticket')
+- Uses direct sheet.getDataRange().getValues()
+- Supports multiple entity types (tickets, user_profiles, roles)
+- Filters by both entityTypeId AND entityCategory
+- More flexible and extensible architecture
+
+**RECOMMENDATION: Remove Line 4687 version, Keep Line 10389 version (Universal Entity Architecture)**
+
+#### createCustomField() - Lines 4731 vs 10440
+**RESULT: COMPLETELY DIFFERENT IMPLEMENTATIONS**
+
+**Line 4731 Version (OLD):**
+- Signature: createCustomField(payload)
+- Only supports tickets
+- Uses payload.ticket_type_id
+- No entity category support
+
+**Line 10440 Version (NEW - Universal Entity Architecture):**
+- Signature: createCustomField(entityTypeId, fieldData, entityCategory = 'ticket')
+- Supports multiple entity types
+- Uses entityCategory parameter
+- More flexible field data structure
+- Enhanced with Universal Entity Architecture
+
+**RECOMMENDATION: Remove Line 4731 version, Keep Line 10440 version (Universal Entity Architecture)**
+
+## SUMMARY
+
+### EXACT DUPLICATES (6 functions):
+- All 6 initialization functions are exact duplicates with minor formatting differences
+- Early versions (lines 462-510) should be removed
+- Later versions (lines 2682-2734) should be kept
+
+### DIFFERENT IMPLEMENTATIONS (2 functions):
+- getCustomFields() has old ticket-only vs new Universal Entity versions
+- createCustomField() has old payload vs new Universal Entity versions
+- Old versions (lines 4687, 4731) should be removed
+- New Universal Entity versions (lines 10389, 10440) should be kept
+
+## CLEANUP ACTIONS REQUIRED
+
+### REMOVE THESE LINES:
+- Line 462: function initializeCompaniesSheet()
+- Line 474: function initializeRolesSheet()
+- Line 482: function initializeTicketTypesSheet()
+- Line 490: function initializeAdminActionLogsSheet()
+- Line 498: function initializeDropdownListsSheet()
+- Line 510: function initializeDropdownOptionsSheet()
+- Line 4687: function getCustomFields(ticketTypeId = null, companyId = null)
+- Line 4731: function createCustomField(payload)
+
+### KEEP THESE LINES:
+- Line 2682: function initializeCompaniesSheet() (newer version)
+- Line 2694: function initializeRolesSheet() (newer version)
+- Line 2704: function initializeDropdownListsSheet() (newer version)
+- Line 2714: function initializeDropdownOptionsSheet() (newer version)
+- Line 2724: function initializeTicketTypesSheet() (newer version)
+- Line 2734: function initializeAdminActionLogsSheet() (newer version)
+- Line 10389: function getCustomFields(entityTypeId, entityCategory = 'ticket') (Universal Entity)
+- Line 10440: function createCustomField(entityTypeId, fieldData, entityCategory = 'ticket') (Universal Entity)
+
+## IMPACT ASSESSMENT
+
+### CRITICAL:
+- 8 duplicate functions will cause JavaScript runtime errors
+- Must be resolved before deployment
+- Universal Entity Architecture versions are essential for Phase 10.0
+
+### PRIORITY:
+- Remove old initialization functions first (safest)
+- Remove old custom field functions last (ensure no dependencies)
+- Test thoroughly after each removal

@@ -459,11 +459,63 @@ function getGlobalSLAPerformance() {
  * =================================================================================
  */
 
+function initializeCompaniesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.COMPANIES);
+  sheet.getRange(1, 1, 1, 15).setValues([[
+    'id', 'name', 'code', 'code_locked', 'code_locked_at', 'code_locked_reason', 'ticket_count',
+    'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by',
+    'deactivated_at', 'deactivated_by', 'deactivation_reason'
+  ]]);
+  sheet.getRange(1, 1, 1, 15).setFontWeight('bold');
+  return sheet;
+}
 
+function initializeRolesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.ROLES);
+  sheet.getRange(1, 1, 1, 5).setValues([['id', 'name', 'company_id', 'created_at', 'updated_at']]);
+  sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+  return sheet;
+}
 
+function initializeTicketTypesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.TICKET_TYPES);
+  sheet.getRange(1, 1, 1, 10).setValues([['id', 'transaction_id', 'code', 'name', 'description', 'is_active', 'require_attachment_on_create', 'company_id', 'created_at', 'updated_at']]);
+  sheet.getRange(1, 1, 1, 10).setFontWeight('bold');
+  return sheet;
+}
 
+function initializeAdminActionLogsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.ADMIN_ACTION_LOGS);
+  sheet.getRange(1, 1, 1, 7).setValues([['id', 'admin_user_id', 'action_type', 'target_entity', 'target_id', 'details', 'timestamp']]);
+  sheet.getRange(1, 1, 1, 7).setFontWeight('bold');
+  return sheet;
+}
 
+function initializeDropdownListsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.DROPDOWN_LISTS);
+  sheet.getRange(1, 1, 1, 12).setValues([[
+    'id', 'name', 'description', 'company_id', 'is_active',
+    'created_at', 'created_by', 'updated_at', 'updated_by',
+    'deactivated_at', 'deactivated_by', 'deactivation_reason'
+  ]]);
+  sheet.getRange(1, 1, 1, 12).setFontWeight('bold');
+  return sheet;
+}
 
+function initializeDropdownOptionsSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.insertSheet(SHEETS.DROPDOWN_OPTIONS);
+  sheet.getRange(1, 1, 1, 5).setValues([[
+    'id', 'dropdown_list_id', 'label', 'value', 'parent_option_id'
+  ]]);
+  sheet.getRange(1, 1, 1, 5).setFontWeight('bold');
+  return sheet;
+}
 
 /**
  * =================================================================================
@@ -494,7 +546,7 @@ function doGet(e) {
             message: 'API connection successful',
             serverTime: new Date().toISOString(),
             responseTime: 150,
-            version: '8.0.0'
+            version: '1.0.0'
           });
 
         case 'getCompanies':
@@ -2163,218 +2215,6 @@ function initializeUserPreferencesSheet() {
 
   } catch (error) {
     Logger.log(`Error initializing user preferences sheet: ${error.message}`);
-    throw error;
-  }
-}
-
-/**
- * =================================================================================
- * MISSING INITIALIZATION FUNCTIONS - APPSCRIPT v7.0 COMPLETION
- * Implementation Date: September 26, 2025
- * =================================================================================
- */
-
-/**
- * Initializes the tickets sheet with proper headers and audit fields.
- * @returns {Sheet} - The initialized tickets sheet.
- */
-function initializeTicketsSheet() {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const ticketsSheet = ss.insertSheet(SHEETS.TICKETS);
-
-    // Set up headers for tickets table
-    const headers = [
-      'id', 'ticket_number', 'title', 'description', 'ticket_type_id', 'requester_id',
-      'status', 'priority', 'current_step_id', 'step_due_date', 'company_id',
-      'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by',
-      'deactivated_at', 'deactivated_by', 'deactivation_reason'
-    ];
-
-    ticketsSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    ticketsSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-    ticketsSheet.setFrozenRows(1);
-
-    Logger.log('Initialized tickets sheet');
-    return ticketsSheet;
-
-  } catch (error) {
-    Logger.log(`Error initializing tickets sheet: ${error.message}`);
-    throw error;
-  }
-}
-
-/**
- * Initializes the ticket_history sheet with proper headers.
- * @returns {Sheet} - The initialized ticket history sheet.
- */
-function initializeTicketHistorySheet() {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const historySheet = ss.insertSheet(SHEETS.TICKET_HISTORY);
-
-    // Set up headers for ticket_history table
-    const headers = [
-      'id', 'ticket_id', 'user_id', 'action', 'comment', 'timestamp'
-    ];
-
-    historySheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    historySheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-    historySheet.setFrozenRows(1);
-
-    Logger.log('Initialized ticket_history sheet');
-    return historySheet;
-
-  } catch (error) {
-    Logger.log(`Error initializing ticket_history sheet: ${error.message}`);
-    throw error;
-  }
-}
-
-/**
- * Initializes the comment_requirements sheet with proper headers and audit fields.
- * @returns {Sheet} - The initialized comment requirements sheet.
- */
-function initializeCommentRequirementsSheet() {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const commentsSheet = ss.insertSheet(SHEETS.COMMENT_REQUIREMENTS);
-
-    // Set up headers for comment_requirements table
-    const headers = [
-      'ticket_type_id', 'require_on_approve', 'require_on_return', 'require_on_reject',
-      'require_on_cancel', 'require_on_create', 'require_on_update', 'company_id',
-      'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by',
-      'deactivated_at', 'deactivated_by', 'deactivation_reason'
-    ];
-
-    commentsSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    commentsSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-    commentsSheet.setFrozenRows(1);
-
-    Logger.log('Initialized comment_requirements sheet');
-    return commentsSheet;
-
-  } catch (error) {
-    Logger.log(`Error initializing comment_requirements sheet: ${error.message}`);
-    throw error;
-  }
-}
-
-/**
- * Initializes the ticket_attachments sheet with proper headers and audit fields.
- * @returns {Sheet} - The initialized ticket attachments sheet.
- */
-function initializeTicketAttachmentsSheet() {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const attachmentsSheet = ss.insertSheet(SHEETS.TICKET_ATTACHMENTS);
-
-    // Set up headers for ticket_attachments table
-    const headers = [
-      'id', 'ticket_id', 'uploader_id', 'file_name', 'file_url', 'file_size',
-      'file_type', 'upload_timestamp', 'step_id', 'description', 'company_id',
-      'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by',
-      'deactivated_at', 'deactivated_by', 'deactivation_reason'
-    ];
-
-    attachmentsSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    attachmentsSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-    attachmentsSheet.setFrozenRows(1);
-
-    Logger.log('Initialized ticket_attachments sheet');
-    return attachmentsSheet;
-
-  } catch (error) {
-    Logger.log(`Error initializing ticket_attachments sheet: ${error.message}`);
-    throw error;
-  }
-}
-
-/**
- * Initializes the ticket_links sheet with proper headers and audit fields.
- * @returns {Sheet} - The initialized ticket links sheet.
- */
-function initializeTicketLinksSheet() {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const linksSheet = ss.insertSheet(SHEETS.TICKET_LINKS);
-
-    // Set up headers for ticket_links table
-    const headers = [
-      'id', 'parent_ticket_id', 'child_ticket_id', 'link_type', 'description',
-      'company_id', 'is_active', 'created_at', 'created_by', 'updated_at',
-      'updated_by', 'deactivated_at', 'deactivated_by', 'deactivation_reason'
-    ];
-
-    linksSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    linksSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-    linksSheet.setFrozenRows(1);
-
-    Logger.log('Initialized ticket_links sheet');
-    return linksSheet;
-
-  } catch (error) {
-    Logger.log(`Error initializing ticket_links sheet: ${error.message}`);
-    throw error;
-  }
-}
-
-/**
- * Initializes the step_conditions sheet with proper headers and audit fields.
- * @returns {Sheet} - The initialized step conditions sheet.
- */
-function initializeStepConditionsSheet() {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const conditionsSheet = ss.insertSheet(SHEETS.STEP_CONDITIONS);
-
-    // Set up headers for step_conditions table
-    const headers = [
-      'id', 'step_id', 'custom_field_id', 'operator', 'value', 'next_step_id',
-      'condition_group', 'company_id', 'is_active', 'created_at', 'created_by',
-      'updated_at', 'updated_by', 'deactivated_at', 'deactivated_by', 'deactivation_reason'
-    ];
-
-    conditionsSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    conditionsSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-    conditionsSheet.setFrozenRows(1);
-
-    Logger.log('Initialized step_conditions sheet');
-    return conditionsSheet;
-
-  } catch (error) {
-    Logger.log(`Error initializing step_conditions sheet: ${error.message}`);
-    throw error;
-  }
-}
-
-/**
- * Initializes the report_configurations sheet with proper headers and audit fields.
- * @returns {Sheet} - The initialized report configurations sheet.
- */
-function initializeReportConfigurationsSheet() {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const reportsSheet = ss.insertSheet(SHEETS.REPORT_CONFIGURATIONS);
-
-    // Set up headers for report_configurations table
-    const headers = [
-      'id', 'ticket_type_id', 'field_name', 'display_name', 'field_type',
-      'sort_order', 'is_visible', 'is_sortable', 'is_filterable', 'company_id',
-      'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by',
-      'deactivated_at', 'deactivated_by', 'deactivation_reason'
-    ];
-
-    reportsSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-    reportsSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-    reportsSheet.setFrozenRows(1);
-
-    Logger.log('Initialized report_configurations sheet');
-    return reportsSheet;
-
-  } catch (error) {
-    Logger.log(`Error initializing report_configurations sheet: ${error.message}`);
     throw error;
   }
 }
@@ -4259,8 +4099,365 @@ function testPayloadCompatibility() {
 }
 
 //
-// end of version 6.0
+// end
 //
+
+/**
+ * =================================================================================
+ * DATABASE SCHEMA ANALYZER FUNCTION
+ * Purpose: Analyze current Google Sheets database structure and document schema
+ * Usage: Add this function to your APPSCRIPT.txt file and run analyzeCurrentSchema()
+ * Output: Updates 'xSchema' sheet with complete database schema documentation
+ * =================================================================================
+ */
+
+/**
+ * Analyze current database schema and write to 'xSchema' sheet
+ * This function examines all sheets in the spreadsheet and documents their structure
+ */
+function analyzeCurrentSchema() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+  // Get the existing xSchema sheet and clear it
+  let xSchemaSheet;
+  try {
+    xSchemaSheet = ss.getSheetByName('xSchema');
+    xSchemaSheet.clear();
+  } catch (error) {
+    throw new Error('xSchema sheet not found. Please create the xSchema sheet first.');
+  }
+
+  // Set up headers for schema documentation
+  const headers = [
+    'Sheet Name',
+    'Column Count',
+    'Column Headers',
+    'Sample Row 2',
+    'Row Count',
+    'Status',
+    'Notes'
+  ];
+
+  xSchemaSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  xSchemaSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+  xSchemaSheet.getRange(1, 1, 1, headers.length).setBackground('#4285f4');
+  xSchemaSheet.getRange(1, 1, 1, headers.length).setFontColor('white');
+
+  // Get all sheets in the spreadsheet
+  const allSheets = ss.getSheets();
+  const schemaData = [];
+
+  // Define expected sheets from CLAUDE.md specification
+  const expectedSheets = {
+    'companies': 'id|name|code|code_locked|code_locked_at|code_locked_reason|ticket_count + audit fields',
+    'roles': 'id|name|company_id + audit fields',
+    'tickets': 'id|ticket_number|title|ticket_type_id|requester_id|status|current_step_id|step_due_date|company_id + audit fields',
+    'ticket_history': 'id|ticket_id|user_id|action|comment|timestamp',
+    'ticket_types': 'id|transaction_id|code|name|description|is_active|require_attachment_on_create|company_id + audit fields',
+    'comment_requirements': 'ticket_type_id|require_on_approve|require_on_return|require_on_reject|require_on_cancel',
+    'custom_fields': 'id|ticket_type_id|name|label|type|is_required|is_hidden|sort_order|dropdown_list_id|depends_on_field_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason',
+    'custom_field_values': 'id|ticket_id|custom_field_id|text_value|number_value|date_value|start_date_value|end_date_value|dropdown_option_id|is_active|created_at|created_by|updated_at|updated_by|deleted_at|deleted_by|deletion_reason',
+    'workflow_steps': 'id|ticket_type_id|company_id|name|status_on_reach|step_type|approver_logic|sort_order|next_ticket_type_id|external_app_url|completion_action_name|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason',
+    'step_approvers': 'step_id|role_id',
+    'user_role_assignments': 'user_id|ticket_type_id|role_id|validity_end_date|company_id + audit fields',
+    'step_slas': 'step_id|duration|unit|exclude_weekends + audit fields',
+    'step_conditions': 'id|step_id|custom_field_id|operator|value + audit fields',
+    'dropdown_lists': 'id|name|description + audit fields',
+    'dropdown_options': 'id|dropdown_list_id|label|value|parent_option_id + audit fields',
+    'dropdown_company_assignments': 'id|dropdown_list_id|company_id|is_global|is_active + audit fields',
+    'ticket_attachments': 'id|ticket_id|uploader_id|file_name|file_url|uploaded_at',
+    'report_configurations': 'id|ticket_type_id|field_name|display_name|field_type|sort_order',
+    'ticket_links': 'id|parent_ticket_id|child_ticket_id',
+    'sequence_counters': 'sequence_name|last_number',
+    'ticket_action_logs': 'id|ticket_id|user_id|action_type|details|timestamp',
+    'admin_action_logs': 'id|admin_user_id|action_type|target_entity|target_id|details|timestamp',
+    'user_preferences': 'id|user_id|dark_mode|timezone|language|email_notifications|desktop_notifications|dashboard_layout|items_per_page|auto_refresh|refresh_interval + audit fields'
+  };
+
+  // Analyze each sheet
+  for (let i = 0; i < allSheets.length; i++) {
+    const sheet = allSheets[i];
+    const sheetName = sheet.getName();
+
+    // Skip the xSchema sheet itself
+    if (sheetName === 'xSchema') continue;
+
+    try {
+      const lastRow = sheet.getLastRow();
+      const lastColumn = sheet.getLastColumn();
+
+      let columnHeaders = '';
+      let sampleRow = '';
+      let status = '';
+      let notes = '';
+
+      if (lastRow >= 1 && lastColumn >= 1) {
+        // Get headers (row 1)
+        const headersRange = sheet.getRange(1, 1, 1, lastColumn);
+        const headersValues = headersRange.getValues()[0];
+        columnHeaders = headersValues.join('|');
+
+        // Get sample data (row 2 if exists)
+        if (lastRow >= 2) {
+          const sampleRange = sheet.getRange(2, 1, 1, lastColumn);
+          const sampleValues = sampleRange.getValues()[0];
+          sampleRow = sampleValues.map(val => val ? String(val).substring(0, 20) : '').join('|');
+        } else {
+          sampleRow = 'No data rows';
+        }
+
+        // Determine status
+        if (expectedSheets[sheetName]) {
+          status = '✅ Expected';
+          // Check if headers match expected structure
+          if (columnHeaders.includes('is_active') && columnHeaders.includes('created_at')) {
+            notes = 'Has audit fields';
+          } else if (sheetName === 'ticket_history' || sheetName === 'ticket_action_logs' || sheetName === 'admin_action_logs') {
+            notes = 'Immutable log table (no audit fields needed)';
+          } else {
+            notes = '⚠️ Missing audit fields';
+          }
+        } else {
+          status = '❓ Unexpected sheet';
+          notes = 'Not in CLAUDE.md specification';
+        }
+
+      } else {
+        columnHeaders = 'Empty sheet';
+        sampleRow = 'No data';
+        status = '❌ Empty';
+        notes = 'Sheet exists but has no data';
+      }
+
+      schemaData.push([
+        sheetName,
+        lastColumn,
+        columnHeaders,
+        sampleRow,
+        lastRow - 1, // Subtract 1 for header row
+        status,
+        notes
+      ]);
+
+    } catch (error) {
+      schemaData.push([
+        sheetName,
+        0,
+        'ERROR',
+        'ERROR: ' + error.toString(),
+        0,
+        '❌ Error',
+        'Failed to analyze sheet'
+      ]);
+    }
+  }
+
+  // Check for missing expected sheets
+  for (const expectedSheet in expectedSheets) {
+    const found = schemaData.some(row => row[0] === expectedSheet);
+    if (!found) {
+      schemaData.push([
+        expectedSheet,
+        0,
+        expectedSheets[expectedSheet],
+        'SHEET MISSING',
+        0,
+        '❌ Missing',
+        'Required by CLAUDE.md specification'
+      ]);
+    }
+  }
+
+  // Sort data: existing sheets first, then missing sheets
+  schemaData.sort((a, b) => {
+    if (a[4] > 0 && b[4] === 0) return -1; // Existing sheets first
+    if (a[4] === 0 && b[4] > 0) return 1;  // Missing sheets last
+    return a[0].localeCompare(b[0]); // Alphabetical within groups
+  });
+
+  // Write data to sheet
+  if (schemaData.length > 0) {
+    xSchemaSheet.getRange(2, 1, schemaData.length, headers.length).setValues(schemaData);
+  }
+
+  // Add summary at the bottom
+  const summaryStartRow = schemaData.length + 4;
+  const existingSheets = schemaData.filter(row => row[4] > 0).length;
+  const missingSheets = schemaData.filter(row => row[4] === 0).length;
+  const sheetsWithAuditFields = schemaData.filter(row => row[6] === 'Has audit fields').length;
+  const sheetsNeedingAuditFields = schemaData.filter(row => row[6] === '⚠️ Missing audit fields').length;
+
+  const summary = [
+    ['📊 SCHEMA ANALYSIS SUMMARY'],
+    [''],
+    ['Total Sheets Found:', existingSheets],
+    ['Missing Required Sheets:', missingSheets],
+    ['Sheets with Audit Fields:', sheetsWithAuditFields],
+    ['Sheets Needing Audit Fields:', sheetsNeedingAuditFields],
+    [''],
+    ['🎯 NEXT STEPS:'],
+    ['1. Create missing sheets'],
+    ['2. Add audit fields to existing sheets'],
+    ['3. Populate with sample data'],
+    ['4. Update AppScript initialization functions']
+  ];
+
+  xSchemaSheet.getRange(summaryStartRow, 1, summary.length, 2).setValues(summary);
+  xSchemaSheet.getRange(summaryStartRow, 1).setFontWeight('bold');
+  xSchemaSheet.getRange(summaryStartRow, 1).setFontSize(12);
+
+  // Format the sheet
+  xSchemaSheet.autoResizeColumns(1, headers.length);
+  xSchemaSheet.setFrozenRows(1);
+
+  // Add conditional formatting for status column
+  const statusRange = xSchemaSheet.getRange(2, 6, schemaData.length, 1);
+
+  // Create rules for different statuses
+  const rules = [];
+
+  // Green for expected sheets
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextContains('✅ Expected')
+    .setBackground('#d4edda')
+    .setRanges([statusRange])
+    .build());
+
+  // Red for missing/error sheets
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextContains('❌')
+    .setBackground('#f8d7da')
+    .setRanges([statusRange])
+    .build());
+
+  // Yellow for unexpected sheets
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextContains('❓')
+    .setBackground('#fff3cd')
+    .setRanges([statusRange])
+    .build());
+
+  xSchemaSheet.setConditionalFormatRules(rules);
+
+  Logger.log('Schema analysis complete. Results written to xSchema sheet.');
+
+  return {
+    status: 'success',
+    message: 'Schema analysis complete',
+    totalSheets: existingSheets,
+    missingSheets: missingSheets,
+    sheetsWithAuditFields: sheetsWithAuditFields,
+    sheetsNeedingAuditFields: sheetsNeedingAuditFields
+  };
+}
+
+/**
+ * Helper function to get detailed column analysis for a specific sheet
+ * @param {string} sheetName - Name of the sheet to analyze
+ * @returns {Object} Detailed column analysis
+ */
+function analyzeSheetColumns(sheetName) {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+  try {
+    const sheet = ss.getSheetByName(sheetName);
+    const lastRow = sheet.getLastRow();
+    const lastColumn = sheet.getLastColumn();
+
+    if (lastRow < 1 || lastColumn < 1) {
+      return { error: 'Sheet is empty' };
+    }
+
+    const headersRange = sheet.getRange(1, 1, 1, lastColumn);
+    const headers = headersRange.getValues()[0];
+
+    const columnAnalysis = [];
+
+    for (let col = 0; col < headers.length; col++) {
+      const columnName = headers[col];
+      let sampleValues = [];
+      let dataTypes = new Set();
+
+      // Get sample values from first 5 data rows
+      const maxSampleRows = Math.min(6, lastRow); // Row 1 is headers, so 2-6 for data
+      if (maxSampleRows > 1) {
+        const sampleRange = sheet.getRange(2, col + 1, maxSampleRows - 1, 1);
+        const values = sampleRange.getValues();
+
+        values.forEach(([value]) => {
+          if (value !== null && value !== '') {
+            sampleValues.push(String(value).substring(0, 30));
+            dataTypes.add(typeof value);
+          }
+        });
+      }
+
+      columnAnalysis.push({
+        position: col + 1,
+        name: columnName,
+        sampleValues: sampleValues.slice(0, 3), // Show first 3 samples
+        dataTypes: Array.from(dataTypes),
+        isEmpty: sampleValues.length === 0
+      });
+    }
+
+    return {
+      sheetName: sheetName,
+      totalColumns: lastColumn,
+      totalRows: lastRow - 1, // Exclude header
+      columns: columnAnalysis
+    };
+
+  } catch (error) {
+    return { error: error.toString() };
+  }
+}
+
+/**
+ * Create missing sheets based on CLAUDE.md specification
+ * WARNING: This will create empty sheets - you'll need to add proper initialization
+ */
+function createMissingSheets() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+
+  const requiredSheets = [
+    'custom_fields',
+    'workflow_steps',
+    'custom_field_values',
+    'ticket_history',
+    'ticket_action_logs',
+    'admin_action_logs',
+    'ticket_attachments',
+    'report_configurations',
+    'ticket_links'
+  ];
+
+  const created = [];
+  const skipped = [];
+
+  requiredSheets.forEach(sheetName => {
+    try {
+      const existing = ss.getSheetByName(sheetName);
+      skipped.push(sheetName + ' (already exists)');
+    } catch (error) {
+      // Sheet doesn't exist, create it
+      const newSheet = ss.insertSheet(sheetName);
+      newSheet.getRange(1, 1).setValue('Sheet created - needs proper initialization');
+      created.push(sheetName);
+    }
+  });
+
+  Logger.log('Created sheets: ' + created.join(', '));
+  Logger.log('Skipped sheets: ' + skipped.join(', '));
+
+  return {
+    created: created,
+    skipped: skipped,
+    message: 'Sheet creation complete. Run initialization functions to add proper structure.'
+  };
+}
+
+// end of schema checking function
 
 // Version 6.1 additions starts here
 
@@ -4269,7 +4466,134 @@ function testPayloadCompatibility() {
 // Functions: 12 total (Custom Fields CRUD + Custom Field Values CRUD)
 // =================================================================================
 
+/**
+ * Get custom fields for a ticket type and company
+ * @param {string} ticketTypeId - Ticket type identifier
+ * @param {string} companyId - Company identifier (optional for global fields)
+ * @returns {Object} API response with custom fields array
+ */
+function getCustomFields(ticketTypeId = null, companyId = null) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const customFieldsSheet = ss.getSheetByName(SHEETS.CUSTOM_FIELDS);
 
+    if (!customFieldsSheet) {
+      throw new Error('Custom fields sheet not found');
+    }
+
+    const data = getSheetDataAsJSON(customFieldsSheet);
+    let filteredFields = data.filter(field => field.is_active === true);
+
+    // Filter by ticket type if specified
+    if (ticketTypeId) {
+      filteredFields = filteredFields.filter(field => field.ticket_type_id === ticketTypeId);
+    }
+
+    // Sort by sort_order
+    filteredFields.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+
+    Logger.log(`Retrieved ${filteredFields.length} custom fields for ticket type: ${ticketTypeId}`);
+
+    return {
+      status: 'success',
+      data: filteredFields,
+      count: filteredFields.length,
+      timestamp: getCurrentTimestamp()
+    };
+
+  } catch (error) {
+    Logger.log('Error in getCustomFields: ' + error.toString());
+    return {
+      status: 'error',
+      error: error.toString(),
+      timestamp: getCurrentTimestamp()
+    };
+  }
+}
+
+/**
+ * Create a new custom field
+ * @param {Object} payload - Custom field data
+ * @returns {Object} API response with created field data
+ */
+function createCustomField(payload) {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    let customFieldsSheet = ss.getSheetByName(SHEETS.CUSTOM_FIELDS);
+
+    if (!customFieldsSheet) {
+      customFieldsSheet = initializeCustomFieldsSheet();
+    }
+
+    // Validate required fields
+    if (!payload.ticket_type_id || !payload.name || !payload.type) {
+      throw new Error('Missing required fields: ticket_type_id, name, type');
+    }
+
+    // Generate unique ID
+    const fieldId = 'field_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+
+    // Create audit fields
+    const auditFields = createAuditFields();
+    const sheetsAuditFields = auditFieldsForSheets(auditFields);
+
+    // Prepare row data matching schema
+    const rowData = [
+      fieldId,                                    // id
+      payload.ticket_type_id,                     // ticket_type_id
+      payload.name,                               // name
+      payload.label || payload.name,              // label
+      payload.type,                               // type (text, paragraph, date, date_range, amount, dropdown, file)
+      payload.is_required || false,               // is_required
+      payload.is_hidden || false,                 // is_hidden
+      payload.sort_order || 999,                  // sort_order
+      payload.dropdown_list_id || '',             // dropdown_list_id
+      payload.depends_on_field_id || '',          // depends_on_field_id
+      sheetsAuditFields.is_active,                // is_active
+      sheetsAuditFields.created_at,               // created_at
+      sheetsAuditFields.created_by,               // created_by
+      sheetsAuditFields.updated_at,               // updated_at
+      sheetsAuditFields.updated_by,               // updated_by
+      sheetsAuditFields.deactivated_at,           // deactivated_at
+      sheetsAuditFields.deactivated_by,           // deactivated_by
+      sheetsAuditFields.deactivation_reason       // deactivation_reason
+    ];
+
+    // Append row to sheet
+    customFieldsSheet.appendRow(rowData);
+
+    // Log admin action
+    logAdminAction('CREATE_CUSTOM_FIELD', fieldId, payload);
+
+    Logger.log(`Created custom field: ${fieldId}`);
+
+    return {
+      status: 'success',
+      data: {
+        id: fieldId,
+        ticket_type_id: payload.ticket_type_id,
+        name: payload.name,
+        label: payload.label || payload.name,
+        type: payload.type,
+        is_required: payload.is_required || false,
+        is_hidden: payload.is_hidden || false,
+        sort_order: payload.sort_order || 999,
+        dropdown_list_id: payload.dropdown_list_id || '',
+        depends_on_field_id: payload.depends_on_field_id || '',
+        ...auditFields
+      },
+      timestamp: getCurrentTimestamp()
+    };
+
+  } catch (error) {
+    Logger.log('Error in createCustomField: ' + error.toString());
+    return {
+      status: 'error',
+      error: error.toString(),
+      timestamp: getCurrentTimestamp()
+    };
+  }
+}
 
 /**
  * Update an existing custom field
@@ -9831,1564 +10155,10 @@ return { status: 'error', message: error.toString() };
 // =================================================================================
 
 // =================================================================================
-// PHASE 10.0: UNIVERSAL ENTITY ARCHITECTURE - USER/ROLE MANAGEMENT
-// Universal entity system enabling custom fields for users, roles, and tickets
-// Implementation Date: September 27, 2025
-// Functions: 15 new + 3 enhanced existing functions
+// APPSCRIPT BACKEND IMPLEMENTATION COMPLETE
+// Total Phases: 4 (1A, 1B, 1C, 1D)
+// Total Functions: 53 enterprise-grade backend functions
+// Final Version: 6.4
+// Implementation Date: September 26, 2025
 // =================================================================================
 
-/**
- * =================================================================================
- * UNIVERSAL ENTITY CUSTOM FIELDS ENHANCEMENT
- * Enhanced existing custom field functions to support multiple entity types
- * =================================================================================
- */
-
-/**
- * Get custom fields for any entity type (enhanced from original)
- * @param {string} entityTypeId - ID of entity type (ticket_type_id, user_profile_type_id, role_type_id)
- * @param {string} entityCategory - Category: 'ticket', 'user_profile', 'role', 'workflow_step'
- * @returns {Object} Response with custom fields data
- */
-function getCustomFields(entityTypeId, entityCategory = 'ticket') {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.CUSTOM_FIELDS);
-
-    if (!sheet) {
-      return { status: 'error', message: 'Custom fields sheet not found' };
-    }
-
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const rows = data.slice(1);
-
-    const entityTypeIndex = headers.indexOf('ticket_type_id'); // Reused for all entity types
-    const entityCategoryIndex = headers.indexOf('entity_category');
-    const activeIndex = headers.indexOf('is_active');
-
-    const customFields = rows
-      .filter(row =>
-        row[entityTypeIndex] === entityTypeId &&
-        row[entityCategoryIndex] === entityCategory &&
-        row[activeIndex] === true
-      )
-      .map(row => {
-        const field = {};
-        headers.forEach((header, index) => {
-          field[header] = row[index];
-        });
-        return field;
-      })
-      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-
-    return {
-      status: 'success',
-      data: customFields,
-      message: `Retrieved ${customFields.length} custom fields for ${entityCategory} entity type ${entityTypeId}`
-    };
-
-  } catch (error) {
-    Logger.log('Error in getCustomFields: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-/**
- * Create custom field for any entity type (enhanced from original)
- * @param {string} entityTypeId - ID of entity type
- * @param {Object} fieldData - Field configuration
- * @param {string} entityCategory - Category: 'ticket', 'user_profile', 'role', 'workflow_step'
- * @returns {Object} Response with created field data
- */
-function createCustomField(entityTypeId, fieldData, entityCategory = 'ticket') {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.CUSTOM_FIELDS);
-
-    if (!sheet) {
-      return { status: 'error', message: 'Custom fields sheet not found' };
-    }
-
-    // Generate unique field ID
-    const fieldId = generateId('cf');
-    const currentUser = getCurrentUserId();
-    const timestamp = getCurrentTimestamp();
-
-    const newField = {
-      id: fieldId,
-      ticket_type_id: entityTypeId, // Reused for all entity types
-      entity_category: entityCategory,
-      name: fieldData.name,
-      label: fieldData.label,
-      type: fieldData.type,
-      is_required: fieldData.is_required || false,
-      is_hidden: fieldData.is_hidden || false,
-      sort_order: fieldData.sort_order || 1,
-      dropdown_list_id: fieldData.dropdown_list_id || null,
-      depends_on_field_id: fieldData.depends_on_field_id || null,
-      is_active: true,
-      created_at: timestamp,
-      created_by: currentUser,
-      updated_at: timestamp,
-      updated_by: currentUser,
-      deactivated_at: null,
-      deactivated_by: null,
-      deactivation_reason: null
-    };
-
-    // Add to sheet
-    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const newRow = headers.map(header => newField[header] || '');
-    sheet.appendRow(newRow);
-
-    // Log admin action
-    logAdminAction(currentUser, 'CREATE_CUSTOM_FIELD', 'custom_field', fieldId, {
-      entity_category: entityCategory,
-      entity_type_id: entityTypeId,
-      field_name: fieldData.name,
-      field_type: fieldData.type
-    });
-
-    return {
-      status: 'success',
-      data: newField,
-      message: `Custom field created for ${entityCategory} entity type ${entityTypeId}`
-    };
-
-  } catch (error) {
-    Logger.log('Error in createCustomField: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-/**
- * Set custom field value for any entity (enhanced from original)
- * @param {string} entityId - ID of entity instance (ticket_id, user_id, role_id)
- * @param {string} fieldId - Custom field ID
- * @param {any} value - Field value
- * @param {string} entityCategory - Category: 'ticket', 'user_profile', 'role'
- * @returns {Object} Response with operation status
- */
-function setCustomFieldValue(entityId, fieldId, value, entityCategory = 'ticket') {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.CUSTOM_FIELD_VALUES);
-
-    if (!sheet) {
-      return { status: 'error', message: 'Custom field values sheet not found' };
-    }
-
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const rows = data.slice(1);
-
-    const entityIdIndex = headers.indexOf('ticket_id'); // Reused for all entities
-    const entityCategoryIndex = headers.indexOf('entity_category');
-    const fieldIdIndex = headers.indexOf('custom_field_id');
-    const activeIndex = headers.indexOf('is_active');
-
-    // Find existing value
-    const existingRowIndex = rows.findIndex(row =>
-      row[entityIdIndex] === entityId &&
-      row[entityCategoryIndex] === entityCategory &&
-      row[fieldIdIndex] === fieldId &&
-      row[activeIndex] === true
-    );
-
-    const currentUser = getCurrentUserId();
-    const timestamp = getCurrentTimestamp();
-
-    if (existingRowIndex !== -1) {
-      // Update existing value
-      const rowNumber = existingRowIndex + 2; // +1 for header, +1 for 0-based index
-
-      // Update value based on field type
-      const textIndex = headers.indexOf('text_value');
-      const numberIndex = headers.indexOf('number_value');
-      const dateIndex = headers.indexOf('date_value');
-      const startDateIndex = headers.indexOf('start_date_value');
-      const endDateIndex = headers.indexOf('end_date_value');
-      const dropdownIndex = headers.indexOf('dropdown_option_id');
-      const updatedAtIndex = headers.indexOf('updated_at');
-      const updatedByIndex = headers.indexOf('updated_by');
-
-      // Clear all value columns first
-      sheet.getRange(rowNumber, textIndex + 1).setValue('');
-      sheet.getRange(rowNumber, numberIndex + 1).setValue('');
-      sheet.getRange(rowNumber, dateIndex + 1).setValue('');
-      sheet.getRange(rowNumber, startDateIndex + 1).setValue('');
-      sheet.getRange(rowNumber, endDateIndex + 1).setValue('');
-      sheet.getRange(rowNumber, dropdownIndex + 1).setValue('');
-
-      // Set appropriate value column based on type
-      if (typeof value === 'object' && value.start_date && value.end_date) {
-        // Date range value
-        sheet.getRange(rowNumber, startDateIndex + 1).setValue(value.start_date);
-        sheet.getRange(rowNumber, endDateIndex + 1).setValue(value.end_date);
-      } else if (typeof value === 'number') {
-        sheet.getRange(rowNumber, numberIndex + 1).setValue(value);
-      } else if (value && value.toString().match(/^\d{4}-\d{2}-\d{2}/)) {
-        sheet.getRange(rowNumber, dateIndex + 1).setValue(value);
-      } else if (value && value.toString().startsWith('opt_')) {
-        sheet.getRange(rowNumber, dropdownIndex + 1).setValue(value);
-      } else {
-        sheet.getRange(rowNumber, textIndex + 1).setValue(value || '');
-      }
-
-      // Update audit fields
-      sheet.getRange(rowNumber, updatedAtIndex + 1).setValue(timestamp);
-      sheet.getRange(rowNumber, updatedByIndex + 1).setValue(currentUser);
-
-    } else {
-      // Create new value record
-      const valueId = generateId('cfv');
-
-      const newValue = {
-        id: valueId,
-        ticket_id: entityId, // Reused for all entities
-        entity_category: entityCategory,
-        custom_field_id: fieldId,
-        text_value: '',
-        number_value: '',
-        date_value: '',
-        start_date_value: '',
-        end_date_value: '',
-        dropdown_option_id: '',
-        is_active: true,
-        created_at: timestamp,
-        created_by: currentUser,
-        updated_at: timestamp,
-        updated_by: currentUser,
-        deleted_at: null,
-        deleted_by: null,
-        deletion_reason: null
-      };
-
-      // Set appropriate value based on type
-      if (typeof value === 'object' && value.start_date && value.end_date) {
-        newValue.start_date_value = value.start_date;
-        newValue.end_date_value = value.end_date;
-      } else if (typeof value === 'number') {
-        newValue.number_value = value;
-      } else if (value && value.toString().match(/^\d{4}-\d{2}-\d{2}/)) {
-        newValue.date_value = value;
-      } else if (value && value.toString().startsWith('opt_')) {
-        newValue.dropdown_option_id = value;
-      } else {
-        newValue.text_value = value || '';
-      }
-
-      const newRow = headers.map(header => newValue[header] || '');
-      sheet.appendRow(newRow);
-    }
-
-    return {
-      status: 'success',
-      message: `Custom field value set for ${entityCategory} entity ${entityId}`
-    };
-
-  } catch (error) {
-    Logger.log('Error in setCustomFieldValue: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-/**
- * =================================================================================
- * USER PROFILE TYPE MANAGEMENT
- * Functions for managing configurable user profile types
- * =================================================================================
- */
-
-/**
- * Get all user profile types
- * @param {string} companyId - Optional company filter (null for global)
- * @returns {Object} Response with user profile types data
- */
-function getUserProfileTypes(companyId = null) {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.USER_PROFILE_TYPES || 'user_profile_types');
-
-    if (!sheet) {
-      return { status: 'error', message: 'User profile types sheet not found' };
-    }
-
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const rows = data.slice(1);
-
-    const companyIndex = headers.indexOf('company_id');
-    const activeIndex = headers.indexOf('is_active');
-
-    const profileTypes = rows
-      .filter(row => {
-        const isActive = row[activeIndex] === true;
-        const matchesCompany = companyId ? row[companyIndex] === companyId : true;
-        return isActive && matchesCompany;
-      })
-      .map(row => {
-        const profileType = {};
-        headers.forEach((header, index) => {
-          profileType[header] = row[index];
-        });
-        return profileType;
-      });
-
-    return {
-      status: 'success',
-      data: profileTypes,
-      message: `Retrieved ${profileTypes.length} user profile types`
-    };
-
-  } catch (error) {
-    Logger.log('Error in getUserProfileTypes: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-/**
- * Create new user profile type
- * @param {Object} profileTypeData - Profile type configuration
- * @returns {Object} Response with created profile type data
- */
-function createUserProfileType(profileTypeData) {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.USER_PROFILE_TYPES || 'user_profile_types');
-
-    if (!sheet) {
-      return { status: 'error', message: 'User profile types sheet not found' };
-    }
-
-    const profileTypeId = generateId('upt');
-    const auditFields = createAuditFields();
-
-    const newProfileType = {
-      id: profileTypeId,
-      name: profileTypeData.name,
-      description: profileTypeData.description || '',
-      code: profileTypeData.code,
-      company_id: profileTypeData.company_id || null,
-      ...auditFields
-    };
-
-    // Add to sheet
-    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const newRow = headers.map(header => newProfileType[header] || '');
-    sheet.appendRow(newRow);
-
-    // Log admin action
-    logAdminAction(getCurrentUserId(), 'CREATE_USER_PROFILE_TYPE', 'user_profile_type', profileTypeId, {
-      name: profileTypeData.name,
-      code: profileTypeData.code,
-      company_id: profileTypeData.company_id
-    });
-
-    return {
-      status: 'success',
-      data: newProfileType,
-      message: `User profile type created: ${profileTypeData.name}`
-    };
-
-  } catch (error) {
-    Logger.log('Error in createUserProfileType: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-/**
- * Update user profile type
- * @param {string} profileTypeId - Profile type ID to update
- * @param {Object} updateData - Updated profile type data
- * @returns {Object} Response with operation status
- */
-function updateUserProfileType(profileTypeId, updateData) {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.USER_PROFILE_TYPES || 'user_profile_types');
-
-    if (!sheet) {
-      return { status: 'error', message: 'User profile types sheet not found' };
-    }
-
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const rows = data.slice(1);
-
-    const idIndex = headers.indexOf('id');
-    const activeIndex = headers.indexOf('is_active');
-
-    const rowIndex = rows.findIndex(row =>
-      row[idIndex] === profileTypeId && row[activeIndex] === true
-    );
-
-    if (rowIndex === -1) {
-      return { status: 'error', message: 'User profile type not found' };
-    }
-
-    const rowNumber = rowIndex + 2; // +1 for header, +1 for 0-based index
-    const updateFields = updateAuditFields();
-
-    // Update allowed fields
-    const allowedFields = ['name', 'description', 'code', 'company_id'];
-    allowedFields.forEach(field => {
-      if (updateData.hasOwnProperty(field)) {
-        const columnIndex = headers.indexOf(field);
-        if (columnIndex !== -1) {
-          sheet.getRange(rowNumber, columnIndex + 1).setValue(updateData[field]);
-        }
-      }
-    });
-
-    // Update audit fields
-    const updatedAtIndex = headers.indexOf('updated_at');
-    const updatedByIndex = headers.indexOf('updated_by');
-    sheet.getRange(rowNumber, updatedAtIndex + 1).setValue(updateFields.updated_at);
-    sheet.getRange(rowNumber, updatedByIndex + 1).setValue(updateFields.updated_by);
-
-    // Log admin action
-    logAdminAction(getCurrentUserId(), 'UPDATE_USER_PROFILE_TYPE', 'user_profile_type', profileTypeId, updateData);
-
-    return {
-      status: 'success',
-      message: `User profile type updated: ${profileTypeId}`
-    };
-
-  } catch (error) {
-    Logger.log('Error in updateUserProfileType: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-/**
- * =================================================================================
- * ROLE TYPE MANAGEMENT
- * Functions for managing configurable role types
- * =================================================================================
- */
-
-/**
- * Get all role types
- * @param {string} companyId - Optional company filter (null for global)
- * @returns {Object} Response with role types data
- */
-function getRoleTypes(companyId = null) {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.ROLE_TYPES || 'role_types');
-
-    if (!sheet) {
-      return { status: 'error', message: 'Role types sheet not found' };
-    }
-
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const rows = data.slice(1);
-
-    const companyIndex = headers.indexOf('company_id');
-    const activeIndex = headers.indexOf('is_active');
-
-    const roleTypes = rows
-      .filter(row => {
-        const isActive = row[activeIndex] === true;
-        const matchesCompany = companyId ? row[companyIndex] === companyId : true;
-        return isActive && matchesCompany;
-      })
-      .map(row => {
-        const roleType = {};
-        headers.forEach((header, index) => {
-          roleType[header] = row[index];
-        });
-        return roleType;
-      });
-
-    return {
-      status: 'success',
-      data: roleTypes,
-      message: `Retrieved ${roleTypes.length} role types`
-    };
-
-  } catch (error) {
-    Logger.log('Error in getRoleTypes: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-/**
- * Create new role type
- * @param {Object} roleTypeData - Role type configuration
- * @returns {Object} Response with created role type data
- */
-function createRoleType(roleTypeData) {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.ROLE_TYPES || 'role_types');
-
-    if (!sheet) {
-      return { status: 'error', message: 'Role types sheet not found' };
-    }
-
-    const roleTypeId = generateId('rt');
-    const auditFields = createAuditFields();
-
-    const newRoleType = {
-      id: roleTypeId,
-      name: roleTypeData.name,
-      description: roleTypeData.description || '',
-      code: roleTypeData.code,
-      company_id: roleTypeData.company_id || null,
-      ...auditFields
-    };
-
-    // Add to sheet
-    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const newRow = headers.map(header => newRoleType[header] || '');
-    sheet.appendRow(newRow);
-
-    // Log admin action
-    logAdminAction(getCurrentUserId(), 'CREATE_ROLE_TYPE', 'role_type', roleTypeId, {
-      name: roleTypeData.name,
-      code: roleTypeData.code,
-      company_id: roleTypeData.company_id
-    });
-
-    return {
-      status: 'success',
-      data: newRoleType,
-      message: `Role type created: ${roleTypeData.name}`
-    };
-
-  } catch (error) {
-    Logger.log('Error in createRoleType: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-/**
- * Update role type
- * @param {string} roleTypeId - Role type ID to update
- * @param {Object} updateData - Updated role type data
- * @returns {Object} Response with operation status
- */
-function updateRoleType(roleTypeId, updateData) {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.ROLE_TYPES || 'role_types');
-
-    if (!sheet) {
-      return { status: 'error', message: 'Role types sheet not found' };
-    }
-
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const rows = data.slice(1);
-
-    const idIndex = headers.indexOf('id');
-    const activeIndex = headers.indexOf('is_active');
-
-    const rowIndex = rows.findIndex(row =>
-      row[idIndex] === roleTypeId && row[activeIndex] === true
-    );
-
-    if (rowIndex === -1) {
-      return { status: 'error', message: 'Role type not found' };
-    }
-
-    const rowNumber = rowIndex + 2; // +1 for header, +1 for 0-based index
-    const updateFields = updateAuditFields();
-
-    // Update allowed fields
-    const allowedFields = ['name', 'description', 'code', 'company_id'];
-    allowedFields.forEach(field => {
-      if (updateData.hasOwnProperty(field)) {
-        const columnIndex = headers.indexOf(field);
-        if (columnIndex !== -1) {
-          sheet.getRange(rowNumber, columnIndex + 1).setValue(updateData[field]);
-        }
-      }
-    });
-
-    // Update audit fields
-    const updatedAtIndex = headers.indexOf('updated_at');
-    const updatedByIndex = headers.indexOf('updated_by');
-    sheet.getRange(rowNumber, updatedAtIndex + 1).setValue(updateFields.updated_at);
-    sheet.getRange(rowNumber, updatedByIndex + 1).setValue(updateFields.updated_by);
-
-    // Log admin action
-    logAdminAction(getCurrentUserId(), 'UPDATE_ROLE_TYPE', 'role_type', roleTypeId, updateData);
-
-    return {
-      status: 'success',
-      message: `Role type updated: ${roleTypeId}`
-    };
-
-  } catch (error) {
-    Logger.log('Error in updateRoleType: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-/**
- * =================================================================================
- * USER PROFILE MANAGEMENT
- * Functions for managing individual user profiles with approval relationships
- * =================================================================================
- */
-
-/**
- * Get user profiles
- * @param {string} companyId - Optional company filter
- * @returns {Object} Response with user profiles data
- */
-function getUserProfiles(companyId = null) {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.USER_PROFILES || 'user_profiles');
-
-    if (!sheet) {
-      return { status: 'error', message: 'User profiles sheet not found' };
-    }
-
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const rows = data.slice(1);
-
-    const activeIndex = headers.indexOf('is_active');
-
-    const profiles = rows
-      .filter(row => row[activeIndex] === true)
-      .map(row => {
-        const profile = {};
-        headers.forEach((header, index) => {
-          profile[header] = row[index];
-        });
-        return profile;
-      });
-
-    return {
-      status: 'success',
-      data: profiles,
-      message: `Retrieved ${profiles.length} user profiles`
-    };
-
-  } catch (error) {
-    Logger.log('Error in getUserProfiles: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-/**
- * Create user profile
- * @param {Object} profileData - User profile data
- * @returns {Object} Response with created profile data
- */
-function createUserProfile(profileData) {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.USER_PROFILES || 'user_profiles');
-
-    if (!sheet) {
-      return { status: 'error', message: 'User profiles sheet not found' };
-    }
-
-    const auditFields = createAuditFields();
-
-    const newProfile = {
-      user_id: profileData.user_id,
-      user_profile_type_id: profileData.user_profile_type_id,
-      display_name: profileData.display_name,
-      email: profileData.email,
-      immediate_approver_id: profileData.immediate_approver_id || null,
-      backup_approver_id: profileData.backup_approver_id || null,
-      status: profileData.status || 'active',
-      hire_date: profileData.hire_date || null,
-      ...auditFields
-    };
-
-    // Add to sheet
-    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const newRow = headers.map(header => newProfile[header] || '');
-    sheet.appendRow(newRow);
-
-    // Log admin action
-    logAdminAction(getCurrentUserId(), 'CREATE_USER_PROFILE', 'user_profile', profileData.user_id, {
-      display_name: profileData.display_name,
-      email: profileData.email,
-      user_profile_type_id: profileData.user_profile_type_id
-    });
-
-    return {
-      status: 'success',
-      data: newProfile,
-      message: `User profile created: ${profileData.display_name}`
-    };
-
-  } catch (error) {
-    Logger.log('Error in createUserProfile: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-/**
- * Update user profile
- * @param {string} userId - User ID to update
- * @param {Object} updateData - Updated profile data
- * @returns {Object} Response with operation status
- */
-function updateUserProfile(userId, updateData) {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.USER_PROFILES || 'user_profiles');
-
-    if (!sheet) {
-      return { status: 'error', message: 'User profiles sheet not found' };
-    }
-
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const rows = data.slice(1);
-
-    const userIdIndex = headers.indexOf('user_id');
-    const activeIndex = headers.indexOf('is_active');
-
-    const rowIndex = rows.findIndex(row =>
-      row[userIdIndex] === userId && row[activeIndex] === true
-    );
-
-    if (rowIndex === -1) {
-      return { status: 'error', message: 'User profile not found' };
-    }
-
-    const rowNumber = rowIndex + 2; // +1 for header, +1 for 0-based index
-    const updateFields = updateAuditFields();
-
-    // Update allowed fields
-    const allowedFields = ['user_profile_type_id', 'display_name', 'email', 'immediate_approver_id', 'backup_approver_id', 'status', 'hire_date'];
-    allowedFields.forEach(field => {
-      if (updateData.hasOwnProperty(field)) {
-        const columnIndex = headers.indexOf(field);
-        if (columnIndex !== -1) {
-          sheet.getRange(rowNumber, columnIndex + 1).setValue(updateData[field]);
-        }
-      }
-    });
-
-    // Update audit fields
-    const updatedAtIndex = headers.indexOf('updated_at');
-    const updatedByIndex = headers.indexOf('updated_by');
-    sheet.getRange(rowNumber, updatedAtIndex + 1).setValue(updateFields.updated_at);
-    sheet.getRange(rowNumber, updatedByIndex + 1).setValue(updateFields.updated_by);
-
-    // Log admin action
-    logAdminAction(getCurrentUserId(), 'UPDATE_USER_PROFILE', 'user_profile', userId, updateData);
-
-    return {
-      status: 'success',
-      message: `User profile updated: ${userId}`
-    };
-
-  } catch (error) {
-    Logger.log('Error in updateUserProfile: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-/**
- * =================================================================================
- * DATE-BASED ROLE ASSIGNMENT MANAGEMENT
- * Enhanced role assignment functions with temporal features
- * =================================================================================
- */
-
-/**
- * Assign role with date-based features
- * @param {string} userId - User ID
- * @param {string} roleId - Role ID
- * @param {Object} assignmentData - Assignment configuration
- * @returns {Object} Response with assignment data
- */
-function assignRoleWithDates(userId, roleId, assignmentData) {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.USER_ROLE_ASSIGNMENTS);
-
-    if (!sheet) {
-      return { status: 'error', message: 'User role assignments sheet not found' };
-    }
-
-    const assignmentId = generateId('ura');
-    const auditFields = createAuditFields();
-
-    const newAssignment = {
-      id: assignmentId,
-      user_id: userId,
-      role_id: roleId,
-      ticket_type_id: assignmentData.ticket_type_id || null,
-      company_id: assignmentData.company_id,
-      assignment_type: assignmentData.assignment_type || 'permanent',
-      effective_start_date: assignmentData.effective_start_date || getCurrentTimestamp(),
-      effective_end_date: assignmentData.effective_end_date || null,
-      auto_expire_days: assignmentData.auto_expire_days || null,
-      assigned_by_user_id: getCurrentUserId(),
-      approval_required: assignmentData.approval_required || false,
-      assignment_notes: assignmentData.assignment_notes || '',
-      validity_end_date: assignmentData.validity_end_date || null,
-      ...auditFields
-    };
-
-    // Add to sheet
-    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
-    const newRow = headers.map(header => newAssignment[header] || '');
-    sheet.appendRow(newRow);
-
-    // Log admin action
-    logAdminAction(getCurrentUserId(), 'ASSIGN_ROLE_WITH_DATES', 'user_role_assignment', assignmentId, {
-      user_id: userId,
-      role_id: roleId,
-      assignment_type: assignmentData.assignment_type,
-      effective_start_date: assignmentData.effective_start_date,
-      effective_end_date: assignmentData.effective_end_date
-    });
-
-    return {
-      status: 'success',
-      data: newAssignment,
-      message: `Role assigned with date-based features: ${assignmentData.assignment_type}`
-    };
-
-  } catch (error) {
-    Logger.log('Error in assignRoleWithDates: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-/**
- * Get expiring role assignments
- * @param {number} daysAhead - Number of days to look ahead (default 30)
- * @returns {Object} Response with expiring assignments
- */
-function getExpiringAssignments(daysAhead = 30) {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.USER_ROLE_ASSIGNMENTS);
-
-    if (!sheet) {
-      return { status: 'error', message: 'User role assignments sheet not found' };
-    }
-
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-    const rows = data.slice(1);
-
-    const endDateIndex = headers.indexOf('effective_end_date');
-    const activeIndex = headers.indexOf('is_active');
-    const autoExpireIndex = headers.indexOf('auto_expire_days');
-    const startDateIndex = headers.indexOf('effective_start_date');
-
-    const currentDate = new Date();
-    const lookAheadDate = new Date(currentDate.getTime() + (daysAhead * 24 * 60 * 60 * 1000));
-
-    const expiringAssignments = rows
-      .filter(row => row[activeIndex] === true)
-      .map(row => {
-        const assignment = {};
-        headers.forEach((header, index) => {
-          assignment[header] = row[index];
-        });
-
-        // Calculate expiration date
-        let expirationDate = null;
-        if (assignment.effective_end_date) {
-          expirationDate = new Date(assignment.effective_end_date);
-        } else if (assignment.auto_expire_days && assignment.effective_start_date) {
-          const startDate = new Date(assignment.effective_start_date);
-          expirationDate = new Date(startDate.getTime() + (assignment.auto_expire_days * 24 * 60 * 60 * 1000));
-        }
-
-        assignment.calculated_expiration_date = expirationDate;
-        return assignment;
-      })
-      .filter(assignment => {
-        if (!assignment.calculated_expiration_date) return false;
-        return assignment.calculated_expiration_date <= lookAheadDate && assignment.calculated_expiration_date >= currentDate;
-      })
-      .sort((a, b) => a.calculated_expiration_date - b.calculated_expiration_date);
-
-    return {
-      status: 'success',
-      data: expiringAssignments,
-      message: `Found ${expiringAssignments.length} expiring assignments in next ${daysAhead} days`
-    };
-
-  } catch (error) {
-    Logger.log('Error in getExpiringAssignments: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-/**
- * Process pending role assignment expirations
- * @returns {Object} Response with processing results
- */
-function processPendingExpirations() {
-  try {
-    const expiringResult = getExpiringAssignments(0); // Get assignments expiring today or past due
-
-    if (expiringResult.status !== 'success') {
-      return expiringResult;
-    }
-
-    const expiredAssignments = expiringResult.data.filter(assignment =>
-      assignment.calculated_expiration_date <= new Date()
-    );
-
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const sheet = ss.getSheetByName(SHEETS.USER_ROLE_ASSIGNMENTS);
-    const data = sheet.getDataRange().getValues();
-    const headers = data[0];
-
-    const idIndex = headers.indexOf('id');
-    const activeIndex = headers.indexOf('is_active');
-    const deactivatedAtIndex = headers.indexOf('deactivated_at');
-    const deactivatedByIndex = headers.indexOf('deactivated_by');
-    const deactivationReasonIndex = headers.indexOf('deactivation_reason');
-
-    let processedCount = 0;
-
-    expiredAssignments.forEach(assignment => {
-      // Find row and deactivate
-      const rowIndex = data.slice(1).findIndex(row => row[idIndex] === assignment.id);
-      if (rowIndex !== -1) {
-        const rowNumber = rowIndex + 2; // +1 for header, +1 for 0-based index
-        const currentTimestamp = getCurrentTimestamp();
-
-        sheet.getRange(rowNumber, activeIndex + 1).setValue(false);
-        sheet.getRange(rowNumber, deactivatedAtIndex + 1).setValue(currentTimestamp);
-        sheet.getRange(rowNumber, deactivatedByIndex + 1).setValue('system_auto_expire');
-        sheet.getRange(rowNumber, deactivationReasonIndex + 1).setValue('Automatic expiration based on effective_end_date or auto_expire_days');
-
-        processedCount++;
-
-        // Log admin action
-        logAdminAction('system_auto_expire', 'AUTO_EXPIRE_ROLE_ASSIGNMENT', 'user_role_assignment', assignment.id, {
-          user_id: assignment.user_id,
-          role_id: assignment.role_id,
-          expiration_date: assignment.calculated_expiration_date,
-          assignment_type: assignment.assignment_type
-        });
-      }
-    });
-
-    return {
-      status: 'success',
-      data: {
-        total_expired: expiredAssignments.length,
-        processed_count: processedCount,
-        expired_assignments: expiredAssignments.map(a => ({
-          id: a.id,
-          user_id: a.user_id,
-          role_id: a.role_id,
-          assignment_type: a.assignment_type,
-          expiration_date: a.calculated_expiration_date
-        }))
-      },
-      message: `Processed ${processedCount} expired role assignments`
-    };
-
-  } catch (error) {
-    Logger.log('Error in processPendingExpirations: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-/**
- * =================================================================================
- * UNIVERSAL ENTITY ARCHITECTURE INITIALIZATION
- * Functions to set up Universal Entity tables and validate implementation
- * =================================================================================
- */
-
-/**
- * Initialize Universal Entity Architecture sheets
- * Creates all required tables for user/role management
- */
-function initializeUniversalEntityArchitecture() {
-  try {
-    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    const results = [];
-
-    // Initialize user_profile_types sheet
-    try {
-      const userProfileTypesSheet = ss.getSheetByName('user_profile_types');
-      results.push('user_profile_types sheet already exists');
-    } catch (error) {
-      const userProfileTypesSheet = ss.insertSheet('user_profile_types');
-      const headers = ['id', 'name', 'description', 'code', 'company_id', 'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by', 'deactivated_at', 'deactivated_by', 'deactivation_reason'];
-      userProfileTypesSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-      userProfileTypesSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-      userProfileTypesSheet.getRange(1, 1, 1, headers.length).setBackground('#4285f4');
-      userProfileTypesSheet.getRange(1, 1, 1, headers.length).setFontColor('white');
-      results.push('✅ user_profile_types sheet created');
-    }
-
-    // Initialize role_types sheet
-    try {
-      const roleTypesSheet = ss.getSheetByName('role_types');
-      results.push('role_types sheet already exists');
-    } catch (error) {
-      const roleTypesSheet = ss.insertSheet('role_types');
-      const headers = ['id', 'name', 'description', 'code', 'company_id', 'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by', 'deactivated_at', 'deactivated_by', 'deactivation_reason'];
-      roleTypesSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-      roleTypesSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-      roleTypesSheet.getRange(1, 1, 1, headers.length).setBackground('#4285f4');
-      roleTypesSheet.getRange(1, 1, 1, headers.length).setFontColor('white');
-      results.push('✅ role_types sheet created');
-    }
-
-    // Initialize user_profiles sheet
-    try {
-      const userProfilesSheet = ss.getSheetByName('user_profiles');
-      results.push('user_profiles sheet already exists');
-    } catch (error) {
-      const userProfilesSheet = ss.insertSheet('user_profiles');
-      const headers = ['user_id', 'user_profile_type_id', 'display_name', 'email', 'immediate_approver_id', 'backup_approver_id', 'status', 'hire_date', 'is_active', 'created_at', 'updated_at', 'updated_by', 'deactivated_at', 'deactivated_by', 'deactivation_reason'];
-      userProfilesSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-      userProfilesSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-      userProfilesSheet.getRange(1, 1, 1, headers.length).setBackground('#4285f4');
-      userProfilesSheet.getRange(1, 1, 1, headers.length).setFontColor('white');
-      results.push('✅ user_profiles sheet created');
-    }
-
-    // Add Universal Entity Architecture constant to SHEETS object
-    results.push('Universal Entity Architecture sheets initialized');
-
-    return {
-      status: 'success',
-      data: results,
-      message: 'Universal Entity Architecture initialization complete'
-    };
-
-  } catch (error) {
-    Logger.log('Error in initializeUniversalEntityArchitecture: ' + error.toString());
-    return { status: 'error', message: error.toString() };
-  }
-}
-
-// =================================================================================
-// APPSCRIPT BACKEND IMPLEMENTATION - v8.0 UNIVERSAL ENTITY ARCHITECTURE COMPLETE
-// Previous: v7.0 (60 enterprise-grade backend functions)
-// Current: v8.0 (75 functions including 15 Universal Entity Architecture functions)
-// Implementation Date: September 27, 2025
-// Status: Complete enterprise workflow orchestration system with Universal Entity Architecture
-//
-// v8.0 Universal Entity Architecture Additions:
-// - Enhanced custom field functions for multi-entity support (3 functions)
-// - User profile type management (3 functions)
-// - Role type management (3 functions)
-// - User profile management (3 functions)
-// - Date-based role assignment management (3 functions)
-//
-// ✅ UNIVERSAL ENTITY ARCHITECTURE COMPLETE:
-// Same custom field infrastructure now serves tickets, user profiles, and roles
-// Backward compatibility: 100% maintained for existing ticket functionality
-// Code reuse: 90% efficiency through universal entity patterns
-// =================================================================================
-
-/**
- * =================================================================================
- * DATABASE SCHEMA ANALYZER FUNCTION - UPDATED September 27, 2025
- * Purpose: Analyze current Google Sheets database structure and document schema
- * Usage: Add this function to your APPSCRIPT.txt file and run analyzeCurrentSchema()
- * Output: Updates 'xSchema' sheet with complete database schema documentation
- *
- * UPDATES:
- * - Added Universal Entity Architecture tables (user_profile_types, role_types, user_profiles)
- * - Updated custom_fields and custom_field_values with entity_category column
- * - Enhanced user_role_assignments with date-based assignment features
- * - Added roles.role_type_id relationship
- * =================================================================================
- */
-
-/**
- * Analyze current database schema and write to 'xSchema' sheet
- * This function examines all sheets in the spreadsheet and documents their structure
- */
-function analyzeCurrentSchema() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-
-  // Get the existing xSchema sheet and clear it
-  let xSchemaSheet;
-  try {
-    xSchemaSheet = ss.getSheetByName('xSchema');
-    xSchemaSheet.clear();
-  } catch (error) {
-    throw new Error('xSchema sheet not found. Please create the xSchema sheet first.');
-  }
-
-  // Set up headers for schema documentation
-  const headers = [
-    'Sheet Name',
-    'Column Count',
-    'Column Headers',
-    'Sample Row 2',
-    'Row Count',
-    'Status',
-    'Notes'
-  ];
-
-  xSchemaSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  xSchemaSheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
-  xSchemaSheet.getRange(1, 1, 1, headers.length).setBackground('#4285f4');
-  xSchemaSheet.getRange(1, 1, 1, headers.length).setFontColor('white');
-
-  // Get all sheets in the spreadsheet
-  const allSheets = ss.getSheets();
-  const schemaData = [];
-
-  // Define expected sheets from CLAUDE.md specification - UPDATED September 27, 2025
-  // Added Universal Entity Architecture tables for user/role management
-  const expectedSheets = {
-    'companies': 'id|name|code|code_locked|code_locked_at|code_locked_reason|ticket_count + audit fields',
-    'roles': 'id|role_type_id|name|company_id + audit fields',
-    'tickets': 'id|ticket_number|title|ticket_type_id|requester_id|status|current_step_id|step_due_date|company_id + audit fields',
-    'ticket_history': 'id|ticket_id|user_id|action|comment|timestamp',
-    'ticket_types': 'id|transaction_id|code|name|description|is_active|require_attachment_on_create|company_id + audit fields',
-    'comment_requirements': 'ticket_type_id|require_on_approve|require_on_return|require_on_reject|require_on_cancel + audit fields',
-    'custom_fields': '🆕 id|ticket_type_id|entity_category|name|label|type|is_required|is_hidden|sort_order|dropdown_list_id|depends_on_field_id + audit fields',
-    'custom_field_values': '🆕 id|ticket_id|entity_category|custom_field_id|text_value|number_value|date_value|start_date_value|end_date_value|dropdown_option_id + audit fields',
-    'workflow_steps': 'id|ticket_type_id|company_id|name|status_on_reach|step_type|approver_logic|sort_order|next_ticket_type_id|external_app_url|completion_action_name + audit fields',
-    'step_approvers': 'step_id|role_id + audit fields',
-    'user_role_assignments': '🆕 id|user_id|role_id|ticket_type_id|company_id|assignment_type|effective_start_date|effective_end_date|auto_expire_days|assigned_by_user_id|approval_required|assignment_notes|validity_end_date + audit fields',
-    'step_slas': 'step_id|duration|unit|exclude_weekends + audit fields',
-    'step_conditions': 'id|step_id|custom_field_id|operator|value + audit fields',
-    'dropdown_lists': 'id|name|description + audit fields',
-    'dropdown_options': 'id|dropdown_list_id|label|value|parent_option_id|sort_order + audit fields',
-    'dropdown_company_assignments': 'id|dropdown_list_id|company_id|is_global|is_active + audit fields',
-    'ticket_attachments': 'id|ticket_id|uploader_id|file_name|file_url|uploaded_at + audit fields',
-    'report_configurations': 'id|ticket_type_id|field_name|display_name|field_type|sort_order + audit fields',
-    'ticket_links': 'id|parent_ticket_id|child_ticket_id|link_type + audit fields',
-    'sequence_counters': 'id|sequence_name|last_number|company_id|ticket_type_code + audit fields',
-    'ticket_action_logs': 'id|ticket_id|user_id|action_type|details|timestamp',
-    'admin_action_logs': 'id|admin_user_id|action_type|target_entity|target_id|details|timestamp',
-    'user_preferences': 'id|user_id|dark_mode|timezone|language|email_notifications|desktop_notifications|dashboard_layout|items_per_page|auto_refresh|refresh_interval + audit fields',
-    // 🆕 NEW UNIVERSAL ENTITY ARCHITECTURE TABLES (September 27, 2025)
-    'user_profile_types': '🆕 id|name|description|code|company_id + audit fields',
-    'role_types': '🆕 id|name|description|code|company_id + audit fields',
-    'user_profiles': '🆕 user_id|user_profile_type_id|display_name|email|immediate_approver_id|backup_approver_id|status|hire_date + audit fields'
-  };
-
-  // Analyze each sheet
-  for (let i = 0; i < allSheets.length; i++) {
-    const sheet = allSheets[i];
-    const sheetName = sheet.getName();
-
-    // Skip the xSchema sheet itself
-    if (sheetName === 'xSchema') continue;
-
-    try {
-      const lastRow = sheet.getLastRow();
-      const lastColumn = sheet.getLastColumn();
-
-      let columnHeaders = '';
-      let sampleRow = '';
-      let status = '';
-      let notes = '';
-
-      if (lastRow >= 1 && lastColumn >= 1) {
-        // Get headers (row 1)
-        const headersRange = sheet.getRange(1, 1, 1, lastColumn);
-        const headersValues = headersRange.getValues()[0];
-        columnHeaders = headersValues.join('|');
-
-        // Get sample data (row 2 if exists)
-        if (lastRow >= 2) {
-          const sampleRange = sheet.getRange(2, 1, 1, lastColumn);
-          const sampleValues = sampleRange.getValues()[0];
-          sampleRow = sampleValues.map(val => val ? String(val).substring(0, 20) : '').join('|');
-        } else {
-          sampleRow = 'No data rows';
-        }
-
-        // Determine status and check for Universal Entity Architecture updates
-        if (expectedSheets[sheetName]) {
-          status = '✅ Expected';
-
-          // Special checks for Universal Entity Architecture tables
-          if (sheetName === 'custom_fields') {
-            if (columnHeaders.includes('entity_category')) {
-              notes = '🆕 Universal Entity Architecture: entity_category column added';
-            } else {
-              notes = '⚠️ Missing entity_category column for Universal Entity support';
-            }
-          } else if (sheetName === 'custom_field_values') {
-            if (columnHeaders.includes('entity_category')) {
-              notes = '🆕 Universal Entity Architecture: entity_category column added';
-            } else {
-              notes = '⚠️ Missing entity_category column for Universal Entity support';
-            }
-          } else if (sheetName === 'user_role_assignments') {
-            if (columnHeaders.includes('assignment_type') && columnHeaders.includes('effective_start_date')) {
-              notes = '🆕 Date-based role assignments enhanced';
-            } else {
-              notes = '⚠️ Missing date-based assignment columns';
-            }
-          } else if (sheetName === 'roles') {
-            if (columnHeaders.includes('role_type_id')) {
-              notes = '🆕 Role types relationship added';
-            } else {
-              notes = '⚠️ Missing role_type_id column';
-            }
-          } else if (['user_profile_types', 'role_types', 'user_profiles'].includes(sheetName)) {
-            notes = '🆕 NEW: Universal Entity Architecture table';
-          } else {
-            // General audit field check
-            if (columnHeaders.includes('is_active') && columnHeaders.includes('created_at')) {
-              notes = 'Has audit fields';
-            } else if (sheetName === 'ticket_history' || sheetName === 'ticket_action_logs' || sheetName === 'admin_action_logs') {
-              notes = 'Immutable log table (no audit fields needed)';
-            } else {
-              notes = '⚠️ Missing audit fields';
-            }
-          }
-        } else {
-          status = '❓ Unexpected sheet';
-          notes = 'Not in CLAUDE.md specification';
-        }
-
-      } else {
-        columnHeaders = 'Empty sheet';
-        sampleRow = 'No data';
-        status = '❌ Empty';
-        notes = 'Sheet exists but has no data';
-      }
-
-      schemaData.push([
-        sheetName,
-        lastColumn,
-        columnHeaders,
-        sampleRow,
-        lastRow - 1, // Subtract 1 for header row
-        status,
-        notes
-      ]);
-
-    } catch (error) {
-      schemaData.push([
-        sheetName,
-        0,
-        'ERROR',
-        'ERROR: ' + error.toString(),
-        0,
-        '❌ Error',
-        'Failed to analyze sheet'
-      ]);
-    }
-  }
-
-  // Check for missing expected sheets
-  for (const expectedSheet in expectedSheets) {
-    const found = schemaData.some(row => row[0] === expectedSheet);
-    if (!found) {
-      schemaData.push([
-        expectedSheet,
-        0,
-        expectedSheets[expectedSheet],
-        'SHEET MISSING',
-        0,
-        '❌ Missing',
-        'Required by CLAUDE.md specification'
-      ]);
-    }
-  }
-
-  // Sort data: existing sheets first, then missing sheets
-  schemaData.sort((a, b) => {
-    if (a[4] > 0 && b[4] === 0) return -1; // Existing sheets first
-    if (a[4] === 0 && b[4] > 0) return 1;  // Missing sheets last
-    return a[0].localeCompare(b[0]); // Alphabetical within groups
-  });
-
-  // Write data to sheet
-  if (schemaData.length > 0) {
-    xSchemaSheet.getRange(2, 1, schemaData.length, headers.length).setValues(schemaData);
-  }
-
-  // Add Universal Entity Architecture summary at the bottom
-  const summaryStartRow = schemaData.length + 4;
-  const existingSheets = schemaData.filter(row => row[4] > 0).length;
-  const missingSheets = schemaData.filter(row => row[4] === 0).length;
-  const sheetsWithAuditFields = schemaData.filter(row => row[6] === 'Has audit fields').length;
-  const sheetsNeedingAuditFields = schemaData.filter(row => row[6] === '⚠️ Missing audit fields').length;
-  const universalEntitySheets = schemaData.filter(row => row[6].includes('🆕')).length;
-
-  const summary = [
-    ['📊 SCHEMA ANALYSIS SUMMARY - UNIVERSAL ENTITY ARCHITECTURE'],
-    [''],
-    ['Total Sheets Found:', existingSheets],
-    ['Missing Required Sheets:', missingSheets],
-    ['Sheets with Audit Fields:', sheetsWithAuditFields],
-    ['Sheets Needing Audit Fields:', sheetsNeedingAuditFields],
-    ['Universal Entity Enhanced Sheets:', universalEntitySheets],
-    [''],
-    ['🎯 UNIVERSAL ENTITY ARCHITECTURE STATUS:'],
-    ['✅ Custom Fields Infrastructure: Reusable for all entity types'],
-    ['✅ User Profile Types: New table for configurable user profiles'],
-    ['✅ Role Types: New table for configurable role types'],
-    ['✅ Date-based Assignments: Enhanced role management'],
-    [''],
-    ['🔄 NEXT STEPS:'],
-    ['1. Execute completeSystemReset() in Google Apps Script'],
-    ['2. Create missing Universal Entity tables'],
-    ['3. Add entity_category columns to custom_fields tables'],
-    ['4. Enhance user_role_assignments with date-based features'],
-    ['5. Test Universal Entity Architecture implementation']
-  ];
-
-  xSchemaSheet.getRange(summaryStartRow, 1, summary.length, 2).setValues(summary);
-  xSchemaSheet.getRange(summaryStartRow, 1).setFontWeight('bold');
-  xSchemaSheet.getRange(summaryStartRow, 1).setFontSize(12);
-
-  // Format the sheet
-  xSchemaSheet.autoResizeColumns(1, headers.length);
-  xSchemaSheet.setFrozenRows(1);
-
-  // Add conditional formatting for status column
-  const statusRange = xSchemaSheet.getRange(2, 6, schemaData.length, 1);
-
-  // Create rules for different statuses
-  const rules = [];
-
-  // Green for expected sheets
-  rules.push(SpreadsheetApp.newConditionalFormatRule()
-    .whenTextContains('✅ Expected')
-    .setBackground('#d4edda')
-    .setRanges([statusRange])
-    .build());
-
-  // Red for missing/error sheets
-  rules.push(SpreadsheetApp.newConditionalFormatRule()
-    .whenTextContains('❌')
-    .setBackground('#f8d7da')
-    .setRanges([statusRange])
-    .build());
-
-  // Yellow for unexpected sheets
-  rules.push(SpreadsheetApp.newConditionalFormatRule()
-    .whenTextContains('❓')
-    .setBackground('#fff3cd')
-    .setRanges([statusRange])
-    .build());
-
-  xSchemaSheet.setConditionalFormatRules(rules);
-
-  Logger.log('Universal Entity Architecture schema analysis complete. Results written to xSchema sheet.');
-
-  return {
-    status: 'success',
-    message: 'Universal Entity Architecture schema analysis complete',
-    totalSheets: existingSheets,
-    missingSheets: missingSheets,
-    sheetsWithAuditFields: sheetsWithAuditFields,
-    sheetsNeedingAuditFields: sheetsNeedingAuditFields,
-    universalEntitySheets: universalEntitySheets
-  };
-}
-
-/**
- * Helper function to get detailed column analysis for a specific sheet
- * Enhanced for Universal Entity Architecture validation
- * @param {string} sheetName - Name of the sheet to analyze
- * @returns {Object} Detailed column analysis
- */
-function analyzeSheetColumns(sheetName) {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-
-  try {
-    const sheet = ss.getSheetByName(sheetName);
-    const lastRow = sheet.getLastRow();
-    const lastColumn = sheet.getLastColumn();
-
-    if (lastRow < 1 || lastColumn < 1) {
-      return { error: 'Sheet is empty' };
-    }
-
-    const headersRange = sheet.getRange(1, 1, 1, lastColumn);
-    const headers = headersRange.getValues()[0];
-
-    const columnAnalysis = [];
-    const universalEntityChecks = {
-      hasEntityCategory: false,
-      hasAuditFields: false,
-      hasDateBasedAssignment: false,
-      hasRoleTypeRelation: false
-    };
-
-    for (let col = 0; col < headers.length; col++) {
-      const columnName = headers[col];
-      let sampleValues = [];
-      let dataTypes = new Set();
-
-      // Check for Universal Entity Architecture columns
-      if (columnName === 'entity_category') universalEntityChecks.hasEntityCategory = true;
-      if (columnName === 'is_active' || columnName === 'created_at') universalEntityChecks.hasAuditFields = true;
-      if (columnName === 'assignment_type' || columnName === 'effective_start_date') universalEntityChecks.hasDateBasedAssignment = true;
-      if (columnName === 'role_type_id') universalEntityChecks.hasRoleTypeRelation = true;
-
-      // Get sample values from first 5 data rows
-      const maxSampleRows = Math.min(6, lastRow); // Row 1 is headers, so 2-6 for data
-      if (maxSampleRows > 1) {
-        const sampleRange = sheet.getRange(2, col + 1, maxSampleRows - 1, 1);
-        const values = sampleRange.getValues();
-
-        values.forEach(([value]) => {
-          if (value !== null && value !== '') {
-            sampleValues.push(String(value).substring(0, 30));
-            dataTypes.add(typeof value);
-          }
-        });
-      }
-
-      columnAnalysis.push({
-        position: col + 1,
-        name: columnName,
-        sampleValues: sampleValues.slice(0, 3), // Show first 3 samples
-        dataTypes: Array.from(dataTypes),
-        isEmpty: sampleValues.length === 0
-      });
-    }
-
-    return {
-      sheetName: sheetName,
-      totalColumns: lastColumn,
-      totalRows: lastRow - 1, // Exclude header
-      columns: columnAnalysis,
-      universalEntityStatus: universalEntityChecks
-    };
-
-  } catch (error) {
-    return { error: error.toString() };
-  }
-}
-
-/**
- * Create missing Universal Entity Architecture sheets based on CLAUDE.md specification
- * Creates the new tables required for user/role management
- */
-function createUniversalEntitySheets() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-
-  const universalEntitySheets = [
-    {
-      name: 'user_profile_types',
-      headers: ['id', 'name', 'description', 'code', 'company_id', 'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by', 'deactivated_at', 'deactivated_by', 'deactivation_reason']
-    },
-    {
-      name: 'role_types',
-      headers: ['id', 'name', 'description', 'code', 'company_id', 'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by', 'deactivated_at', 'deactivated_by', 'deactivation_reason']
-    },
-    {
-      name: 'user_profiles',
-      headers: ['user_id', 'user_profile_type_id', 'display_name', 'email', 'immediate_approver_id', 'backup_approver_id', 'status', 'hire_date', 'is_active', 'created_at', 'updated_at', 'updated_by', 'deactivated_at', 'deactivated_by', 'deactivation_reason']
-    }
-  ];
-
-  const created = [];
-  const skipped = [];
-
-  universalEntitySheets.forEach(sheetConfig => {
-    try {
-      const existing = ss.getSheetByName(sheetConfig.name);
-      skipped.push(sheetConfig.name + ' (already exists)');
-    } catch (error) {
-      // Sheet doesn't exist, create it
-      const newSheet = ss.insertSheet(sheetConfig.name);
-
-      // Add headers
-      newSheet.getRange(1, 1, 1, sheetConfig.headers.length).setValues([sheetConfig.headers]);
-      newSheet.getRange(1, 1, 1, sheetConfig.headers.length).setFontWeight('bold');
-      newSheet.getRange(1, 1, 1, sheetConfig.headers.length).setBackground('#4285f4');
-      newSheet.getRange(1, 1, 1, sheetConfig.headers.length).setFontColor('white');
-
-      // Auto-resize columns
-      newSheet.autoResizeColumns(1, sheetConfig.headers.length);
-
-      created.push(sheetConfig.name);
-    }
-  });
-
-  Logger.log('Universal Entity sheets created: ' + created.join(', '));
-  Logger.log('Universal Entity sheets skipped: ' + skipped.join(', '));
-
-  return {
-    created: created,
-    skipped: skipped,
-    message: 'Universal Entity Architecture sheet creation complete. Run schema analyzer to verify structure.'
-  };
-}
-
-/**
- * Validate Universal Entity Architecture implementation
- * Checks if all required columns and relationships are in place
- */
-function validateUniversalEntityArchitecture() {
-  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-
-  const validationResults = {
-    status: 'success',
-    checks: [],
-    errors: [],
-    warnings: []
-  };
-
-  // Check custom_fields has entity_category
-  try {
-    const customFieldsSheet = ss.getSheetByName('custom_fields');
-    const headers = customFieldsSheet.getRange(1, 1, 1, customFieldsSheet.getLastColumn()).getValues()[0];
-
-    if (headers.includes('entity_category')) {
-      validationResults.checks.push('✅ custom_fields has entity_category column');
-    } else {
-      validationResults.errors.push('❌ custom_fields missing entity_category column');
-    }
-  } catch (error) {
-    validationResults.errors.push('❌ custom_fields sheet not found');
-  }
-
-  // Check custom_field_values has entity_category
-  try {
-    const customFieldValuesSheet = ss.getSheetByName('custom_field_values');
-    const headers = customFieldValuesSheet.getRange(1, 1, 1, customFieldValuesSheet.getLastColumn()).getValues()[0];
-
-    if (headers.includes('entity_category')) {
-      validationResults.checks.push('✅ custom_field_values has entity_category column');
-    } else {
-      validationResults.errors.push('❌ custom_field_values missing entity_category column');
-    }
-  } catch (error) {
-    validationResults.errors.push('❌ custom_field_values sheet not found');
-  }
-
-  // Check for Universal Entity tables
-  const requiredTables = ['user_profile_types', 'role_types', 'user_profiles'];
-  requiredTables.forEach(tableName => {
-    try {
-      const sheet = ss.getSheetByName(tableName);
-      validationResults.checks.push(`✅ ${tableName} table exists`);
-    } catch (error) {
-      validationResults.errors.push(`❌ ${tableName} table missing`);
-    }
-  });
-
-  if (validationResults.errors.length > 0) {
-    validationResults.status = 'failed';
-  } else if (validationResults.warnings.length > 0) {
-    validationResults.status = 'warning';
-  }
-
-  Logger.log('Universal Entity Architecture validation: ' + validationResults.status);
-
-  return validationResults;
-}
-// DATABASE SCHEMA CHECK - end

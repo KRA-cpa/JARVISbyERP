@@ -4,6 +4,7 @@ import { useTickets, useCompanies, useTicketTypes } from '../hooks/useAPI';
 import { useToast } from '../components/shared/Toast';
 import { useInformation } from '../components/shared/ConfirmationModal';
 import Header from '../components/shared/Header';
+import Footer from '../components/shared/Footer';
 import Icons from '../components/shared/Icons';
 import { DetailedClock } from '../components/shared/LiveClock';
 import { SLASummaryWidgets, SLADetailedMetrics } from '../components/shared/SLAWidgets';
@@ -515,6 +516,7 @@ const DashboardPage = () => {
             </div>
           </div>
         </div>
+        <Footer />
       </div>
     </>
   );

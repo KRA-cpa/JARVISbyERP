@@ -12,9 +12,9 @@ class DropdownLogger {
   }
 
   /**
-   * Download dropdown creation logs as .log file
+   * Save dropdown creation logs to project folder (local dev only)
    */
-  downloadDropdownLogs() {
+  saveLogToProject() {
     if (!this.isLocal || typeof window === 'undefined' || this.dropdownLogs.length === 0) {
       return;
     }
@@ -25,20 +25,32 @@ class DropdownLogger {
         .map(log => `${log.timestamp} | ${JSON.stringify(log, null, 2)}`)
         .join('\n\n');
 
-      const blob = new Blob([logContent], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
+      // For local development, try to save to project folder using fetch to local endpoint
+      const logFileName = `dropdown-creation-${this.sessionId}.log`;
 
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `dropdown-creation-${this.sessionId}.log`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      // Send to local development proxy to save file
+      fetch('/api/save-log', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fileName: logFileName,
+          content: logContent,
+          logType: 'dropdown-creation'
+        })
+      }).then(response => {
+        if (response.ok) {
+          console.log(`💾 Dropdown logs saved to project: ${logFileName}`);
+        } else {
+          console.warn('⚠️ Could not save logs to project folder, using console logging only');
+        }
+      }).catch(error => {
+        console.warn('⚠️ Log saving not available, using console logging only:', error.message);
+      });
 
-      console.log('💾 Dropdown creation logs downloaded!');
     } catch (error) {
-      console.error('Failed to download dropdown logs:', error);
+      console.error('Failed to save dropdown logs:', error);
     }
   }
 
@@ -77,9 +89,9 @@ class DropdownLogger {
     console.log('🔧 Connection:', logEntry.connectionType);
     console.groupEnd();
 
-    // Auto-trigger download after each attempt in development
+    // Auto-save logs to project folder in development
     if (this.dropdownLogs.length > 0) {
-      setTimeout(() => this.downloadDropdownLogs(), 1000);
+      setTimeout(() => this.saveLogToProject(), 1000);
     }
   }
 }

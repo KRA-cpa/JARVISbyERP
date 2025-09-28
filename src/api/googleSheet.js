@@ -599,6 +599,45 @@ class DropdownAPI extends BaseAPI {
     return response.data;
   }
 
+  // Company Assignment Methods
+  async getCompanyAssignments(listId) {
+    const response = await this.makeRequest('getDropdownCompanyAssignments', {
+      dropdown_list_id: listId
+    });
+    return response.data || [];
+  }
+
+  async assignToCompany(listId, companyId) {
+    const response = await this.makeRequest('assignDropdownToCompany', {
+      dropdown_list_id: listId,
+      company_id: companyId
+    });
+    return response.data;
+  }
+
+  async assignGlobally(listId) {
+    const response = await this.makeRequest('assignDropdownGlobally', {
+      dropdown_list_id: listId
+    });
+    return response.data;
+  }
+
+  async removeCompanyAssignment(listId, companyId) {
+    const response = await this.makeRequest('removeDropdownCompanyAssignment', {
+      dropdown_list_id: listId,
+      company_id: companyId
+    });
+    return response.data;
+  }
+
+  async updateCompanyAssignments(listId, assignments) {
+    const response = await this.makeRequest('updateDropdownCompanyAssignments', {
+      dropdown_list_id: listId,
+      assignments
+    });
+    return response.data;
+  }
+
   getMockData(action) {
     const mockLists = [
       {
@@ -1498,6 +1537,15 @@ class CustomFieldsAPI extends BaseAPI {
     return response.data || [];
   }
 
+  // Universal Entity Architecture support
+  async getByEntity(entityTypeId, entityCategory = 'ticket') {
+    const response = await this.makeRequest('getCustomFields', {
+      entityTypeId: entityTypeId,
+      entityCategory: entityCategory
+    });
+    return response.data || [];
+  }
+
   async getById(id) {
     const response = await this.makeRequest('getCustomField', {
       field_id: id
@@ -1506,8 +1554,12 @@ class CustomFieldsAPI extends BaseAPI {
   }
 
   async create(data) {
-    if (!data.ticket_type_id) {
-      throw new Error('Ticket type ID is required');
+    // Universal Entity Architecture: Support both old (ticket_type_id) and new (entityTypeId + entityCategory) formats
+    const entityTypeId = data.entityTypeId || data.ticket_type_id;
+    const entityCategory = data.entityCategory || 'ticket';
+
+    if (!entityTypeId) {
+      throw new Error(`${entityCategory === 'ticket' ? 'Ticket type' : 'Entity type'} ID is required`);
     }
 
     if (!data.name?.trim()) {
@@ -1523,7 +1575,10 @@ class CustomFieldsAPI extends BaseAPI {
     }
 
     const response = await this.makeRequest('createCustomField', {
-      ticket_type_id: data.ticket_type_id,
+      entityTypeId: entityTypeId,
+      entityCategory: entityCategory,
+      // Keep backward compatibility
+      ticket_type_id: entityCategory === 'ticket' ? entityTypeId : null,
       name: data.name.trim(),
       label: data.label.trim(),
       type: data.type,
@@ -1628,6 +1683,240 @@ class CustomFieldsAPI extends BaseAPI {
           }
         };
       case 'deleteCustomField':
+        return { status: 'success', data: { deleted: true } };
+      default:
+        return super.getMockData(action, params);
+    }
+  }
+}
+
+// User Profile Types API - Universal Entity Architecture
+class UserProfileTypesAPI extends BaseAPI {
+  constructor() {
+    super('user_profile_types');
+  }
+
+  async getAll(companyId = null) {
+    const response = await this.makeRequest('getUserProfileTypes', companyId ? { company_id: companyId } : {});
+    return response.data || [];
+  }
+
+  async getById(id) {
+    const response = await this.makeRequest('getUserProfileType', {
+      user_profile_type_id: id
+    });
+    return response.data;
+  }
+
+  async create(data) {
+    if (!data.name?.trim()) {
+      throw new Error('User profile type name is required');
+    }
+
+    const response = await this.makeRequest('createUserProfileType', {
+      name: data.name.trim(),
+      description: data.description?.trim() || '',
+      code: data.code?.trim() || '',
+      company_id: data.company_id || null
+    });
+    return response.data;
+  }
+
+  async update(id, data) {
+    if (!id) {
+      throw new Error('User profile type ID is required');
+    }
+
+    const response = await this.makeRequest('updateUserProfileType', {
+      user_profile_type_id: id,
+      name: data.name?.trim(),
+      description: data.description?.trim(),
+      code: data.code?.trim(),
+      company_id: data.company_id,
+      is_active: data.is_active
+    });
+    return response.data;
+  }
+
+  async delete(id) {
+    if (!id) {
+      throw new Error('User profile type ID is required');
+    }
+
+    const response = await this.makeRequest('deleteUserProfileType', {
+      user_profile_type_id: id
+    });
+    return response.data;
+  }
+
+  getMockData(action, params = {}) {
+    const mockUserProfileTypes = [
+      {
+        id: 'upt_1',
+        name: 'Employee',
+        description: 'Regular full-time employee',
+        code: 'EMP',
+        company_id: null,
+        is_active: true,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'upt_2',
+        name: 'Contractor',
+        description: 'External contractor or consultant',
+        code: 'CTR',
+        company_id: null,
+        is_active: true,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'upt_3',
+        name: 'Manager',
+        description: 'Department or team manager',
+        code: 'MGR',
+        company_id: null,
+        is_active: true,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      }
+    ];
+
+    switch (action) {
+      case 'getUserProfileTypes':
+        return { status: 'success', data: mockUserProfileTypes };
+      case 'getUserProfileType':
+        const userProfileType = mockUserProfileTypes.find(upt => upt.id === params.user_profile_type_id);
+        return { status: 'success', data: userProfileType };
+      case 'createUserProfileType':
+      case 'updateUserProfileType':
+        return {
+          status: 'success',
+          data: {
+            ...mockUserProfileTypes[0],
+            id: `upt_${Date.now()}`,
+            ...params
+          }
+        };
+      case 'deleteUserProfileType':
+        return { status: 'success', data: { deleted: true } };
+      default:
+        return super.getMockData(action, params);
+    }
+  }
+}
+
+// Role Types API - Universal Entity Architecture
+class RoleTypesAPI extends BaseAPI {
+  constructor() {
+    super('role_types');
+  }
+
+  async getAll(companyId = null) {
+    const response = await this.makeRequest('getRoleTypes', companyId ? { company_id: companyId } : {});
+    return response.data || [];
+  }
+
+  async getById(id) {
+    const response = await this.makeRequest('getRoleType', {
+      role_type_id: id
+    });
+    return response.data;
+  }
+
+  async create(data) {
+    if (!data.name?.trim()) {
+      throw new Error('Role type name is required');
+    }
+
+    const response = await this.makeRequest('createRoleType', {
+      name: data.name.trim(),
+      description: data.description?.trim() || '',
+      code: data.code?.trim() || '',
+      company_id: data.company_id || null
+    });
+    return response.data;
+  }
+
+  async update(id, data) {
+    if (!id) {
+      throw new Error('Role type ID is required');
+    }
+
+    const response = await this.makeRequest('updateRoleType', {
+      role_type_id: id,
+      name: data.name?.trim(),
+      description: data.description?.trim(),
+      code: data.code?.trim(),
+      company_id: data.company_id,
+      is_active: data.is_active
+    });
+    return response.data;
+  }
+
+  async delete(id) {
+    if (!id) {
+      throw new Error('Role type ID is required');
+    }
+
+    const response = await this.makeRequest('deleteRoleType', {
+      role_type_id: id
+    });
+    return response.data;
+  }
+
+  getMockData(action, params = {}) {
+    const mockRoleTypes = [
+      {
+        id: 'rt_1',
+        name: 'Approver',
+        description: 'Can approve tickets and requests',
+        code: 'APR',
+        company_id: null,
+        is_active: true,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'rt_2',
+        name: 'Administrator',
+        description: 'System administrator with full access',
+        code: 'ADM',
+        company_id: null,
+        is_active: true,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      },
+      {
+        id: 'rt_3',
+        name: 'Viewer',
+        description: 'Read-only access to tickets and data',
+        code: 'VWR',
+        company_id: null,
+        is_active: true,
+        created_at: '2025-01-01T00:00:00.000Z',
+        updated_at: '2025-01-01T00:00:00.000Z'
+      }
+    ];
+
+    switch (action) {
+      case 'getRoleTypes':
+        return { status: 'success', data: mockRoleTypes };
+      case 'getRoleType':
+        const roleType = mockRoleTypes.find(rt => rt.id === params.role_type_id);
+        return { status: 'success', data: roleType };
+      case 'createRoleType':
+      case 'updateRoleType':
+        return {
+          status: 'success',
+          data: {
+            ...mockRoleTypes[0],
+            id: `rt_${Date.now()}`,
+            ...params
+          }
+        };
+      case 'deleteRoleType':
         return { status: 'success', data: { deleted: true } };
       default:
         return super.getMockData(action, params);
@@ -2123,7 +2412,10 @@ export const API = {
   WorkflowSteps: new WorkflowStepsAPI(),
   StepApprovals: new StepApprovalsAPI(),
   SLA: new SLAAPI(),
-  TicketLinks: new TicketLinksAPI()
+  TicketLinks: new TicketLinksAPI(),
+  // Universal Entity Architecture APIs
+  UserProfileTypes: new UserProfileTypesAPI(),
+  RoleTypes: new RoleTypesAPI()
 };
 
 // Individual API exports for backward compatibility
@@ -2139,6 +2431,8 @@ export const workflowStepsAPI = API.WorkflowSteps;
 export const stepApprovalsAPI = API.StepApprovals;
 export const slaAPI = API.SLA;
 export const ticketLinksAPI = API.TicketLinks;
+export const userProfileTypesAPI = API.UserProfileTypes;
+export const roleTypesAPI = API.RoleTypes;
 
 // Utility functions
 export const APIUtils = {

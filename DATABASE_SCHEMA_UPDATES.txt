@@ -103,8 +103,26 @@ id|transaction_id|code|name|description|is_active|require_attachment_on_create|c
 # tickets (ENHANCED WITH AUDIT FIELDS)
 id|ticket_number|title|ticket_type_id|requester_id|status|current_step_id|step_due_date|company_id|is_active|created_at|created_by|updated_at|updated_by|deleted_at|deleted_by|deletion_reason
 
-# custom_fields (ENHANCED WITH AUDIT FIELDS)
+# custom_fields (ENHANCED WITH AUDIT FIELDS) - ⚠️ MISSING SHEET - CRITICAL FOR DYNAMIC FORMS
+# PURPOSE: Defines field configurations for ticket types (what fields exist, not the data)
+# RELATIONSHIP: Links to custom_field_values (which stores actual user data)
+# DIFFERENCE: custom_fields = field definitions, custom_field_values = user data
 id|ticket_type_id|name|label|type|is_required|is_hidden|sort_order|dropdown_list_id|depends_on_field_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+# FIELD TYPE DEFINITIONS FOR custom_fields.type COLUMN:
+# 'text'        - Single line text input
+# 'paragraph'   - Multi-line text area
+# 'date'        - Single date picker
+# 'date_range'  - Start date + End date picker (uses start_date_value & end_date_value in custom_field_values)
+# 'amount'      - Numeric input with currency formatting
+# 'dropdown'    - Single select from dropdown_list_id
+# 'file'        - File upload attachment
+
+# EXAMPLE RECORDS FOR custom_fields:
+# field_1|tt_purchase_req|customer_name|Customer Name|text|true|false|1||
+# field_2|tt_purchase_req|amount|Purchase Amount|amount|true|false|2||
+# field_3|tt_purchase_req|priority|Priority Level|dropdown|false|false|3|dd_priority|
+# field_4|tt_leave_req|leave_dates|Leave Period|date_range|true|false|1||
 
 # workflow_steps (ENHANCED WITH AUDIT FIELDS)
 id|ticket_type_id|company_id|name|status_on_reach|step_type|approver_logic|sort_order|next_ticket_type_id|external_app_url|completion_action_name|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
@@ -137,8 +155,17 @@ id|ticket_type_id|require_on_approve|require_on_return|require_on_reject|require
 
 ### DATA & TRANSACTION TABLES (Enhanced with Audit Fields)
 
-# custom_field_values (ENHANCED WITH AUDIT FIELDS)
-id|ticket_id|custom_field_id|text_value|number_value|date_value|dropdown_option_id|is_active|created_at|created_by|updated_at|updated_by|deleted_at|deleted_by|deletion_reason
+# custom_field_values (ENHANCED WITH AUDIT FIELDS) - ✅ COMPLETE WITH DATE RANGE SUPPORT
+# PURPOSE: Stores actual user data entered into custom fields for specific tickets
+# RELATIONSHIP: Links to custom_fields (which defines what fields exist)
+# DATE RANGE SUPPORT: start_date_value & end_date_value for date_range field types
+id|ticket_id|custom_field_id|text_value|number_value|date_value|start_date_value|end_date_value|dropdown_option_id|is_active|created_at|created_by|updated_at|updated_by|deleted_at|deleted_by|deletion_reason
+
+# EXAMPLE RECORDS FOR custom_field_values:
+# 1|ticket_123|field_customer|John Smith||||||true|2025-09-26|user_1|2025-09-26|user_1|||
+# 2|ticket_123|field_amount||5000||||true|2025-09-26|user_1|2025-09-26|user_1|||
+# 3|ticket_123|field_priority|||||||opt_high|true|2025-09-26|user_1|2025-09-26|user_1|||
+# 4|ticket_124|field_leave_period||||2025-10-01|2025-10-15|||true|2025-09-26|user_2|2025-09-26|user_2|||
 
 # ticket_attachments (ENHANCED WITH AUDIT FIELDS)
 id|ticket_id|uploader_id|file_name|file_url|file_size|mime_type|is_active|created_at|created_by|updated_at|updated_by|deleted_at|deleted_by|deletion_reason
@@ -421,3 +448,289 @@ Changed from direct company assignment during creation to a two-step process for
 5. Verify all existing functionality still works
 6. **NEW**: Test dropdown creation with company_id support
 7. **NEW**: Verify dropdown filtering by company works correctly
+
+---
+
+## 🆕 NEW/UPDATED TABLES SUMMARY - PHASE 10.0 USER/ROLE REVOLUTION
+
+**Date**: September 27, 2025
+**Version**: 3.0 - Revolutionary User Management with Custom Fields
+
+### **🎯 INNOVATION SUMMARY**
+This update introduces a revolutionary approach where:
+- **User Profiles** are treated like ticket types with custom fields
+- **Roles** are treated like ticket types with custom fields
+- **Unified dropdown system** serves all entity types
+- **Date-based role management** with auto-expiration
+- **Immediate approver relationships** with fallback logic
+
+### **📋 NEW TABLES**
+
+#### **User Profile Types & Custom Fields**
+```
+user_profile_types:
+id|name|description|code|company_id|requires_approval_on_create|requires_background_check|auto_expire_days|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+user_profile_custom_fields:
+id|user_profile_type_id|name|label|type|is_required|is_hidden|sort_order|dropdown_list_id|depends_on_field_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+user_profile_custom_field_values:
+id|user_id|custom_field_id|text_value|number_value|date_value|start_date_value|end_date_value|dropdown_option_id|is_active|created_at|created_by|updated_at|updated_by
+```
+
+#### **Role Types & Custom Fields (NEW INNOVATION)**
+```
+role_types:
+id|name|description|code|company_id|permission_level|can_approve_steps|max_approval_amount|requires_certification|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+role_custom_fields:
+id|role_type_id|name|label|type|is_required|is_hidden|sort_order|dropdown_list_id|depends_on_field_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+role_custom_field_values:
+id|role_id|custom_field_id|text_value|number_value|date_value|start_date_value|end_date_value|dropdown_option_id|is_active|created_at|created_by|updated_at|updated_by
+```
+
+#### **Unified Dropdown Field Mappings**
+```
+dropdown_field_mappings:
+id|entity_type|entity_id|field_name|dropdown_list_id|company_id|is_required|display_order|field_label|help_text|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+```
+
+### **🔄 ENHANCED EXISTING TABLES**
+
+#### **user_profiles (Core redesign)**
+```
+BEFORE: Basic profile with fixed fields
+AFTER: user_id|user_profile_type_id|display_name|email|phone|immediate_approver_id|backup_approver_id|status|hire_date|termination_date|last_login_at|is_active|created_at|created_by|updated_at|updated_by
+
+KEY CHANGES:
++ user_profile_type_id (links to user_profile_types)
++ immediate_approver_id (direct manager relationship)
++ backup_approver_id (fallback approver)
++ termination_date (employment end tracking)
+```
+
+#### **roles (Enhanced with types)**
+```
+BEFORE: id|name|company_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+AFTER: id|role_type_id|name|company_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+KEY CHANGES:
++ role_type_id (links to role_types for custom fields)
+```
+
+#### **user_role_assignments (Date-based enhancements)**
+```
+BEFORE: id|user_id|ticket_type_id|role_id|validity_end_date|company_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+AFTER: id|user_id|role_id|ticket_type_id|company_id|assignment_type|effective_start_date|effective_end_date|auto_expire_days|assigned_by_user_id|approval_required|assignment_notes|validity_end_date|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+KEY CHANGES:
++ assignment_type ('permanent', 'temporary', 'project_based', 'emergency', 'delegation')
++ effective_start_date (when assignment becomes active)
++ effective_end_date (when assignment expires)
++ auto_expire_days (automatic expiration period)
++ assigned_by_user_id (who made the assignment)
++ approval_required (whether assignment needs approval)
++ assignment_notes (reason/notes for assignment)
+```
+
+### **🎯 SYSTEM ENTITY TYPES**
+
+The system now supports **4 core entity types** with unified custom fields:
+
+1. **ticket_types** → custom_fields → custom_field_values (existing)
+2. **user_profile_types** → user_profile_custom_fields → user_profile_custom_field_values (new)
+3. **role_types** → role_custom_fields → role_custom_field_values (new)
+4. **workflow_steps** → step_custom_fields → step_custom_field_values (future)
+
+### **📊 PRE-BUILT SYSTEM DEFAULTS**
+
+#### **User Profile Types:**
+- **Standard Employee** (EMP): employee_id, department, job_title, hire_date, emergency_contact
+- **Contractor** (CTR): contractor_id, company_name, contract_dates, billing_rate
+- **Vendor Contact** (VND): vendor_company, contact_role, service_category
+- **Intern** (INT): student_id, school_name, internship_period, supervisor
+
+#### **Role Types:**
+- **Approval Roles** (APR): approval_level, max_amount, delegation_allowed
+- **Department Roles** (DEP): department_scope, budget_authority, reporting_level
+- **System Roles** (SYS): system_permissions, admin_level, security_clearance
+- **Project Roles** (PRJ): project_scope, timeline, deliverables
+
+### **🔗 INTEGRATION POINTS**
+
+#### **Dropdown Integration:**
+- All custom fields can reference dropdown_lists
+- dropdown_field_mappings links dropdowns to any entity type
+- Unified dropdown management across tickets, users, and roles
+
+#### **Approval Routing:**
+- immediate_approver_id provides direct manager relationships
+- Role custom fields can define approval hierarchies
+- Date-based assignments support temporary delegation
+
+#### **Firebase Authentication:**
+- user_profiles.user_id links to Firebase Auth UID
+- Seamless integration with existing authentication
+
+### **🚀 IMPLEMENTATION PRIORITY**
+
+#### **Phase 1: Foundation**
+1. Create user_profile_types and role_types tables
+2. Implement custom fields for both entity types
+3. Add dropdown_field_mappings system
+
+#### **Phase 2: Core Features**
+1. Build dynamic user profile forms
+2. Create role configuration interface
+3. Implement immediate approver system
+
+#### **Phase 3: Advanced Features**
+1. Date-based role assignments with auto-expiration
+2. Approval delegation during out-of-office
+3. Advanced reporting and analytics
+
+---
+
+---
+
+## 🔄 SIMPLIFIED REUSE STRATEGY UPDATE - September 27, 2025 (Latest)
+
+**Version**: 3.1 - Simplified Reuse Strategy for Minimal Changes
+
+### **🎯 STRATEGY CHANGE: REUSE EXISTING TABLES**
+
+**Previous Approach**: Create separate tables for each entity type
+**New Approach**: Enhance existing tables with entity_category column
+
+### **✅ MINIMAL SCHEMA CHANGES (Reuse Strategy)**
+
+#### **1. Enhance Existing Tables (Add 1 Column Each)**
+```
+custom_fields (enhanced):
+BEFORE: id|ticket_type_id|name|label|type|is_required|is_hidden|sort_order|dropdown_list_id|depends_on_field_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+AFTER: id|ticket_type_id|entity_category|name|label|type|is_required|is_hidden|sort_order|dropdown_list_id|depends_on_field_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+KEY CHANGE: + entity_category (TEXT, default 'ticket')
+Values: 'ticket', 'user_profile', 'role', 'workflow_step'
+
+custom_field_values (enhanced):
+BEFORE: id|ticket_id|custom_field_id|text_value|number_value|date_value|start_date_value|end_date_value|dropdown_option_id|is_active|created_at|created_by|updated_at|updated_by|deleted_at|deleted_by|deletion_reason
+
+AFTER: id|ticket_id|entity_category|custom_field_id|text_value|number_value|date_value|start_date_value|end_date_value|dropdown_option_id|is_active|created_at|created_by|updated_at|updated_by|deleted_at|deleted_by|deletion_reason
+
+KEY CHANGE: + entity_category (TEXT, default 'ticket')
+Note: ticket_id becomes entity_id for non-ticket entities
+```
+
+#### **2. Essential New Tables Only**
+```
+user_profile_types:
+id|name|description|code|company_id|is_active|created_at|created_by|updated_at|updated_by
+
+role_types:
+id|name|description|code|company_id|is_active|created_at|created_by|updated_at|updated_by
+
+user_profiles:
+user_id|user_profile_type_id|display_name|email|immediate_approver_id|backup_approver_id|status|hire_date|is_active|created_at|updated_at
+
+user_role_assignments (enhanced with date fields):
+id|user_id|role_id|ticket_type_id|company_id|assignment_type|effective_start_date|effective_end_date|auto_expire_days|assigned_by_user_id|approval_required|assignment_notes|validity_end_date|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+```
+
+### **🔄 REUSE BENEFITS**
+
+#### **Backward Compatibility**
+- All existing ticket custom fields continue working unchanged
+- Existing API functions work with default entity_category='ticket'
+- No data migration required for existing tickets
+
+#### **Minimal Code Changes**
+- Add entityCategory parameter to existing functions (default 'ticket')
+- Enhance existing React components with entityCategory prop
+- Reuse existing custom field UI components
+
+#### **Development Efficiency**
+- Same custom field builder for all entity types
+- Same validation and rendering logic
+- Same dropdown integration system
+
+### **📊 IMPLEMENTATION COMPARISON**
+
+#### **Previous Complex Approach**
+- 9 new tables required
+- 40+ new API functions
+- Separate UI components for each entity type
+- Complex cross-entity relationship management
+
+#### **New Simplified Approach**
+- 2 column additions + 3 new tables
+- 10-15 new API functions + enhanced existing ones
+- Reuse existing UI components with entityCategory prop
+- Simple parameter-based entity switching
+
+### **🚀 MIGRATION STRATEGY**
+
+#### **Phase 1: Schema Enhancement**
+```sql
+-- Add entity_category columns
+ALTER TABLE custom_fields ADD COLUMN entity_category TEXT DEFAULT 'ticket';
+ALTER TABLE custom_field_values ADD COLUMN entity_category TEXT DEFAULT 'ticket';
+
+-- Create essential new tables
+CREATE TABLE user_profile_types (...);
+CREATE TABLE role_types (...);
+CREATE TABLE user_profiles (...);
+
+-- Update existing data (optional - works without this)
+UPDATE custom_fields SET entity_category = 'ticket' WHERE entity_category IS NULL;
+UPDATE custom_field_values SET entity_category = 'ticket' WHERE entity_category IS NULL;
+```
+
+#### **Phase 2: API Enhancement**
+```javascript
+// Enhance existing functions with entityCategory parameter
+function getCustomFields(entityTypeId, entityCategory = 'ticket') { ... }
+function createCustomField(entityTypeId, fieldData, entityCategory = 'ticket') { ... }
+function setCustomFieldValue(entityId, fieldId, value, entityCategory = 'ticket') { ... }
+
+// Add minimal new functions
+function getUserProfileTypes() { ... }
+function createUserProfileType() { ... }
+function getRoleTypes() { ... }
+function createRoleType() { ... }
+```
+
+#### **Phase 3: Frontend Enhancement**
+```javascript
+// Enhance existing components
+<AdminCustomFieldBuilder
+  entityTypeId="upt_employee"
+  entityCategory="user_profile"
+  entityTypeName="Employee Profile"
+/>
+
+// Reuse existing hooks with entityCategory
+const { data: fields } = useCustomFields(entityTypeId, 'user_profile');
+const setFieldValue = useSetCustomFieldValue();
+```
+
+### **💾 FINAL SCHEMA SUMMARY - REUSE APPROACH**
+
+#### **Modified Existing Tables (2)**
+- custom_fields: + entity_category column
+- custom_field_values: + entity_category column
+
+#### **New Tables (3)**
+- user_profile_types
+- role_types
+- user_profiles
+
+#### **Total Schema Impact**
+- 2 column additions to existing tables
+- 3 new simple tables
+- 100% backward compatibility
+- Zero data migration required
+
+**Migration Note**: This simplified approach provides the same enterprise-level flexibility while minimizing schema changes and maintaining full backward compatibility with existing ticket functionality.

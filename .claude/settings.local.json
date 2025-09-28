@@ -22,7 +22,9 @@
       "Bash(grep:*)",
       "Bash(timeout:*)",
       "Bash(npm test:*)",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(cp:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
