@@ -231,6 +231,7 @@ function App() {
       <ErrorBoundary>
         <UserProvider>
           <AppWithProviders />
+          <SpeedInsights />
         </UserProvider>
       </ErrorBoundary>
     </ErrorBoundary130>
