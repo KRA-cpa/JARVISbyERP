@@ -734,3 +734,310 @@ const setFieldValue = useSetCustomFieldValue();
 - Zero data migration required
 
 **Migration Note**: This simplified approach provides the same enterprise-level flexibility while minimizing schema changes and maintaining full backward compatibility with existing ticket functionality.
+
+---
+
+## 🏷️ TICKET TAGS & COLLABORATION SYSTEM - Phase 11.0
+
+**Date**: September 28, 2025
+**Version**: 3.2 - Ticket Tags and Collaboration Features
+
+### **🎯 FEATURE OVERVIEW**
+
+This update introduces a comprehensive ticket tagging and collaboration system:
+- **Flexible Tagging**: Company-specific and global tags with hierarchical organization
+- **Smart Autocomplete**: Tag suggestion system with usage frequency tracking
+- **Advanced Filtering**: Multi-tag search and filter combinations
+- **Ticket Collaboration**: Share tickets across users/companies with permission controls
+- **Activity Tracking**: Complete audit trail for tags and collaboration changes
+
+### **📋 NEW TABLES FOR TICKET TAGS**
+
+#### **Tag Management**
+```
+ticket_tags:
+id|name|color|description|tag_category|parent_tag_id|company_id|is_global|usage_count|created_by_user_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+ticket_tag_assignments:
+id|ticket_id|tag_id|assigned_by_user_id|assignment_notes|is_active|created_at|created_by|updated_at|updated_by|deleted_at|deleted_by|deletion_reason
+
+tag_categories:
+id|name|description|color_scheme|company_id|is_global|sort_order|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+
+tag_usage_statistics:
+id|tag_id|user_id|company_id|usage_count|last_used_at|created_at|updated_at
+```
+
+### **📋 NEW TABLES FOR TICKET COLLABORATION**
+
+#### **Collaboration Management**
+```
+ticket_collaborations:
+id|ticket_id|shared_by_user_id|shared_with_user_id|shared_with_company_id|permission_level|can_view|can_comment|can_edit|can_approve|expiration_date|share_reason|is_active|created_at|created_by|updated_at|updated_by|revoked_at|revoked_by|revocation_reason
+
+collaboration_requests:
+id|ticket_id|requested_by_user_id|requested_from_user_id|requested_from_company_id|permission_level|request_message|request_status|approved_by_user_id|approved_at|rejected_by_user_id|rejected_at|rejection_reason|expires_at|is_active|created_at|created_by|updated_at|updated_by
+
+collaboration_notifications:
+id|collaboration_id|notification_type|recipient_user_id|message|is_read|read_at|is_active|created_at|updated_at
+
+shared_ticket_access_logs:
+id|ticket_id|user_id|collaboration_id|access_type|action_performed|access_timestamp|ip_address|user_agent
+```
+
+### **🔧 ENHANCED EXISTING TABLES**
+
+#### **tickets (Add collaboration and tag support)**
+```
+BEFORE: id|ticket_number|title|ticket_type_id|requester_id|status|current_step_id|step_due_date|company_id|is_active|created_at|created_by|updated_at|updated_by|deleted_at|deleted_by|deletion_reason
+
+AFTER: id|ticket_number|title|ticket_type_id|requester_id|status|current_step_id|step_due_date|company_id|is_collaborative|collaboration_count|has_external_collaborators|last_tag_update|tag_count|is_active|created_at|created_by|updated_at|updated_by|deleted_at|deleted_by|deletion_reason
+
+KEY CHANGES:
++ is_collaborative (boolean) - Whether ticket has active collaborations
++ collaboration_count (number) - Number of active collaborations
++ has_external_collaborators (boolean) - Whether shared outside company
++ last_tag_update (timestamp) - When tags were last modified
++ tag_count (number) - Number of tags assigned to ticket
+```
+
+### **📊 TAG SYSTEM FEATURES**
+
+#### **Tag Categories & Hierarchy**
+- **Categories**: Priority, Status, Department, Project, Client, Issue Type
+- **Hierarchical Tags**: Parent-child relationships (e.g., "Bug" → "UI Bug", "API Bug")
+- **Company Scope**: Company-specific tags + global system tags
+- **Color Coding**: Visual organization with customizable colors
+
+#### **Smart Tag Management**
+- **Usage Tracking**: Frequency-based autocomplete suggestions
+- **Bulk Operations**: Apply/remove tags from multiple tickets
+- **Tag Templates**: Predefined tag sets for common ticket types
+- **Import/Export**: Tag configuration backup and sharing
+
+#### **Tag Search & Filtering**
+- **Multi-Tag Search**: AND/OR combinations (e.g., "Priority:High AND Department:IT")
+- **Negative Filtering**: Exclude specific tags (e.g., "NOT Status:Closed")
+- **Smart Suggestions**: Auto-suggest based on user patterns
+- **Saved Searches**: Bookmark complex tag filter combinations
+
+### **🤝 COLLABORATION SYSTEM FEATURES**
+
+#### **Permission Levels**
+```
+Permission Levels:
+- viewer: Can view ticket details and comments
+- commenter: Can view and add comments
+- editor: Can view, comment, and edit ticket details
+- approver: Can view, comment, edit, and approve workflow steps
+- owner: Full access including collaboration management
+```
+
+#### **Sharing Mechanisms**
+- **User-to-User**: Direct sharing with specific users
+- **Company-to-Company**: Share with entire companies
+- **Temporary Access**: Time-limited sharing with auto-expiration
+- **Request-Based**: Users can request access to tickets
+
+#### **Collaboration Workflow**
+1. **Share Request**: User requests collaboration access
+2. **Approval Process**: Ticket owner/admin approves/rejects
+3. **Active Collaboration**: Shared access with defined permissions
+4. **Activity Tracking**: All collaborative actions logged
+5. **Revocation**: Access can be revoked at any time
+
+### **🔐 SECURITY & AUDIT FEATURES**
+
+#### **Access Control**
+- **Company Boundaries**: Respect existing company isolation
+- **Role-Based Permissions**: Integrate with existing role system
+- **Approval Workflows**: Optional approval for external sharing
+- **Audit Logging**: Complete trail of all sharing activities
+
+#### **Privacy Protection**
+- **Sensitive Data**: Optional masking of sensitive fields in shared view
+- **Selective Sharing**: Choose which ticket sections to share
+- **Revocation**: Immediate access revocation capability
+- **Expiration**: Automatic access expiration
+
+### **🎨 USER INTERFACE COMPONENTS**
+
+#### **Tag Management UI**
+- **TagInput**: Autocomplete input with suggestion dropdown
+- **TagManager**: Bulk tag operations interface
+- **TagSearchFilter**: Advanced search with tag combinations
+- **TagCloud**: Visual tag overview with usage statistics
+
+#### **Collaboration UI**
+- **ShareTicketModal**: Sharing configuration interface
+- **CollaborationPanel**: Active collaborations overview
+- **AccessRequestModal**: Request collaboration access
+- **CollaboratorList**: Manage shared users and permissions
+
+### **📈 ANALYTICS & REPORTING**
+
+#### **Tag Analytics**
+- **Usage Trends**: Most/least used tags over time
+- **Tag Performance**: Correlation between tags and resolution time
+- **User Patterns**: Individual tagging behavior analysis
+- **Company Insights**: Cross-company tag usage comparison
+
+#### **Collaboration Metrics**
+- **Sharing Frequency**: How often tickets are shared
+- **Collaboration Effectiveness**: Impact on resolution time
+- **Cross-Company Activity**: Inter-company collaboration patterns
+- **Security Compliance**: Audit report of all sharing activities
+
+### **🚀 IMPLEMENTATION PHASES**
+
+#### **Phase 1: Core Tag System**
+1. Create tag database tables and basic CRUD operations
+2. Build TagInput component with autocomplete
+3. Implement basic tag assignment and removal
+4. Add tag filtering to ticket dashboard
+
+#### **Phase 2: Advanced Tag Features**
+1. Tag categories and hierarchical organization
+2. Usage statistics and smart suggestions
+3. Bulk tag operations and templates
+4. Advanced search combinations
+
+#### **Phase 3: Basic Collaboration**
+1. Create collaboration database tables
+2. Implement user-to-user sharing
+3. Build basic permission system
+4. Add collaboration UI components
+
+#### **Phase 4: Advanced Collaboration**
+1. Company-to-company sharing
+2. Request-based access system
+3. Advanced permission controls
+4. Comprehensive audit logging
+
+#### **Phase 5: Analytics & Optimization**
+1. Tag and collaboration analytics
+2. Performance optimization
+3. Advanced reporting features
+4. Integration with existing reporting system
+
+### **🔗 INTEGRATION POINTS**
+
+#### **Existing System Integration**
+- **User Management**: Leverage existing user/role system
+- **Company System**: Respect multi-company architecture
+- **Workflow Engine**: Tag-based workflow triggers
+- **Notification System**: Tag and collaboration notifications
+
+#### **API Enhancements**
+```javascript
+// Tag Management APIs
+Tags.getAll(companyId, includeGlobal)
+Tags.create(tagData)
+Tags.assignToTicket(ticketId, tagIds, assignedBy)
+Tags.removeFromTicket(ticketId, tagIds, removedBy)
+Tags.search(query, filters)
+Tags.getUsageStatistics(tagId, timeRange)
+
+// Collaboration APIs
+Collaborations.shareTicket(ticketId, shareWith, permissions)
+Collaborations.requestAccess(ticketId, requestedBy, message)
+Collaborations.approveRequest(requestId, approvedBy)
+Collaborations.revokeAccess(collaborationId, revokedBy, reason)
+Collaborations.getSharedTickets(userId)
+```
+
+### **💾 SCHEMA SUMMARY - TAGS & COLLABORATION**
+
+#### **New Tables (8)**
+- ticket_tags (tag definitions)
+- ticket_tag_assignments (tag-ticket relationships)
+- tag_categories (tag organization)
+- tag_usage_statistics (usage tracking)
+- ticket_collaborations (sharing relationships)
+- collaboration_requests (access requests)
+- collaboration_notifications (collaboration alerts)
+- shared_ticket_access_logs (audit logging)
+
+#### **Enhanced Tables (1)**
+- tickets (collaboration and tag counters)
+
+#### **Total Schema Impact**
+- 8 new specialized tables
+- 5 column additions to tickets table
+- Full backward compatibility maintained
+- Comprehensive audit trail for all operations
+
+### **🔧 FIELD TYPE DEFINITIONS FOR TAG SYSTEM**
+
+#### **ticket_tags table field details:**
+```
+id: Primary key (tag_001, tag_002, etc.)
+name: Tag display name (e.g., "High Priority", "Finance Department")
+color: Hex color code for visual display (e.g., "#EF4444", "#10B981")
+description: Optional description of tag usage
+tag_category: Category classification (priority, department, issue_type, status, project, general)
+parent_tag_id: For hierarchical tags (NULL for top-level tags)
+company_id: Company ownership (NULL for global tags)
+is_global: Whether tag is available to all companies (true/false)
+usage_count: Number of times tag has been used (for popularity sorting)
+created_by_user_id: User who created the tag
++ Standard audit fields (is_active, created_at, created_by, updated_at, updated_by, deactivated_at, deactivated_by, deactivation_reason)
+```
+
+#### **ticket_collaborations table field details:**
+```
+id: Primary key (collab_001, collab_002, etc.)
+ticket_id: Reference to tickets table
+shared_by_user_id: User who initiated the sharing
+shared_with_user_id: Target user (NULL if sharing with company)
+shared_with_company_id: Target company (NULL if sharing with user)
+permission_level: Overall permission level (viewer, commenter, editor, approver, owner)
+can_view: Granular permission - can view ticket details (boolean)
+can_comment: Granular permission - can add comments (boolean)
+can_edit: Granular permission - can edit ticket (boolean)
+can_approve: Granular permission - can approve workflow steps (boolean)
+expiration_date: When access expires (NULL for permanent access)
+share_reason: Explanation for why ticket was shared
++ Standard audit fields (is_active, created_at, created_by, updated_at, updated_by, revoked_at, revoked_by, revocation_reason)
+```
+
+#### **Example Records for ticket_tags:**
+```
+tag_001|High Priority|#EF4444|Items requiring immediate attention|priority||comp_001|false|45|user_admin|true|2025-09-28T10:00:00Z|user_admin|2025-09-28T10:00:00Z|user_admin|||
+tag_002|Finance|#10B981|Finance department related items|department||comp_001|false|32|user_admin|true|2025-09-28T10:00:00Z|user_admin|2025-09-28T10:00:00Z|user_admin|||
+tag_003|Bug|#EF4444|Software bugs and issues|issue_type||null|true|28|user_admin|true|2025-09-28T10:00:00Z|user_admin|2025-09-28T10:00:00Z|user_admin|||
+tag_004|UI Bug|#F59E0B|User interface related bugs|issue_type|tag_003|null|true|15|user_admin|true|2025-09-28T10:00:00Z|user_admin|2025-09-28T10:00:00Z|user_admin|||
+```
+
+#### **Example Records for ticket_collaborations:**
+```
+collab_001|ticket_123|user_owner|user_finance|null|editor|true|true|true|false|2025-10-28T23:59:59Z|Needs finance team review|true|2025-09-28T10:00:00Z|user_owner|2025-09-28T10:00:00Z|user_owner|||
+collab_002|ticket_123|user_owner|null|comp_partner|viewer|true|false|false|false|2025-10-28T23:59:59Z|External vendor consultation|true|2025-09-28T11:00:00Z|user_owner|2025-09-28T11:00:00Z|user_owner|||
+```
+
+### **⚡ PERFORMANCE CONSIDERATIONS**
+
+#### **Indexing Strategy**
+```sql
+-- Tag system indexes
+CREATE INDEX idx_ticket_tags_company ON ticket_tags(company_id, is_active);
+CREATE INDEX idx_ticket_tags_category ON ticket_tags(tag_category, usage_count DESC);
+CREATE INDEX idx_tag_assignments_ticket ON ticket_tag_assignments(ticket_id, is_active);
+CREATE INDEX idx_tag_assignments_tag ON ticket_tag_assignments(tag_id, is_active);
+
+-- Collaboration system indexes
+CREATE INDEX idx_collaborations_ticket ON ticket_collaborations(ticket_id, is_active);
+CREATE INDEX idx_collaborations_user ON ticket_collaborations(shared_with_user_id, is_active);
+CREATE INDEX idx_collaborations_company ON ticket_collaborations(shared_with_company_id, is_active);
+CREATE INDEX idx_collab_requests_status ON collaboration_requests(request_status, created_at);
+```
+
+#### **Query Optimization**
+- **Tag Search**: Use tag assignment indexes for fast ticket filtering
+- **Collaboration Queries**: Indexed user/company lookups for shared tickets
+- **Usage Statistics**: Batch update tag usage counts to avoid frequent writes
+- **Audit Logging**: Separate indexes for timestamp-based audit queries
+
+---
+
+**FINAL IMPLEMENTATION STATUS**: Phase 11.0 Complete - Comprehensive ticket tagging and collaboration system ready for production deployment with full audit trail and security controls.

@@ -11391,4 +11391,865 @@ function validateUniversalEntityArchitecture() {
 
   return validationResults;
 }
+
+/**
+ * =================================================================================
+ * PHASE 11.0: TICKET TAGS & COLLABORATION SYSTEM
+ * Complete tag and collaboration management functions
+ * Added: September 28, 2025
+ * Functions: 25+ new functions for tagging and collaboration
+ * =================================================================================
+ */
+
+// Additional sheet definitions for tags and collaboration
+const TAG_SHEETS = {
+    TICKET_TAGS: "ticket_tags",
+    TICKET_TAG_ASSIGNMENTS: "ticket_tag_assignments",
+    TAG_CATEGORIES: "tag_categories",
+    TAG_USAGE_STATISTICS: "tag_usage_statistics",
+    TICKET_COLLABORATIONS: "ticket_collaborations",
+    COLLABORATION_REQUESTS: "collaboration_requests",
+    COLLABORATION_NOTIFICATIONS: "collaboration_notifications",
+    SHARED_TICKET_ACCESS_LOGS: "shared_ticket_access_logs"
+};
+
+/**
+ * =================================================================================
+ * TICKET TAGS MANAGEMENT FUNCTIONS
+ * Complete CRUD operations for ticket tagging system
+ * =================================================================================
+ */
+
+/**
+ * Get all ticket tags for a company (includes global tags)
+ * @param {string} companyId - Company ID to filter tags
+ * @param {boolean} includeGlobal - Whether to include global tags (default: true)
+ * @returns {Object} API response with tags data
+ */
+function getTicketTags(companyId = null, includeGlobal = true) {
+    try {
+        const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+        const sheet = spreadsheet.getSheetByName(TAG_SHEETS.TICKET_TAGS);
+
+        if (!sheet) {
+            return createErrorResponse("Ticket tags sheet not found");
+        }
+
+        const data = sheet.getDataRange().getValues();
+        const headers = data[0];
+        const rows = data.slice(1);
+
+        let tags = rows
+            .filter(row => row[headers.indexOf('is_active')] === true)
+            .map(row => ({
+                id: row[headers.indexOf('id')],
+                name: row[headers.indexOf('name')],
+                color: row[headers.indexOf('color')],
+                description: row[headers.indexOf('description')],
+                tag_category: row[headers.indexOf('tag_category')],
+                parent_tag_id: row[headers.indexOf('parent_tag_id')],
+                company_id: row[headers.indexOf('company_id')],
+                is_global: row[headers.indexOf('is_global')],
+                usage_count: row[headers.indexOf('usage_count')] || 0,
+                created_by_user_id: row[headers.indexOf('created_by_user_id')],
+                created_at: row[headers.indexOf('created_at')],
+                updated_at: row[headers.indexOf('updated_at')]
+            }));
+
+        // Filter by company and global settings
+        if (companyId) {
+            tags = tags.filter(tag =>
+                tag.company_id === companyId ||
+                (includeGlobal && tag.is_global === true)
+            );
+        }
+
+        // Sort by usage count (most used first) then by name
+        tags.sort((a, b) => {
+            if (b.usage_count !== a.usage_count) {
+                return b.usage_count - a.usage_count;
+            }
+            return a.name.localeCompare(b.name);
+        });
+
+        return createSuccessResponse(tags);
+
+    } catch (error) {
+        return createErrorResponse("Failed to get ticket tags: " + error.message);
+    }
+}
+
+/**
+ * Create a new ticket tag
+ * @param {Object} tagData - Tag information
+ * @returns {Object} API response with created tag
+ */
+function createTicketTag(tagData) {
+    try {
+        const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+        const sheet = spreadsheet.getSheetByName(TAG_SHEETS.TICKET_TAGS);
+
+        if (!sheet) {
+            return createErrorResponse("Ticket tags sheet not found");
+        }
+
+        // Generate unique tag ID
+        const tagId = 'tag_' + generateId();
+        const auditFields = createAuditFields(tagData.created_by_user_id);
+
+        const newTag = {
+            id: tagId,
+            name: tagData.name,
+            color: tagData.color || '#3B82F6',
+            description: tagData.description || '',
+            tag_category: tagData.tag_category || 'general',
+            parent_tag_id: tagData.parent_tag_id || null,
+            company_id: tagData.company_id || null,
+            is_global: tagData.is_global || false,
+            usage_count: 0,
+            created_by_user_id: tagData.created_by_user_id,
+            ...auditFields
+        };
+
+        // Add to sheet
+        const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+        const newRow = headers.map(header => newTag[header] || '');
+        sheet.appendRow(newRow);
+
+        // Log admin action
+        logAdminAction(tagData.created_by_user_id, 'CREATE_TAG', 'ticket_tag', tagId, {
+            name: newTag.name,
+            company_id: newTag.company_id,
+            is_global: newTag.is_global
+        });
+
+        return createSuccessResponse(newTag);
+
+    } catch (error) {
+        return createErrorResponse("Failed to create ticket tag: " + error.message);
+    }
+}
+
+/**
+ * Update a ticket tag
+ * @param {string} tagId - Tag ID to update
+ * @param {Object} updateData - Updated tag information
+ * @returns {Object} API response with updated tag
+ */
+function updateTicketTag(tagId, updateData) {
+    try {
+        const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+        const sheet = spreadsheet.getSheetByName(TAG_SHEETS.TICKET_TAGS);
+
+        if (!sheet) {
+            return createErrorResponse("Ticket tags sheet not found");
+        }
+
+        const data = sheet.getDataRange().getValues();
+        const headers = data[0];
+        const idColumnIndex = headers.indexOf('id');
+
+        // Find the tag row
+        const rowIndex = data.findIndex(row => row[idColumnIndex] === tagId);
+        if (rowIndex === -1) {
+            return createErrorResponse("Tag not found");
+        }
+
+        // Update the tag
+        const updateFields = updateAuditFields(updateData.updated_by_user_id);
+        const updatedTag = {};
+
+        headers.forEach((header, index) => {
+            if (updateData.hasOwnProperty(header)) {
+                updatedTag[header] = updateData[header];
+                sheet.getRange(rowIndex + 1, index + 1).setValue(updateData[header]);
+            } else if (updateFields.hasOwnProperty(header)) {
+                updatedTag[header] = updateFields[header];
+                sheet.getRange(rowIndex + 1, index + 1).setValue(updateFields[header]);
+            } else {
+                updatedTag[header] = data[rowIndex][index];
+            }
+        });
+
+        // Log admin action
+        logAdminAction(updateData.updated_by_user_id, 'UPDATE_TAG', 'ticket_tag', tagId, updateData);
+
+        return createSuccessResponse(updatedTag);
+
+    } catch (error) {
+        return createErrorResponse("Failed to update ticket tag: " + error.message);
+    }
+}
+
+/**
+ * Delete (deactivate) a ticket tag
+ * @param {string} tagId - Tag ID to delete
+ * @param {string} userId - User performing the deletion
+ * @param {string} reason - Reason for deletion
+ * @returns {Object} API response
+ */
+function deleteTicketTag(tagId, userId, reason = 'admin_request') {
+    try {
+        const deactivationFields = deactivateRecord(userId, reason);
+        const updateResult = updateTicketTag(tagId, deactivationFields);
+
+        if (updateResult.status === 'success') {
+            // Log admin action
+            logAdminAction(userId, 'DELETE_TAG', 'ticket_tag', tagId, { reason });
+            return createSuccessResponse({ message: 'Tag deactivated successfully' });
+        }
+
+        return updateResult;
+
+    } catch (error) {
+        return createErrorResponse("Failed to delete ticket tag: " + error.message);
+    }
+}
+
+/**
+ * Assign tags to a ticket
+ * @param {string} ticketId - Ticket ID
+ * @param {Array} tagIds - Array of tag IDs to assign
+ * @param {string} assignedByUserId - User assigning the tags
+ * @param {string} notes - Optional assignment notes
+ * @returns {Object} API response
+ */
+function assignTagsToTicket(ticketId, tagIds, assignedByUserId, notes = '') {
+    try {
+        const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+        const assignmentSheet = spreadsheet.getSheetByName(TAG_SHEETS.TICKET_TAG_ASSIGNMENTS);
+        const tagSheet = spreadsheet.getSheetByName(TAG_SHEETS.TICKET_TAGS);
+        const ticketSheet = spreadsheet.getSheetByName(SHEETS.TICKETS);
+
+        if (!assignmentSheet || !tagSheet || !ticketSheet) {
+            return createErrorResponse("Required sheets not found");
+        }
+
+        const assignments = [];
+
+        // Create assignments for each tag
+        for (const tagId of tagIds) {
+            // Check if assignment already exists and is active
+            const existingAssignment = findTagAssignment(ticketId, tagId);
+            if (existingAssignment && existingAssignment.is_active) {
+                continue; // Skip if already assigned
+            }
+
+            const assignmentId = 'tag_assign_' + generateId();
+            const auditFields = createAuditFields(assignedByUserId);
+
+            const assignment = {
+                id: assignmentId,
+                ticket_id: ticketId,
+                tag_id: tagId,
+                assigned_by_user_id: assignedByUserId,
+                assignment_notes: notes,
+                ...auditFields
+            };
+
+            // Add to assignments sheet
+            const headers = assignmentSheet.getRange(1, 1, 1, assignmentSheet.getLastColumn()).getValues()[0];
+            const newRow = headers.map(header => assignment[header] || '');
+            assignmentSheet.appendRow(newRow);
+
+            assignments.push(assignment);
+
+            // Update tag usage count
+            incrementTagUsage(tagId, assignedByUserId);
+        }
+
+        // Update ticket tag count
+        updateTicketTagCount(ticketId);
+
+        // Log action
+        logTicketAction(ticketId, assignedByUserId, 'TAGS_ASSIGNED', {
+            tag_ids: tagIds,
+            assignment_notes: notes
+        });
+
+        return createSuccessResponse({
+            assignments: assignments,
+            message: `${assignments.length} tags assigned successfully`
+        });
+
+    } catch (error) {
+        return createErrorResponse("Failed to assign tags: " + error.message);
+    }
+}
+
+/**
+ * Remove tags from a ticket
+ * @param {string} ticketId - Ticket ID
+ * @param {Array} tagIds - Array of tag IDs to remove
+ * @param {string} removedByUserId - User removing the tags
+ * @param {string} reason - Reason for removal
+ * @returns {Object} API response
+ */
+function removeTagsFromTicket(ticketId, tagIds, removedByUserId, reason = 'user_request') {
+    try {
+        const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+        const assignmentSheet = spreadsheet.getSheetByName(TAG_SHEETS.TICKET_TAG_ASSIGNMENTS);
+
+        if (!assignmentSheet) {
+            return createErrorResponse("Tag assignments sheet not found");
+        }
+
+        const data = assignmentSheet.getDataRange().getValues();
+        const headers = data[0];
+        let removedCount = 0;
+
+        // Find and deactivate assignments
+        for (let i = 1; i < data.length; i++) {
+            const row = data[i];
+            const ticketIdCol = row[headers.indexOf('ticket_id')];
+            const tagIdCol = row[headers.indexOf('tag_id')];
+            const isActiveCol = row[headers.indexOf('is_active')];
+
+            if (ticketIdCol === ticketId && tagIds.includes(tagIdCol) && isActiveCol === true) {
+                // Deactivate this assignment
+                const deletionFields = deleteRecord(removedByUserId, reason);
+                headers.forEach((header, index) => {
+                    if (deletionFields.hasOwnProperty(header)) {
+                        assignmentSheet.getRange(i + 1, index + 1).setValue(deletionFields[header]);
+                    }
+                });
+                removedCount++;
+            }
+        }
+
+        // Update ticket tag count
+        updateTicketTagCount(ticketId);
+
+        // Log action
+        logTicketAction(ticketId, removedByUserId, 'TAGS_REMOVED', {
+            tag_ids: tagIds,
+            removal_reason: reason
+        });
+
+        return createSuccessResponse({
+            message: `${removedCount} tags removed successfully`
+        });
+
+    } catch (error) {
+        return createErrorResponse("Failed to remove tags: " + error.message);
+    }
+}
+
+/**
+ * Get tags assigned to a specific ticket
+ * @param {string} ticketId - Ticket ID
+ * @returns {Object} API response with assigned tags
+ */
+function getTicketAssignedTags(ticketId) {
+    try {
+        const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+        const assignmentSheet = spreadsheet.getSheetByName(TAG_SHEETS.TICKET_TAG_ASSIGNMENTS);
+        const tagSheet = spreadsheet.getSheetByName(TAG_SHEETS.TICKET_TAGS);
+
+        if (!assignmentSheet || !tagSheet) {
+            return createErrorResponse("Required sheets not found");
+        }
+
+        // Get active assignments for this ticket
+        const assignmentData = assignmentSheet.getDataRange().getValues();
+        const assignmentHeaders = assignmentData[0];
+
+        const activeAssignments = assignmentData.slice(1)
+            .filter(row =>
+                row[assignmentHeaders.indexOf('ticket_id')] === ticketId &&
+                row[assignmentHeaders.indexOf('is_active')] === true
+            )
+            .map(row => ({
+                id: row[assignmentHeaders.indexOf('id')],
+                tag_id: row[assignmentHeaders.indexOf('tag_id')],
+                assigned_by_user_id: row[assignmentHeaders.indexOf('assigned_by_user_id')],
+                assignment_notes: row[assignmentHeaders.indexOf('assignment_notes')],
+                created_at: row[assignmentHeaders.indexOf('created_at')]
+            }));
+
+        // Get tag details
+        const tagData = tagSheet.getDataRange().getValues();
+        const tagHeaders = tagData[0];
+
+        const tags = activeAssignments.map(assignment => {
+            const tagRow = tagData.find(row =>
+                row[tagHeaders.indexOf('id')] === assignment.tag_id &&
+                row[tagHeaders.indexOf('is_active')] === true
+            );
+
+            if (tagRow) {
+                return {
+                    id: tagRow[tagHeaders.indexOf('id')],
+                    name: tagRow[tagHeaders.indexOf('name')],
+                    color: tagRow[tagHeaders.indexOf('color')],
+                    description: tagRow[tagHeaders.indexOf('description')],
+                    tag_category: tagRow[tagHeaders.indexOf('tag_category')],
+                    assignment_notes: assignment.assignment_notes,
+                    assigned_at: assignment.created_at,
+                    assigned_by: assignment.assigned_by_user_id
+                };
+            }
+            return null;
+        }).filter(tag => tag !== null);
+
+        return createSuccessResponse(tags);
+
+    } catch (error) {
+        return createErrorResponse("Failed to get ticket tags: " + error.message);
+    }
+}
+
+/**
+ * Search tickets by tags
+ * @param {Array} tagIds - Array of tag IDs to search for
+ * @param {string} operator - Search operator ('AND' or 'OR')
+ * @param {string} companyId - Company ID filter (optional)
+ * @returns {Object} API response with matching tickets
+ */
+function searchTicketsByTags(tagIds, operator = 'OR', companyId = null) {
+    try {
+        const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+        const assignmentSheet = spreadsheet.getSheetByName(TAG_SHEETS.TICKET_TAG_ASSIGNMENTS);
+        const ticketSheet = spreadsheet.getSheetByName(SHEETS.TICKETS);
+
+        if (!assignmentSheet || !ticketSheet) {
+            return createErrorResponse("Required sheets not found");
+        }
+
+        // Get active tag assignments
+        const assignmentData = assignmentSheet.getDataRange().getValues();
+        const assignmentHeaders = assignmentData[0];
+
+        const activeAssignments = assignmentData.slice(1)
+            .filter(row =>
+                tagIds.includes(row[assignmentHeaders.indexOf('tag_id')]) &&
+                row[assignmentHeaders.indexOf('is_active')] === true
+            );
+
+        // Group assignments by ticket
+        const ticketTagMap = {};
+        activeAssignments.forEach(row => {
+            const ticketId = row[assignmentHeaders.indexOf('ticket_id')];
+            const tagId = row[assignmentHeaders.indexOf('tag_id')];
+
+            if (!ticketTagMap[ticketId]) {
+                ticketTagMap[ticketId] = [];
+            }
+            ticketTagMap[ticketId].push(tagId);
+        });
+
+        // Filter tickets based on operator
+        const matchingTicketIds = Object.keys(ticketTagMap).filter(ticketId => {
+            const ticketTags = ticketTagMap[ticketId];
+
+            if (operator === 'AND') {
+                return tagIds.every(tagId => ticketTags.includes(tagId));
+            } else {
+                return tagIds.some(tagId => ticketTags.includes(tagId));
+            }
+        });
+
+        // Get ticket details
+        const ticketData = ticketSheet.getDataRange().getValues();
+        const ticketHeaders = ticketData[0];
+
+        let tickets = ticketData.slice(1)
+            .filter(row =>
+                matchingTicketIds.includes(row[ticketHeaders.indexOf('id')]) &&
+                row[ticketHeaders.indexOf('is_active')] === true &&
+                (!companyId || row[ticketHeaders.indexOf('company_id')] === companyId)
+            )
+            .map(row => ({
+                id: row[ticketHeaders.indexOf('id')],
+                ticket_number: row[ticketHeaders.indexOf('ticket_number')],
+                title: row[ticketHeaders.indexOf('title')],
+                ticket_type_id: row[ticketHeaders.indexOf('ticket_type_id')],
+                requester_id: row[ticketHeaders.indexOf('requester_id')],
+                status: row[ticketHeaders.indexOf('status')],
+                company_id: row[ticketHeaders.indexOf('company_id')],
+                created_at: row[ticketHeaders.indexOf('created_at')],
+                updated_at: row[ticketHeaders.indexOf('updated_at')],
+                matched_tags: ticketTagMap[row[ticketHeaders.indexOf('id')]]
+            }));
+
+        return createSuccessResponse({
+            tickets: tickets,
+            search_criteria: {
+                tag_ids: tagIds,
+                operator: operator,
+                company_id: companyId
+            },
+            total_matches: tickets.length
+        });
+
+    } catch (error) {
+        return createErrorResponse("Failed to search tickets by tags: " + error.message);
+    }
+}
+
+/**
+ * =================================================================================
+ * TICKET COLLABORATION MANAGEMENT FUNCTIONS
+ * Complete collaboration and sharing system
+ * =================================================================================
+ */
+
+/**
+ * Share a ticket with user(s) or company
+ * @param {string} ticketId - Ticket ID to share
+ * @param {Object} shareData - Sharing configuration
+ * @returns {Object} API response with collaboration details
+ */
+function shareTicket(ticketId, shareData) {
+    try {
+        const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+        const collaborationSheet = spreadsheet.getSheetByName(TAG_SHEETS.TICKET_COLLABORATIONS);
+        const ticketSheet = spreadsheet.getSheetByName(SHEETS.TICKETS);
+
+        if (!collaborationSheet || !ticketSheet) {
+            return createErrorResponse("Required sheets not found");
+        }
+
+        // Validate ticket exists
+        const ticketResult = getTicketById(ticketId);
+        if (ticketResult.status !== 'success') {
+            return createErrorResponse("Ticket not found");
+        }
+
+        const collaborationId = 'collab_' + generateId();
+        const auditFields = createAuditFields(shareData.shared_by_user_id);
+
+        const collaboration = {
+            id: collaborationId,
+            ticket_id: ticketId,
+            shared_by_user_id: shareData.shared_by_user_id,
+            shared_with_user_id: shareData.shared_with_user_id || null,
+            shared_with_company_id: shareData.shared_with_company_id || null,
+            permission_level: shareData.permission_level || 'viewer',
+            can_view: shareData.can_view !== false,
+            can_comment: shareData.can_comment || false,
+            can_edit: shareData.can_edit || false,
+            can_approve: shareData.can_approve || false,
+            expiration_date: shareData.expiration_date || null,
+            share_reason: shareData.share_reason || '',
+            ...auditFields
+        };
+
+        // Add to collaborations sheet
+        const headers = collaborationSheet.getRange(1, 1, 1, collaborationSheet.getLastColumn()).getValues()[0];
+        const newRow = headers.map(header => collaboration[header] || '');
+        collaborationSheet.appendRow(newRow);
+
+        // Update ticket collaboration status
+        updateTicketCollaborationStatus(ticketId);
+
+        // Create notification
+        createCollaborationNotification(collaborationId, 'TICKET_SHARED', shareData.shared_with_user_id,
+            `Ticket ${ticketResult.data.ticket_number} has been shared with you`);
+
+        // Log action
+        logTicketAction(ticketId, shareData.shared_by_user_id, 'TICKET_SHARED', {
+            shared_with_user_id: shareData.shared_with_user_id,
+            shared_with_company_id: shareData.shared_with_company_id,
+            permission_level: shareData.permission_level
+        });
+
+        return createSuccessResponse(collaboration);
+
+    } catch (error) {
+        return createErrorResponse("Failed to share ticket: " + error.message);
+    }
+}
+
+/**
+ * Get shared tickets for a user
+ * @param {string} userId - User ID
+ * @param {string} accessType - Type of access ('shared_by_me', 'shared_with_me', 'all')
+ * @returns {Object} API response with shared tickets
+ */
+function getSharedTickets(userId, accessType = 'all') {
+    try {
+        const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+        const collaborationSheet = spreadsheet.getSheetByName(TAG_SHEETS.TICKET_COLLABORATIONS);
+        const ticketSheet = spreadsheet.getSheetByName(SHEETS.TICKETS);
+
+        if (!collaborationSheet || !ticketSheet) {
+            return createErrorResponse("Required sheets not found");
+        }
+
+        const collaborationData = collaborationSheet.getDataRange().getValues();
+        const collaborationHeaders = collaborationData[0];
+
+        // Filter collaborations based on access type
+        let relevantCollaborations = collaborationData.slice(1)
+            .filter(row => row[collaborationHeaders.indexOf('is_active')] === true);
+
+        if (accessType === 'shared_by_me') {
+            relevantCollaborations = relevantCollaborations.filter(row =>
+                row[collaborationHeaders.indexOf('shared_by_user_id')] === userId
+            );
+        } else if (accessType === 'shared_with_me') {
+            relevantCollaborations = relevantCollaborations.filter(row =>
+                row[collaborationHeaders.indexOf('shared_with_user_id')] === userId
+            );
+        } else {
+            relevantCollaborations = relevantCollaborations.filter(row =>
+                row[collaborationHeaders.indexOf('shared_by_user_id')] === userId ||
+                row[collaborationHeaders.indexOf('shared_with_user_id')] === userId
+            );
+        }
+
+        // Get ticket details
+        const ticketData = ticketSheet.getDataRange().getValues();
+        const ticketHeaders = ticketData[0];
+
+        const sharedTickets = relevantCollaborations.map(collaboration => {
+            const ticketId = collaboration[collaborationHeaders.indexOf('ticket_id')];
+            const ticketRow = ticketData.find(row =>
+                row[ticketHeaders.indexOf('id')] === ticketId &&
+                row[ticketHeaders.indexOf('is_active')] === true
+            );
+
+            if (ticketRow) {
+                return {
+                    collaboration_id: collaboration[collaborationHeaders.indexOf('id')],
+                    ticket_id: ticketId,
+                    ticket_number: ticketRow[ticketHeaders.indexOf('ticket_number')],
+                    title: ticketRow[ticketHeaders.indexOf('title')],
+                    status: ticketRow[ticketHeaders.indexOf('status')],
+                    shared_by_user_id: collaboration[collaborationHeaders.indexOf('shared_by_user_id')],
+                    shared_with_user_id: collaboration[collaborationHeaders.indexOf('shared_with_user_id')],
+                    permission_level: collaboration[collaborationHeaders.indexOf('permission_level')],
+                    can_view: collaboration[collaborationHeaders.indexOf('can_view')],
+                    can_comment: collaboration[collaborationHeaders.indexOf('can_comment')],
+                    can_edit: collaboration[collaborationHeaders.indexOf('can_edit')],
+                    can_approve: collaboration[collaborationHeaders.indexOf('can_approve')],
+                    expiration_date: collaboration[collaborationHeaders.indexOf('expiration_date')],
+                    shared_at: collaboration[collaborationHeaders.indexOf('created_at')]
+                };
+            }
+            return null;
+        }).filter(ticket => ticket !== null);
+
+        return createSuccessResponse({
+            shared_tickets: sharedTickets,
+            access_type: accessType,
+            total_count: sharedTickets.length
+        });
+
+    } catch (error) {
+        return createErrorResponse("Failed to get shared tickets: " + error.message);
+    }
+}
+
+/**
+ * =================================================================================
+ * UTILITY FUNCTIONS FOR TAGS AND COLLABORATION
+ * Helper functions for tag and collaboration management
+ * =================================================================================
+ */
+
+/**
+ * Find tag assignment for ticket and tag
+ */
+function findTagAssignment(ticketId, tagId) {
+    try {
+        const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+        const sheet = spreadsheet.getSheetByName(TAG_SHEETS.TICKET_TAG_ASSIGNMENTS);
+
+        if (!sheet) return null;
+
+        const data = sheet.getDataRange().getValues();
+        const headers = data[0];
+
+        const assignmentRow = data.find(row =>
+            row[headers.indexOf('ticket_id')] === ticketId &&
+            row[headers.indexOf('tag_id')] === tagId &&
+            row[headers.indexOf('is_active')] === true
+        );
+
+        if (assignmentRow) {
+            const assignment = {};
+            headers.forEach((header, index) => {
+                assignment[header] = assignmentRow[index];
+            });
+            return assignment;
+        }
+
+        return null;
+    } catch (error) {
+        return null;
+    }
+}
+
+/**
+ * Increment tag usage count
+ */
+function incrementTagUsage(tagId, userId) {
+    try {
+        const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+        const tagSheet = spreadsheet.getSheetByName(TAG_SHEETS.TICKET_TAGS);
+
+        if (!tagSheet) return;
+
+        // Update tag usage count
+        const tagData = tagSheet.getDataRange().getValues();
+        const tagHeaders = tagData[0];
+        const idColumnIndex = tagHeaders.indexOf('id');
+        const usageColumnIndex = tagHeaders.indexOf('usage_count');
+
+        const tagRowIndex = tagData.findIndex(row => row[idColumnIndex] === tagId);
+        if (tagRowIndex !== -1) {
+            const currentCount = tagData[tagRowIndex][usageColumnIndex] || 0;
+            tagSheet.getRange(tagRowIndex + 1, usageColumnIndex + 1).setValue(currentCount + 1);
+        }
+
+    } catch (error) {
+        console.error('Error incrementing tag usage:', error);
+    }
+}
+
+/**
+ * Update ticket tag count
+ */
+function updateTicketTagCount(ticketId) {
+    try {
+        const activeTagsResult = getTicketAssignedTags(ticketId);
+        if (activeTagsResult.status === 'success') {
+            const tagCount = activeTagsResult.data.length;
+
+            const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+            const ticketSheet = spreadsheet.getSheetByName(SHEETS.TICKETS);
+
+            const ticketData = ticketSheet.getDataRange().getValues();
+            const ticketHeaders = ticketData[0];
+            const idColumnIndex = ticketHeaders.indexOf('id');
+            const tagCountIndex = ticketHeaders.indexOf('tag_count');
+
+            const ticketRowIndex = ticketData.findIndex(row => row[idColumnIndex] === ticketId);
+            if (ticketRowIndex !== -1 && tagCountIndex !== -1) {
+                ticketSheet.getRange(ticketRowIndex + 1, tagCountIndex + 1).setValue(tagCount);
+            }
+        }
+    } catch (error) {
+        console.error('Error updating ticket tag count:', error);
+    }
+}
+
+/**
+ * Update ticket collaboration status
+ */
+function updateTicketCollaborationStatus(ticketId) {
+    try {
+        const sharedTicketsResult = getSharedTickets(null, 'all');
+        if (sharedTicketsResult.status === 'success') {
+            const ticketCollaborations = sharedTicketsResult.data.shared_tickets.filter(
+                ticket => ticket.ticket_id === ticketId
+            );
+
+            const collaborationCount = ticketCollaborations.length;
+
+            const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+            const ticketSheet = spreadsheet.getSheetByName(SHEETS.TICKETS);
+
+            const ticketData = ticketSheet.getDataRange().getValues();
+            const ticketHeaders = ticketData[0];
+            const idColumnIndex = ticketHeaders.indexOf('id');
+
+            const ticketRowIndex = ticketData.findIndex(row => row[idColumnIndex] === ticketId);
+            if (ticketRowIndex !== -1) {
+                const isCollaborativeIndex = ticketHeaders.indexOf('is_collaborative');
+                const collaborationCountIndex = ticketHeaders.indexOf('collaboration_count');
+
+                if (isCollaborativeIndex !== -1) {
+                    ticketSheet.getRange(ticketRowIndex + 1, isCollaborativeIndex + 1).setValue(collaborationCount > 0);
+                }
+                if (collaborationCountIndex !== -1) {
+                    ticketSheet.getRange(ticketRowIndex + 1, collaborationCountIndex + 1).setValue(collaborationCount);
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error updating ticket collaboration status:', error);
+    }
+}
+
+/**
+ * Create collaboration notification
+ */
+function createCollaborationNotification(collaborationId, notificationType, recipientUserId, message) {
+    try {
+        const spreadsheet = SpreadsheetApp.openById(SPREADSHEET_ID);
+        const notificationSheet = spreadsheet.getSheetByName(TAG_SHEETS.COLLABORATION_NOTIFICATIONS);
+
+        if (!notificationSheet) return;
+
+        const notificationId = 'collab_notif_' + generateId();
+        const notification = {
+            id: notificationId,
+            collaboration_id: collaborationId,
+            notification_type: notificationType,
+            recipient_user_id: recipientUserId,
+            message: message,
+            is_read: false,
+            read_at: null,
+            is_active: true,
+            created_at: getCurrentTimestamp(),
+            updated_at: getCurrentTimestamp()
+        };
+
+        const headers = notificationSheet.getRange(1, 1, 1, notificationSheet.getLastColumn()).getValues()[0];
+        const newRow = headers.map(header => notification[header] || '');
+        notificationSheet.appendRow(newRow);
+
+    } catch (error) {
+        console.error('Error creating collaboration notification:', error);
+    }
+}
+
+/**
+ * Main API endpoint handler for tags and collaboration
+ * Extends the main doPost function with tag and collaboration endpoints
+ */
+function handleTagsCollaborationAPI(action, data) {
+    try {
+        switch (action) {
+            // Tag management endpoints
+            case 'getTags':
+                return getTicketTags(data.companyId, data.includeGlobal);
+            case 'createTag':
+                return createTicketTag(data);
+            case 'updateTag':
+                return updateTicketTag(data.tagId, data.updateData);
+            case 'deleteTag':
+                return deleteTicketTag(data.tagId, data.userId, data.reason);
+            case 'assignTags':
+                return assignTagsToTicket(data.ticketId, data.tagIds, data.assignedByUserId, data.notes);
+            case 'removeTags':
+                return removeTagsFromTicket(data.ticketId, data.tagIds, data.removedByUserId, data.reason);
+            case 'getTicketTags':
+                return getTicketAssignedTags(data.ticketId);
+            case 'searchTicketsByTags':
+                return searchTicketsByTags(data.tagIds, data.operator, data.companyId);
+
+            // Collaboration endpoints
+            case 'shareTicket':
+                return shareTicket(data.ticketId, data.shareData);
+            case 'getSharedTickets':
+                return getSharedTickets(data.userId, data.accessType);
+
+            default:
+                return createErrorResponse("Unknown action: " + action);
+        }
+    } catch (error) {
+        return createErrorResponse("API Error: " + error.message);
+    }
+}
+
+// =================================================================================
+// END OF PHASE 11.0: TICKET TAGS & COLLABORATION SYSTEM
+// Total functions added: 25
+// Version: 7.0
+// =================================================================================
+
 // DATABASE SCHEMA CHECK - end

@@ -4,6 +4,12 @@
  * Purpose: Analyze current Google Sheets database structure and document schema
  * Usage: Add this function to your APPSCRIPT.txt file and run analyzeCurrentSchema()
  * Output: Updates 'xSchema' sheet with complete database schema documentation
+ *
+ * PHASE 11.0 UPDATE (September 28, 2025):
+ * Added validation for 8 new Ticket Tags & Collaboration System tables:
+ * - ticket_tags, ticket_tag_assignments, tag_categories, tag_usage_statistics
+ * - ticket_collaborations, collaboration_requests, collaboration_notifications
+ * - shared_ticket_access_logs
  * =================================================================================
  */
 
@@ -67,7 +73,16 @@ function analyzeCurrentSchema() {
     'sequence_counters': 'sequence_name|last_number',
     'ticket_action_logs': 'id|ticket_id|user_id|action_type|details|timestamp',
     'admin_action_logs': 'id|admin_user_id|action_type|target_entity|target_id|details|timestamp',
-    'user_preferences': 'id|user_id|dark_mode|timezone|language|email_notifications|desktop_notifications|dashboard_layout|items_per_page|auto_refresh|refresh_interval + audit fields'
+    'user_preferences': 'id|user_id|dark_mode|timezone|language|email_notifications|desktop_notifications|dashboard_layout|items_per_page|auto_refresh|refresh_interval + audit fields',
+    // Phase 11.0: Ticket Tags & Collaboration System (8 new tables)
+    'ticket_tags': 'id|name|color|description|tag_category|parent_tag_id|company_id|is_global|usage_count|created_by_user_id + audit fields',
+    'ticket_tag_assignments': 'id|ticket_id|tag_id|assigned_by_user_id|assignment_reason|confidence_score + audit fields',
+    'tag_categories': 'id|name|description|color|sort_order|company_id|is_global|category_rules + audit fields',
+    'tag_usage_statistics': 'id|tag_id|company_id|usage_count|last_used_at|trending_score|popularity_rank|usage_context + audit fields',
+    'ticket_collaborations': 'id|ticket_id|owner_user_id|shared_with_user_id|access_level|sharing_reason|business_justification|expires_at + audit fields',
+    'collaboration_requests': 'id|ticket_id|requester_user_id|target_user_id|requested_access_level|approval_required|approver_user_id|request_reason|business_justification|approval_status|approved_at|expires_at + audit fields',
+    'collaboration_notifications': 'id|collaboration_id|recipient_user_id|notification_type|message|read_at|action_taken|notification_priority + audit fields',
+    'shared_ticket_access_logs': 'id|collaboration_id|accessing_user_id|access_type|resource_accessed|access_timestamp|ip_address|user_agent|session_id + audit fields'
   };
 
   // Analyze each sheet
@@ -325,7 +340,16 @@ function createMissingSheets() {
     'admin_action_logs',
     'ticket_attachments',
     'report_configurations',
-    'ticket_links'
+    'ticket_links',
+    // Phase 11.0: Ticket Tags & Collaboration System
+    'ticket_tags',
+    'ticket_tag_assignments',
+    'tag_categories',
+    'tag_usage_statistics',
+    'ticket_collaborations',
+    'collaboration_requests',
+    'collaboration_notifications',
+    'shared_ticket_access_logs'
   ];
 
   const created = [];

@@ -1,7 +1,7 @@
 # JarvisByERP Dependency Mapping
 
-**Date**: September 27, 2025 - 🚀 **UNIVERSAL ENTITY SYSTEM UPDATE**
-**Purpose**: Map all component dependencies, imports, and exports to prevent circular dependencies and ensure proper architecture with revolutionary user/role system integration
+**Date**: September 28, 2025 - 🏷️ **TICKET TAGS & COLLABORATION SYSTEM UPDATE**
+**Purpose**: Map all component dependencies, imports, and exports to prevent circular dependencies and ensure proper architecture with ticket tags and collaboration system integration
 
 ### **🔬 PROOF OF CONCEPT BACKEND ARCHITECTURE**
 **Database**: Google Sheets + Apps Script Web App (15+ normalized tables)
@@ -19,9 +19,10 @@
 ├─────────────────────────────────────────────────────────────┤
 │                     Application Layer                       │
 ├─────────────────────────────────────────────────────────────┤
-│  Pages (5) → Components (19) → Shared Components (9)       │
+│  Pages (5) → Components (23) → Shared Components (11)      │
 │  🔄 ENHANCED: AdminPage + tabs for entity types            │
 │  🔄 ENHANCED: AdminCustomFieldBuilder + entityCategory     │
+│  🏷️ NEW: Tag components + collaboration system             │
 ├─────────────────────────────────────────────────────────────┤
 │                     Business Logic Layer                    │
 ├─────────────────────────────────────────────────────────────┤
@@ -153,6 +154,10 @@ Instead of creating new components, existing components are enhanced with:
 - `ErrorBoundary.js` → Error handling
 - `LiveClock.js` → Philippine time display
 
+#### Phase 11.0 Tag & Collaboration Components:
+- `TagInput.js` → ✅ Advanced tag input with autocomplete and smart features
+- `TagSearchFilter.js` → ✅ Multi-tag filtering with AND/OR/NOT operators
+
 ### **7. Feature Components Layer**
 
 #### Admin Components (8) ✅ PHASE 8.5 COMPLETE
@@ -162,16 +167,19 @@ Instead of creating new components, existing components are enhanced with:
 - **Export**: React components for complete admin functionality
 - **Status**: ✅ All admin management components implemented
 
-#### Ticket Components (4) ✅ AUDITED
-- **Dependencies**: useAPI hooks, workflow utils, shared components
-- **Export**: Core ticketing functionality
-- **Issues Found**: 8 non-existent icon references across all 4 components
-- **Fixes Applied**:
-  - `TicketDashboard.js`: 1 Icons.Loading → CSS spinner
-  - `TicketDetail.js`: 2 Icons.Loading → CSS spinners
-  - `TicketForm.js`: 1 Icons.Loading → CSS spinner
-  - `WorkflowStep.js`: 4 icon fixes (Loading, CheckCircle, XCircle, Return)
-- **Status**: ✅ All issues resolved
+#### Ticket Components (6) ✅ AUDITED + PHASE 11.0 ENHANCED
+- **Core Components (4)**:
+  - `TicketDashboard.js`: Advanced ticket list with filtering
+  - `TicketDetail.js`: Complete ticket view with workflow
+  - `TicketForm.js`: Dynamic ticket creation/editing
+  - `WorkflowStep.js`: Workflow step management UI
+- **Phase 11.0 Components (2)**:
+  - `TicketTagManager.js` ✅ Tag management interface for ticket details
+  - `TicketCollaborationManager.js` ✅ Secure sharing workflow interface
+- **Dependencies**: useAPI hooks, workflow utils, shared components, tag components
+- **Export**: Core ticketing functionality + tag/collaboration features
+- **Previous Issues Fixed**: 8 non-existent icon references resolved across core components
+- **Status**: ✅ Core components audited, Phase 11.0 components coded and ready
 
 #### Page Components (4) ✅ AUDITED
 - **Dependencies**: All lower layers (contexts, hooks, components, utils)
@@ -285,6 +293,150 @@ Config
 - Same API functions handle all entities
 - Same validation and UI logic reused
 
+## 🏷️ PHASE 11.0 TICKET TAGS & COLLABORATION DEPENDENCIES (September 28, 2025)
+
+### **📋 NEW COMPONENT DEPENDENCY ANALYSIS**
+
+#### **TagInput.js (Shared Component)**
+- **Dependencies**:
+  - React hooks: `useState`, `useEffect`, `useCallback`, `useRef`
+  - Shared components: `Icons`
+  - API hooks: `useTicketTags()`, `useTagCategories()`
+  - Utils: Tag validation, autocomplete logic
+- **Exports**: `TagInput` component with advanced autocomplete
+- **Used by**: TicketForm, TicketTagManager, tag-enabled forms
+- **Features**: Smart suggestions, hierarchy support, validation
+- **Status**: ✅ Coded and ready for integration
+
+#### **TagSearchFilter.js (Shared Component)**
+- **Dependencies**:
+  - React hooks: `useState`, `useEffect`, `useCallback`
+  - Shared components: `Icons`, `Toast`
+  - API hooks: `useTicketTags()`, `useTagSearch()`
+  - Utils: Query builder logic, filter operators
+- **Exports**: `TagSearchFilter` component with visual query builder
+- **Used by**: TicketDashboard, search interfaces, reporting components
+- **Features**: AND/OR/NOT operators, saved filters, visual query building
+- **Status**: ✅ Coded and ready for integration
+
+#### **TicketTagManager.js (Ticket Component)**
+- **Dependencies**:
+  - React hooks: `useState`, `useEffect`, `useCallback`
+  - Shared components: `TagInput`, `Icons`, `Toast`
+  - API hooks: `useTicketTags()`, `useTagAssignments()`, `useTagStatistics()`
+  - Utils: Tag assignment logic, permission validation
+- **Exports**: `TicketTagManager` component for ticket detail integration
+- **Used by**: TicketDetail page, ticket management interfaces
+- **Features**: Tag assignment, hierarchy management, usage analytics
+- **Status**: ✅ Coded and ready for integration
+
+#### **TicketCollaborationManager.js (Ticket Component)**
+- **Dependencies**:
+  - React hooks: `useState`, `useEffect`, `useCallback`
+  - Shared components: `Icons`, `Toast`, `ActionCommentModal`
+  - API hooks: `useCollaborations()`, `useCollaborationRequests()`, `useUsers()`
+  - Utils: Permission validation, notification logic, security checks
+- **Exports**: `TicketCollaborationManager` component for secure sharing
+- **Used by**: TicketDetail page, collaboration interfaces
+- **Features**: Share requests, permission levels, access control, audit trail
+- **Status**: ✅ Coded and ready for integration
+
+### **🔗 API INTEGRATION DEPENDENCIES**
+
+#### **Enhanced API Hooks (Phase 11.0 Extensions)**
+- **New Hooks Required**:
+  - `useTicketTags(filters)` - Tag management with hierarchy
+  - `useTagCategories()` - Tag organization system
+  - `useTagAssignments(ticketId)` - Ticket-tag relationships
+  - `useTagStatistics()` - Usage analytics and trending
+  - `useCollaborations(ticketId)` - Ticket sharing management
+  - `useCollaborationRequests()` - Share request workflow
+  - `useTagSearch(query)` - Advanced tag-based search
+- **Dependencies**: Enhanced googleSheet.js API with tag/collaboration endpoints
+- **Status**: 🟡 Design complete, API integration pending
+
+#### **Enhanced Backend Functions (25+ Functions)**
+- **Tag Management Functions** (8):
+  - `createTicketTag()`, `updateTicketTag()`, `deleteTicketTag()`
+  - `getTagHierarchy()`, `getTagStatistics()`, `validateTagPermissions()`
+  - `assignTagToTicket()`, `unassignTagFromTicket()`
+- **Collaboration Functions** (12):
+  - `createCollaborationRequest()`, `approveCollaborationRequest()`
+  - `shareTicketWithUser()`, `revokeTicketAccess()`
+  - `getSharedTickets()`, `getCollaborationHistory()`
+  - `validateCollaborationPermissions()`, etc.
+- **Search & Analytics Functions** (8):
+  - `searchTicketsByTags()`, `getTagUsageStatistics()`
+  - `getCollaborationAnalytics()`, `generateTagReports()`
+- **Status**: 🟡 All functions designed in TICKET_TAGS_COLLABORATION_APPSCRIPT.txt
+
+### **📊 DATABASE SCHEMA DEPENDENCIES**
+
+#### **New Tables Required (8 Tables)**
+- **ticket_tags**: Tag definitions with hierarchy and categories
+- **ticket_tag_assignments**: Tag-to-ticket relationships
+- **tag_categories**: Tag organization system
+- **tag_usage_statistics**: Analytics and trending data
+- **ticket_collaborations**: Sharing configuration
+- **collaboration_requests**: Share request workflow
+- **collaboration_notifications**: Real-time notifications
+- **shared_ticket_access_logs**: Comprehensive audit trail
+
+#### **Schema Integration Requirements**
+- **Column Structure**: All tables use | delimited columns format
+- **Audit Fields**: Complete audit trail (created_at, created_by, updated_at, updated_by, etc.)
+- **Security Fields**: Permission levels, access control, deactivation tracking
+- **Status**: ✅ Complete schema documented in DATABASE_SCHEMA_UPDATES.txt
+
+### **🔄 COMPONENT INTEGRATION FLOW**
+
+#### **Phase 11.0 Component Integration Chain**
+```
+TicketDetail.js
+    ↓ imports and uses
+TicketTagManager.js + TicketCollaborationManager.js
+    ↓ both import and use
+TagInput.js + TagSearchFilter.js
+    ↓ all components use
+Enhanced API Hooks (useTicketTags, useCollaborations, etc.)
+    ↓ hooks call
+Enhanced googleSheet.js API functions
+    ↓ API functions interact with
+8 New Database Tables in Google Sheets
+```
+
+#### **Dependency Safety Analysis**
+- **No Circular Dependencies**: Tag components are lower-level than ticket components
+- **Clear Layer Separation**: Shared components → Ticket components → Pages
+- **API Isolation**: All backend integration through hooks layer
+- **Error Boundaries**: Each component handles errors independently
+- **Status**: ✅ Architecture follows established dependency patterns
+
+### **📋 INTEGRATION CHECKLIST**
+
+#### **Backend Integration Requirements**
+- [ ] **Integrate 25+ functions** from TICKET_TAGS_COLLABORATION_APPSCRIPT.txt into main APPSCRIPT.txt
+- [ ] **Create 8 new database tables** in Google Sheets with proper column structure
+- [ ] **Test API endpoints** with actual frontend payload structures
+- [ ] **Verify permission system** integration with existing RBAC
+
+#### **Frontend Integration Requirements**
+- [ ] **Add API hooks** to useAPI.js for tag and collaboration operations
+- [ ] **Integrate TagInput** into TicketForm for tag assignment during creation
+- [ ] **Integrate TicketTagManager** into TicketDetail for post-creation tag management
+- [ ] **Integrate TicketCollaborationManager** into TicketDetail for sharing workflow
+- [ ] **Add TagSearchFilter** to TicketDashboard for advanced filtering
+
+#### **Testing Requirements**
+- [ ] **Component Testing**: Verify all 4 components render and function correctly
+- [ ] **Integration Testing**: Test complete tag assignment and collaboration workflow
+- [ ] **API Testing**: Verify all backend functions work with frontend components
+- [ ] **Security Testing**: Validate permission controls and access restrictions
+
+**Status**: 🟡 **DESIGN COMPLETE, INTEGRATION PENDING** - All components coded, dependencies mapped, ready for backend integration
+
+---
+
 ## 🛡️ ARCHITECTURAL SAFEGUARDS (September 25, 2025)
 
 **Based on dropdown creation analysis - See DROPDOWN_CREATION_ISSUE_DEBRIEF.md**
@@ -395,7 +547,7 @@ const handleSubmit = async (formData) => {
 
 ## Completed Architecture Analysis
 
-✅ **All 45 files audited and dependency mapped** (43 original + 2 Phase 8.5 components)
+✅ **All 49 files audited and dependency mapped** (43 original + 2 Phase 8.5 components + 4 Phase 11.0 components)
 
 ### Next Optimization Steps
 
@@ -444,6 +596,6 @@ npm install eslint-plugin-import
 
 ---
 
-**Status**: ✅ COMPLETE - Full dependency mapping with architectural safeguards integrated
-**Last Updated**: September 25, 2025 - Added architectural safeguards from dropdown analysis
-**Next Update**: Integrated into development plan documentation
+**Status**: ✅ COMPLETE - Full dependency mapping with Phase 11.0 tag & collaboration system integration
+**Last Updated**: September 28, 2025 - Added Phase 11.0 component dependencies and integration requirements
+**Next Update**: Backend integration and testing documentation
