@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import DEV_CONFIG from '../../config/development';
 import Icons from './Icons';
+import SheetsQuotaMonitor from './SheetsQuotaMonitor';
 
 const DevPanel = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -35,6 +36,12 @@ const DevPanel = () => {
           </div>
 
           <div className="space-y-3">
+            {/* Sheets Quota Monitor */}
+            <div>
+              <h4 className="text-xs font-medium text-gray-700 mb-1">Sheets Quota</h4>
+              <SheetsQuotaMonitor minimized={false} />
+            </div>
+
             {/* Environment Info */}
             <div>
               <h4 className="text-xs font-medium text-gray-700 mb-1">Environment</h4>

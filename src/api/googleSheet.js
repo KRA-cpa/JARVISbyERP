@@ -6,6 +6,7 @@
 
 import { ValidationUtils } from './models';
 import { apiConfig } from '../config/apiConfig';
+import { quotaTracker } from '../utils/sheetsQuotaTracker';
 
 // API Configuration - Reduced retries to prevent resource exhaustion
 const CONFIG = {
@@ -159,6 +160,7 @@ class HTTPClient {
 
       // Debug logging moved to after URL construction
 
+      quotaTracker.recordCallStart();
       let lastError;
       for (let attempt = 1; attempt <= CONFIG.MAX_RETRIES; attempt++) {
         try {
@@ -196,6 +198,7 @@ class HTTPClient {
             }
           }
 
+          quotaTracker.recordCallEnd();
           return data;
         } catch (error) {
           lastError = error;
@@ -203,10 +206,12 @@ class HTTPClient {
             await new Promise(resolve => setTimeout(resolve, CONFIG.RETRY_DELAY * attempt));
             continue;
           }
+          quotaTracker.recordCallEnd();
           throw error;
         }
       }
 
+      quotaTracker.recordCallEnd();
       throw lastError;
       });
     });
