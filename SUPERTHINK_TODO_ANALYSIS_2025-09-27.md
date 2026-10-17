@@ -837,11 +837,20 @@ Phase 5 (SLA) → Phase 6 (Admin) → Phase 7 (Firebase) + Phase 8 (Testing)
 
 ## 📋 NEXT IMMEDIATE TODOS (November 27, 2025)
 
-### **Priority 1: Deployment (Est. 15 min)**
-1. Deploy updated APPSCRIPT.txt to Google Apps Script
+### **Priority 1: Deployment (Est. 15 min)** — ✅ v8.0 deployed by user (October 17, 2026)
+1. ✅ Deploy updated APPSCRIPT.txt to Google Apps Script
 2. Execute `completeUserManagementSetup()` function
 3. Verify 3 new tables created (user_profile_types, role_types, user_profiles)
 4. Verify entity_category columns added to custom_fields and custom_field_values
+
+### **Priority 1.1: Schema Rebuild — AppScript v8.1 (October 17, 2026)** 🔄 CODE READY
+- File: `appscript_files/APPSCRIPT_v8.1_20261017_1409.txt` (new timestamped-file convention; APPSCRIPT.txt frozen at v8.0)
+- `TABLE_SCHEMAS`: authoritative headers for all 33 tables (verified: coverage 33/33, 12 positional writers aligned)
+- `rebuildAllTables()` (dry run) / `rebuildAllTablesApply()`: safe repair — creates missing tabs, backs up + re-maps drifted tabs
+- [ ] Implement `resolveColumnMapping()` (column-mapping policy — user contribution)
+- [ ] Paste v8.1 into Apps Script → run dry run → review Logger → apply → `analyzeCurrentSchema()`
+- [ ] Follow-up: `createCustomFieldValue()` (not routed) writes positional values without entity_category — convert to header-driven or remove
+- ✅ Priority 2 frontend components already exist (AdminUserProfileTypeList/AdminRoleTypeList + AdminPage tabs); remaining wiring bugs: `/admin/user-profile-types/create` route renders AdminCustomFieldCreatePage, `?tab=` ignored by AdminPage, `/:id/edit` routes missing
 
 ### **Priority 2: Frontend Components (Est. 2-3 hours)**
 1. Create `AdminUserProfileTypeList.js` component

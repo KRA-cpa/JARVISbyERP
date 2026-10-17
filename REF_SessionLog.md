@@ -37,6 +37,8 @@ REVISION HISTORY:
 |---|---|---|---|---|
 | 2b1ab64c | 17 Oct 2026 | Meta / Repo check (backup overdue, password in unpushed commits, uncommitted Phase 10.0 work) + session log setup copied from HolmesWatson | CLOSED — 3 items carry forward (see Pending below) | `REF_SessionLog.md`; Claude.md v3.4 (🗓️ SESSION LOG); `.claude/settings.local.json` SessionStart hook (now gitignored); memory/feedback_session_log_workflow.md; backup-20261017-135150.enc; commits 60fc8e5..6a70fe6; plan `~/.claude/plans/check-repo-refactored-shore.md` |
 
+| e9025b24 | 17 Oct 2026 | AppScript Backend / v8.1 timestamped file + `rebuildAllTables()` safe schema repair (all 33 tables) | OPEN — pending: user implements `resolveColumnMapping()`, runs guide in Apps Script | `appscript_files/APPSCRIPT_v8.1_20261017_1409.txt`; `appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md`; `docs/planning/PLAN_RepoReorg_20261017.md` (awaiting D1–D5); memory/feedback_appscript_timestamped_files.md; plan `~/.claude/plans/select-one-high-impact-vast-shamir.md` |
+
 ### Pending — 2b1ab64c (17 Oct 2026)
 
 1. **Push `main3`** — 4 commits ahead of `origin/main3` (60fc8e5..6a70fe6 + session-log close-out); verified password-free (tree + messages). Awaiting user OK.

@@ -28,6 +28,20 @@
 
 ---
 
+## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1)
+
+`TABLE_SCHEMAS` in `appscript_files/APPSCRIPT_v8.1_20261017_1409.txt` is now the single source of truth
+for the headers of all 33 tables (25 in SHEETS + 8 in TAG_SHEETS). Where this document and the code
+disagree, the code's positional writers win (e.g. roles = 5 columns as written by createRole(), not 11).
+
+- **Dry run**: run `rebuildAllTables()` in the Apps Script editor → Logger shows created / ok / repaired per table
+- **Apply**: run `rebuildAllTablesApply()` → missing tabs created; drifted tabs backed up to
+  `_bak_<table>_<yyyyMMdd_HHmmss>` and their rows re-mapped by header name (no data loss)
+- **Verify**: run `analyzeCurrentSchema()` → xSchema tab
+- Ordering rule: a positional writer's order first, then the existing init order, then new columns appended
+
+---
+
 ## 🚨 CRITICAL MIGRATION NOTICE (September 24, 2025)
 
 ### ROOT CAUSE IDENTIFIED: Schema/Data Mismatch
