@@ -212,10 +212,10 @@ Get-ScheduledTaskInfo -TaskName "ClaudeConversationBackup_[RepoName]"
 | Document | Purpose |
 |----------|---------|
 | `CLAUDE.md` | Project-specific instructions (includes backup monitoring) |
-| `CLAUDE_BACKUP_SETUP.md` | Portable setup guide (copy to any repo) |
-| `SETUP_AUTOMATED_BACKUPS.md` | Windows scheduled task setup |
+| `docs/backups/CLAUDE_BACKUP_SETUP.md` | Portable setup guide (copy to any repo) |
+| `docs/backups/SETUP_AUTOMATED_BACKUPS.md` | Windows scheduled task setup |
 | `CAPTURE_CURRENT_SESSION.md` | How to save current open session |
-| `QUICK_REFERENCE_BACKUPS.md` | This file (quick commands) |
+| `docs/backups/QUICK_REFERENCE_BACKUPS.md` | This file (quick commands) |
 
 ---
 
@@ -313,7 +313,7 @@ EOF
 
 **If something doesn't work:**
 1. Check this quick reference
-2. Read detailed docs: `CLAUDE_BACKUP_SETUP.md`
+2. Read detailed docs: `docs/backups/CLAUDE_BACKUP_SETUP.md`
 3. Test manually: `./scripts/backup-conversations.sh`
 4. Check logs: Task Scheduler event log
 

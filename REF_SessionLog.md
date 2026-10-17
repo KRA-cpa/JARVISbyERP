@@ -2,12 +2,13 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: REF_SessionLog.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: REF_SessionLog.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 17 October 2026 UTC+8 (Philippine Standard Time) | Modified: 17 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Track open/unfinished Claude Code sessions; subproject map; session logging rules and enforcement instructions | Status: Active
 
 REVISION HISTORY:
 - v1.0.0 | 17 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial creation — copied from HolmesWatson REF_SessionLog.md v1.0.0 setup (session log, subproject map, rules, enforcement)
+- v1.1.0 | 17 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §1 Subproject Map paths updated for repo reorg (docs/ folders, appscript_versions/ merged into appscript_files/archive/)
 ===============================================================================
 -->
 
@@ -22,11 +23,11 @@ REVISION HISTORY:
 
 | Subproject | Root Folder | Key Docs |
 |---|---|---|
-| Frontend | `src/`, `public/` | `DEVELOPMENT_PLAN.md`, `DEPENDENCY_MAPPING.md`, `REACT_ERROR_130_PREVENTION_GUIDE.md` |
-| AppScript Backend | `appscript_files/`, `appscript_versions/` | `appscript_files/APPSCRIPT.txt`, `APPSCRIPT_VERSION_EVOLUTION_ANALYSIS.md`, `DATABASE_SCHEMA_UPDATES.txt` |
-| API | `api/` | `PRODUCTION_REQUIREMENTS.md` (API testing), `RESOLUTION_CHECKLIST.md` |
-| Docs / Planning | `/` (root) | `Claude.md`, `SUPERTHINK_TODO_ANALYSIS_2025-09-27.md`, `CURRENT_TODO_*.md`, `USER_MANAGEMENT_FEATURE_PLAN.md`, `UNIVERSAL_ENTITY_ARCHITECTURE.md` |
-| Backup System | `scripts/`, `.claude/conversation-backups/` | `CLAUDE_BACKUP_SETUP.md`, `QUICK_REFERENCE_BACKUPS.md` |
+| Frontend | `src/`, `public/` | `docs/reference/DEVELOPMENT_PLAN.md`, `docs/reference/DEPENDENCY_MAPPING.md`, `docs/reference/REACT_ERROR_130_PREVENTION_GUIDE.md` |
+| AppScript Backend | `appscript_files/` (old versions in `appscript_files/archive/`) | `appscript_files/APPSCRIPT.txt`, `docs/archive/2025-09/APPSCRIPT_VERSION_EVOLUTION_ANALYSIS.md`, `docs/reference/DATABASE_SCHEMA_UPDATES.txt` |
+| API | `api/` | `docs/reference/PRODUCTION_REQUIREMENTS.md` (API testing), `docs/reference/RESOLUTION_CHECKLIST.md` |
+| Docs / Planning | `docs/` (+ root `Claude.md`) | `Claude.md`, `docs/planning/SUPERTHINK_TODO_ANALYSIS_2025-09-27.md`, `docs/planning/CURRENT_TODO_2025-11-27.md`, `docs/reference/USER_MANAGEMENT_FEATURE_PLAN.md`, `docs/reference/UNIVERSAL_ENTITY_ARCHITECTURE.md` |
+| Backup System | `scripts/`, `.claude/conversation-backups/` | `docs/backups/CLAUDE_BACKUP_SETUP.md`, `docs/backups/QUICK_REFERENCE_BACKUPS.md` |
 | Meta | — | Claude Code setup, repo hygiene, git |
 
 ---
@@ -36,8 +37,7 @@ REVISION HISTORY:
 | Session ID | Date | Subproject / Topic | Status | Output File |
 |---|---|---|---|---|
 | 2b1ab64c | 17 Oct 2026 | Meta / Repo check (backup overdue, password in unpushed commits, uncommitted Phase 10.0 work) + session log setup copied from HolmesWatson | CLOSED — 3 items carry forward (see Pending below) | `REF_SessionLog.md`; Claude.md v3.4 (🗓️ SESSION LOG); `.claude/settings.local.json` SessionStart hook (now gitignored); memory/feedback_session_log_workflow.md; backup-20261017-135150.enc; commits 60fc8e5..6a70fe6; plan `~/.claude/plans/check-repo-refactored-shore.md` |
-
-| e9025b24 | 17 Oct 2026 | AppScript Backend / v8.1 timestamped file + `rebuildAllTables()` safe schema repair (all 33 tables) | OPEN — pending: user implements `resolveColumnMapping()`, runs guide in Apps Script | `appscript_files/APPSCRIPT_v8.1_20261017_1409.txt`; `appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md`; `docs/planning/PLAN_RepoReorg_20261017.md` (awaiting D1–D5); memory/feedback_appscript_timestamped_files.md; plan `~/.claude/plans/select-one-high-impact-vast-shamir.md` |
+| e9025b24 | 17 Oct 2026 | AppScript Backend / v8.1 timestamped file + `rebuildAllTables()` safe schema repair (all 33 tables); Meta / repo reorg into `docs/` | OPEN — pending: user implements `resolveColumnMapping()`, runs guide in Apps Script | `appscript_files/APPSCRIPT_v8.1_20261017_1409.txt`; `appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md`; `docs/planning/PLAN_RepoReorg_20261017.md` (D1–D5 = recommended, executed on `chore/repo-reorg`); `docs/planning/REORG_MANIFEST.tsv`; `scripts/reorg-move.sh`, `scripts/reorg-relink.js`; Claude.md v3.5 (📁 REPO LAYOUT); memory/feedback_appscript_timestamped_files.md; plan `~/.claude/plans/select-one-high-impact-vast-shamir.md` |
 
 ### Pending — 2b1ab64c (17 Oct 2026)
 

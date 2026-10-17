@@ -267,7 +267,7 @@ Z:\Work Files\Megaworld\SQL\.claude\conversation-backups\backup-password.txt
 
 To set up in a different repository:
 
-1. Copy `CLAUDE_BACKUP_SETUP.md` to new repo
+1. Copy `docs/backups/CLAUDE_BACKUP_SETUP.md` to new repo
 2. Follow Quick Start guide
 3. Run `setup-scheduled-backup.ps1` with new repo path
 4. Done!

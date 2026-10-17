@@ -521,7 +521,7 @@ ln -s "$(pwd)/.claude/conversation-backups/encrypted" \
 
 ### Quick Setup for New Repo
 
-1. **Copy this file** (`CLAUDE_BACKUP_SETUP.md`) to new repo
+1. **Copy this file** (`docs/backups/CLAUDE_BACKUP_SETUP.md`) to new repo
 2. **Run Quick Start steps** (1-7 above)
 3. **Update scheduled task path** (if using scheduled backups)
 4. **Test backup:** `./scripts/backup-conversations.sh`

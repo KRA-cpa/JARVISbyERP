@@ -4,7 +4,7 @@ JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
 Document: PLAN_RepoReorg_20261017.md | Author: Kenneth R. Advento | Version: 1.0.0
 Created: 17 October 2026 UTC+8 (Philippine Standard Time) | Modified: 17 October 2026 UTC+8 (Philippine Standard Time)
-Purpose: Plan to reorganize repo docs and AppScript files into a clear folder structure without breaking references | Status: Draft — awaiting decisions D1–D5
+Purpose: Plan to reorganize repo docs and AppScript files into a clear folder structure without breaking references | Status: Executed 17 Oct 2026 — D1–D5 = recommended (branch chore/repo-reorg)
 
 REVISION HISTORY:
 - v1.0.0 | 17 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial plan (inventory, target layout, manifest, steps, verification)

@@ -1,49 +1,67 @@
 ## **Ticketing & Workflow Orchestration System: Functional Specifications**
 
 A. DO NOT FORGET to Read first md/txt/or any file before you update.
-B. Consult SUPERTHINK_TODO_ANALYSIS_2025-09-27.md on current/completed to do.
+B. Consult `docs/planning/SUPERTHINK_TODO_ANALYSIS_2025-09-27.md` on current/completed to do.
 C. Log every session in `REF_SessionLog.md` (see 🗓️ SESSION LOG below).
+D. New docs go in the matching `docs/` folder (see 📁 REPO LAYOUT below) — never the repo root.
 
-**Version:** 3.4 **Date:** October 17, 2026 - 🗓️ **SESSION LOG SETUP**
+**Version:** 3.5 **Date:** October 17, 2026 - 📁 **REPO REORG** (docs moved to `docs/`; v3.4 = session log setup)
+
+### **📁 REPO LAYOUT**
+
+| Folder | Contents |
+|---|---|
+| `/` (root) | `Claude.md`, `README.md`, `Gemini.md`, `REF_SessionLog.md`, configs only |
+| `docs/reference/` | Mandatory references below + `docs/reference/DATABASE_SCHEMA_UPDATES.txt` |
+| `docs/guides/` | How-to, setup and testing guides |
+| `docs/design/` | Feature designs and system analyses |
+| `docs/planning/` | Active TODOs and plans |
+| `docs/backups/` | Conversation backup system docs |
+| `docs/archive/2025-09/` | Finished audits, debriefs, superseded plans (frozen — links not maintained) |
+| `appscript_files/` | Latest `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt`, frozen `APPSCRIPT.txt` (v8.0), deploy guide, API/implementation/audit docs |
+| `appscript_files/tools/` | Local AppScript server, API test scripts, Apps Script test/analyzer snippets |
+| `appscript_files/archive/` | `versions/` (old AppScript copies) and `troubleshooting/` (Sept 2025 debug notes) |
+
+Reorg record: `docs/planning/PLAN_RepoReorg_20261017.md` + `docs/planning/REORG_MANIFEST.tsv` (old → new paths). Check links with `node scripts/reorg-relink.js --check`.
 
 ### **🔗 MANDATORY DEVELOPMENT REFERENCES**
 
 **BEFORE ANY DEVELOPMENT WORK, CONSULT THESE REQUIRED DOCUMENTS:**
 
-1. **`PRODUCTION_REQUIREMENTS.md`** - 🚨 **CRITICAL MANDATORY REFERENCE**
+1. **`docs/reference/PRODUCTION_REQUIREMENTS.md`** - 🚨 **CRITICAL MANDATORY REFERENCE**
    - Node.js, npm, and runtime environment requirements
    - Complete dependency list with versions and compatibility matrix
    - CSS framework configuration and build requirements
    - Google Sheets + Apps Script proof of concept database documentation
    - Mandatory update clause for design requirement changes
 
-2. **`DEVELOPMENT_PLAN.md`** - ⚠️ **MANDATORY REFERENCE**
+2. **`docs/reference/DEVELOPMENT_PLAN.md`** - ⚠️ **MANDATORY REFERENCE**
    - Complete 45-file architecture with current file structure
    - React hooks documentation and usage patterns
    - 7-layer dependency hierarchy and import rules
    - Code quality standards and best practices
    - Phase completion status and technical requirements
 
-3. **`DEPENDENCY_MAPPING.md`** - ⚠️ **MANDATORY REFERENCE**
+3. **`docs/reference/DEPENDENCY_MAPPING.md`** - ⚠️ **MANDATORY REFERENCE**
    - Component dependency relationships and architecture
    - Import/export rules for circular dependency prevention
    - Layered architecture validation guidelines
    - Component categorization and interaction patterns
 
-4. **`SUPERTHINK_AUDIT.md`** - ⚠️ **MANDATORY REFERENCE**
+4. **`docs/reference/SUPERTHINK_AUDIT.md`** - ⚠️ **MANDATORY REFERENCE**
    - File-by-file audit results and quality metrics
    - React hooks compliance and validation status
    - Compilation error fixes and icon reference corrections
    - ESLint compliance and code quality standards
 
-5. **`SLA_IMPLEMENTATION.md`** - ⚠️ **MANDATORY REFERENCE**
+5. **`docs/reference/SLA_IMPLEMENTATION.md`** - ⚠️ **MANDATORY REFERENCE**
    - Complete SLA calculator implementation documentation
    - Business rules for Philippine timezone and SLA calculations
    - API integration points and component requirements
    - Phase-by-phase implementation tracking and status
 
-6. **`DATABASE_SCHEMA_UPDATES.txt`** - ⚠️ **MANDATORY REFERENCE**
-   - **File Location**: `./DATABASE_SCHEMA_UPDATES.txt` (project root)
+6. **`docs/reference/DATABASE_SCHEMA_UPDATES.txt`** - ⚠️ **MANDATORY REFERENCE**
+   - **File Location**: `./docs/reference/DATABASE_SCHEMA_UPDATES.txt`
    - Complete database schema documentation and updates
    - Google Sheets table structure definitions
    - Schema migration and update tracking
@@ -58,22 +76,22 @@ C. Log every session in `REF_SessionLog.md` (see 🗓️ SESSION LOG below).
    - All API functions and database operations
    - Backend deployment and configuration code
 
-8. **`RESOLUTION_CHECKLIST.md`** - 🚨 **CRITICAL MANDATORY REFERENCE FOR ALL ERROR RESOLUTION**
-   - **File Location**: `./RESOLUTION_CHECKLIST.md`
+8. **`docs/reference/RESOLUTION_CHECKLIST.md`** - 🚨 **CRITICAL MANDATORY REFERENCE FOR ALL ERROR RESOLUTION**
+   - **File Location**: `./docs/reference/RESOLUTION_CHECKLIST.md`
    - Fundamental Resolution Rule with domain-specific checks
    - Comprehensive Frontend (8 checks), API (7 checks), AppScript (9 checks), Schema (6 checks)
    - Must be consulted before any error resolution attempt
    - Working pattern reference library for each domain
 
-9. **`USER_MANAGEMENT_FEATURE_PLAN.md`** - 🚀 **NEW REVOLUTIONARY MANDATORY REFERENCE**
-   - **File Location**: `./USER_MANAGEMENT_FEATURE_PLAN.md`
+9. **`docs/reference/USER_MANAGEMENT_FEATURE_PLAN.md`** - 🚀 **NEW REVOLUTIONARY MANDATORY REFERENCE**
+   - **File Location**: `./docs/reference/USER_MANAGEMENT_FEATURE_PLAN.md`
    - Revolutionary user/role system with universal custom fields
    - User profile types, role types, and unified dropdown system
    - Date-based role assignments and immediate approver relationships
    - Complete implementation specifications for Phase 10.0
 
-10. **`UNIVERSAL_ENTITY_ARCHITECTURE.md`** - 🚨 **CRITICAL MANDATORY REFERENCE FOR ALL ENTITY WORK**
-   - **File Location**: `./UNIVERSAL_ENTITY_ARCHITECTURE.md`
+10. **`docs/reference/UNIVERSAL_ENTITY_ARCHITECTURE.md`** - 🚨 **CRITICAL MANDATORY REFERENCE FOR ALL ENTITY WORK**
+   - **File Location**: `./docs/reference/UNIVERSAL_ENTITY_ARCHITECTURE.md`
    - Defines universal entity concept treating tickets, user profiles, and roles uniformly
    - Same custom fields infrastructure reused across all entity types
    - Required reading before any component, API, or schema work involving entities
@@ -82,15 +100,15 @@ C. Log every session in `REF_SessionLog.md` (see 🗓️ SESSION LOG below).
 **⚠️ CRITICAL DEVELOPMENT RULES:**
 - **NO COMPONENT CREATION** without consulting dependency mapping
 - **NO HOOK MODIFICATIONS** without reviewing audit documentation
-- **NO DEPENDENCY CHANGES** without updating PRODUCTION_REQUIREMENTS.md first
+- **NO DEPENDENCY CHANGES** without updating `docs/reference/PRODUCTION_REQUIREMENTS.md` first
 - **ALL IMPORTS** must follow 7-layer dependency hierarchy
-- **VERIFY FILE STRUCTURE** against current 45-file inventory in DEVELOPMENT_PLAN.md
-- **PREVENT REACT ERROR #130** by following `REACT_ERROR_130_PREVENTION_GUIDE.md`
+- **VERIFY FILE STRUCTURE** against current 45-file inventory in `docs/reference/DEVELOPMENT_PLAN.md`
+- **PREVENT REACT ERROR #130** by following `docs/reference/REACT_ERROR_130_PREVENTION_GUIDE.md`
 - **VERIFY ROUTES** exist in App.js before implementing navigation
 - **TEST COMPILATION** with `npm run build` before committing changes
 - **🚀 NEW: UNIVERSAL ENTITY RULES** - All entity types (tickets, users, roles) must use unified custom field patterns
-- **🚀 NEW: USER/ROLE INTEGRATION** - Follow USER_MANAGEMENT_FEATURE_PLAN.md for all user/role implementations
-- **🚨 MANDATORY: UNIVERSAL ENTITY ARCHITECTURE** - Must consult UNIVERSAL_ENTITY_ARCHITECTURE.md before any entity-related work
+- **🚀 NEW: USER/ROLE INTEGRATION** - Follow `docs/reference/USER_MANAGEMENT_FEATURE_PLAN.md` for all user/role implementations
+- **🚨 MANDATORY: UNIVERSAL ENTITY ARCHITECTURE** - Must consult `docs/reference/UNIVERSAL_ENTITY_ARCHITECTURE.md` before any entity-related work
 
 ### **🤖 CLAUDE CONVERSATION HISTORY BACKUP SYSTEM**
 
@@ -100,7 +118,7 @@ C. Log every session in `REF_SessionLog.md` (see 🗓️ SESSION LOG below).
 **Claude's Session Start Duty:** Run `./scripts/check-backup-health.sh`
 - ✅ Healthy (<24h): Silent | ⚠️ Due (24-36h): Inform user | 🔴 Overdue (>36h): Run `./scripts/backup-conversations.sh`
 
-**Docs:** `CLAUDE_BACKUP_SETUP.md`, `QUICK_REFERENCE_BACKUPS.md`, `Automated_Conversation_Backup_Strategy_20251108-190744.md`
+**Docs:** `docs/backups/CLAUDE_BACKUP_SETUP.md`, `docs/backups/QUICK_REFERENCE_BACKUPS.md`, `docs/backups/Automated_Conversation_Backup_Strategy_20251108-190744.md`
 
 ### **🗓️ SESSION LOG**
 
@@ -134,7 +152,7 @@ Comprehensive systematic review process for React applications focusing on:
 - **Dependency Architecture**: Complete 7-layer hierarchy established and documented
 - **Production Ready**: Application compiles successfully with only minor ESLint warnings
 
-**🔧 REACT ERROR #130:** ✅ **RESOLVED** - See `REACT_ERROR_130_PREVENTION_GUIDE.md` for complete resolution details and prevention strategies.
+**🔧 REACT ERROR #130:** ✅ **RESOLVED** - See `docs/reference/REACT_ERROR_130_PREVENTION_GUIDE.md` for complete resolution details and prevention strategies.
 
 **📋 QUALITY METRICS ACHIEVED:**
 - **ESLint Compliance**: All critical warnings resolved, only minor style preferences remain
@@ -144,7 +162,7 @@ Comprehensive systematic review process for React applications focusing on:
 - **Error Handling**: Comprehensive loading states and error boundaries implemented
 
 **🔄 FUTURE AUDIT REQUIREMENTS:**
-When conducting future superthink audits, follow the methodology documented in `SUPERTHINK_AUDIT.md` and update results in this section.
+When conducting future superthink audits, follow the methodology documented in `docs/reference/SUPERTHINK_AUDIT.md` and update results in this section.
 
 ### **1.0 Overview**
 
@@ -161,11 +179,11 @@ This document outlines the functional requirements for a dynamic ticketing and w
 
 ### **📊 BACKEND AUDIT STATUS**
 
-**✅ BACKEND AUDIT 100% COMPLETE** - See `SUPERTHINK_AUDIT.md` for detailed backend audit results, critical fixes applied, and production deployment status.
+**✅ BACKEND AUDIT 100% COMPLETE** - See `docs/reference/SUPERTHINK_AUDIT.md` for detailed backend audit results, critical fixes applied, and production deployment status.
 
 ### **📋 API TESTING METHODOLOGY**
 
-**See `PRODUCTION_REQUIREMENTS.md` for complete API testing procedures, troubleshooting guidelines, and health check protocols.**
+**See `docs/reference/PRODUCTION_REQUIREMENTS.md` for complete API testing procedures, troubleshooting guidelines, and health check protocols.**
 
 **📋 Backend Audit Documentation**:
 - **`APPSCRIPT_AUDIT.md`** - Complete function-by-function audit report with detailed findings
@@ -174,8 +192,8 @@ This document outlines the functional requirements for a dynamic ticketing and w
 - **`APPSCRIPT.txt`** - Updated code with all critical issues resolved and runtime verification
 
 **🛡️ Error Prevention Documentation**:
-- **`REACT_ERROR_130_PREVENTION_GUIDE.md`** - Comprehensive guide to prevent React minified error #130
-- **`REACT_ERROR_130_SUPERTHINK_DUMP.md`** - Complete resolution methodology and debugging process
+- **`docs/reference/REACT_ERROR_130_PREVENTION_GUIDE.md`** - Comprehensive guide to prevent React minified error #130
+- **`docs/archive/2025-09/REACT_ERROR_130_SUPERTHINK_DUMP.md`** - Complete resolution methodology and debugging process
 
 ### **⚠️ PRODUCTION CONSIDERATIONS** (Post-Audit Update)
 - **Scale Limitations**: Google Sheets not suitable for high-volume production use ✅ **AUDIT ACKNOWLEDGED**
@@ -219,9 +237,9 @@ The user interface will be a single-page application (SPA) built with **React**.
 **⚠️ CURRENT IMPLEMENTED ARCHITECTURE:**
 
 **📋 FOR COMPLETE FILE STRUCTURE AND DEPENDENCY MAPPING, SEE:**
-- `DEVELOPMENT_PLAN.md` - Complete 45-file architecture with status
-- `DEPENDENCY_MAPPING.md` - 7-layer dependency hierarchy and import rules
-- `SUPERTHINK_AUDIT.md` - React hooks compliance and validation status
+- `docs/reference/DEVELOPMENT_PLAN.md` - Complete 45-file architecture with status
+- `docs/reference/DEPENDENCY_MAPPING.md` - 7-layer dependency hierarchy and import rules
+- `docs/reference/SUPERTHINK_AUDIT.md` - React hooks compliance and validation status
 
 **🎯 ARCHITECTURE STATUS:**
 - **✅ Phase 8.5 Complete**: All 45 files implemented and integrated
@@ -437,7 +455,7 @@ Notes:
 **NOT Universal:** SLAs, workflow engine, approval routing, status transitions (ticket-specific only)
 **Benefits:** 90% code reuse, backward compatible, consistent UX across entity types
 
-**Mandatory Reference**: `UNIVERSAL_ENTITY_ARCHITECTURE.md` - Required reading before any entity-related development work.
+**Mandatory Reference**: `docs/reference/UNIVERSAL_ENTITY_ARCHITECTURE.md` - Required reading before any entity-related development work.
 
 ### **🔄 UPDATED SCHEMA: UNIVERSAL ENTITY TABLES (September 27, 2025)**
 
@@ -523,17 +541,17 @@ KEY FEATURES:
 - **Security Controls**: Permission levels, access revocation, audit trails, and expiration dates
 
 #### **📊 Implementation Components:**
-- **Database**: 8 new tables for tags and collaboration (see DATABASE_SCHEMA_UPDATES.txt)
-- **Backend**: 25+ AppScript functions for tag/collaboration management (see TICKET_TAGS_COLLABORATION_APPSCRIPT.txt)
+- **Database**: 8 new tables for tags and collaboration (see `docs/reference/DATABASE_SCHEMA_UPDATES.txt`)
+- **Backend**: 25+ AppScript functions for tag/collaboration management (see `appscript_files/archive/versions/TICKET_TAGS_COLLABORATION_APPSCRIPT.txt`)
 - **Frontend**: 4 new React components (TagInput, TagSearchFilter, TicketTagManager, TicketCollaborationManager)
 - **Integration**: Designed for seamless integration with existing ticket workflow
 
 #### **🔄 Current Status:**
 - ✅ **Design Complete**: All specifications, schemas, and components designed
 - 🔄 **Implementation Pending**: Backend integration and database table creation required
-- **Next Steps**: See SUPERTHINK_TODO_ANALYSIS_2025-09-27.md for detailed implementation roadmap
+- **Next Steps**: See `docs/planning/SUPERTHINK_TODO_ANALYSIS_2025-09-27.md` for detailed implementation roadmap
 
-**References**: Complete specifications in DATABASE_SCHEMA_UPDATES.txt, component designs in `/src/components/`, AppScript functions in TICKET_TAGS_COLLABORATION_APPSCRIPT.txt
+**References**: Complete specifications in `docs/reference/DATABASE_SCHEMA_UPDATES.txt`, component designs in `/src/components/`, AppScript functions in `appscript_files/archive/versions/TICKET_TAGS_COLLABORATION_APPSCRIPT.txt`
 
 ---
 
@@ -547,7 +565,7 @@ MANDATORY NOTICES:
 ### **🛡️ DROPDOWN CREATION LESSONS LEARNED**
 
 **📋 COMPREHENSIVE SAFEGUARDS AND RESOLUTION METHODOLOGY**
-**See `RESOLUTION_CHECKLIST.md` for complete:**
+**See `docs/reference/RESOLUTION_CHECKLIST.md` for complete:**
 - 15 critical development safeguards based on dropdown creation analysis
 - Fundamental Resolution Rule with domain-specific checks
 - Pattern consistency requirements and working reference library

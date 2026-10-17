@@ -360,16 +360,16 @@ const roleFields = await getCustomFields('rt_manager', 'role');
 ## 📚 Related Documentation
 
 ### **Core References:**
-- **`USER_MANAGEMENT_FEATURE_PLAN.md`** - Complete user/role system design
-- **`DATABASE_SCHEMA_UPDATES.txt`** - Detailed schema changes and migration plan
-- **`DEPENDENCY_MAPPING.md`** - Component architecture and universal entity integration
-- **`DEVELOPMENT_PLAN.md`** - Implementation phases and current status
+- **`docs/reference/USER_MANAGEMENT_FEATURE_PLAN.md`** - Complete user/role system design
+- **`docs/reference/DATABASE_SCHEMA_UPDATES.txt`** - Detailed schema changes and migration plan
+- **`docs/reference/DEPENDENCY_MAPPING.md`** - Component architecture and universal entity integration
+- **`docs/reference/DEVELOPMENT_PLAN.md`** - Implementation phases and current status
 - **`CLAUDE.md`** - Overall system specifications and universal entity rules
 
 ### **Implementation Guides:**
-- **`SLA_IMPLEMENTATION.md`** - SLA system (tickets only, not universal)
-- **`SUPERTHINK_AUDIT.md`** - Code quality and dependency validation
-- **`PRODUCTION_REQUIREMENTS.md`** - Environment and deployment requirements
+- **`docs/reference/SLA_IMPLEMENTATION.md`** - SLA system (tickets only, not universal)
+- **`docs/reference/SUPERTHINK_AUDIT.md`** - Code quality and dependency validation
+- **`docs/reference/PRODUCTION_REQUIREMENTS.md`** - Environment and deployment requirements
 
 ---
 

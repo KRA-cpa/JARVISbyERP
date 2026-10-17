@@ -866,6 +866,6 @@ The Extensions Framework represents a significant architectural enhancement that
 **Status**: 📋 **COMPREHENSIVE DESIGN COMPLETE** - Ready for Future Implementation
 **Last Updated**: September 16, 2025
 **Next Review**: After Phase 7 Workflow Engine Implementation
-**Related Documentation**: See `EXTERNAL_APP_INTEGRATION.md` for Phase 7 manual external app tasks
+**Related Documentation**: See `docs/design/EXTERNAL_APP_INTEGRATION.md` for Phase 7 manual external app tasks
 
 *This framework specification provides the complete blueprint for implementing a robust, scalable **automated** extension system that complements the Phase 7 manual external app integration, enabling comprehensive business workflow automation while maintaining system integrity and performance.*

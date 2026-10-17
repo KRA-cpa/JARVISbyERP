@@ -174,10 +174,10 @@ npm run eject  # Eject from CRA (not recommended)
    - Evaluate compatibility with existing architecture
 
 2. **Documentation Updates Required**:
-   - Update this `PRODUCTION_REQUIREMENTS.md` with new dependencies
+   - Update this `docs/reference/PRODUCTION_REQUIREMENTS.md` with new dependencies
    - Update `package.json` with new modules and versions
-   - Update `DEVELOPMENT_PLAN.md` with architectural changes
-   - Update `DEPENDENCY_MAPPING.md` if component relationships change
+   - Update `docs/reference/DEVELOPMENT_PLAN.md` with architectural changes
+   - Update `docs/reference/DEPENDENCY_MAPPING.md` if component relationships change
 
 3. **Implementation Process**:
    - Follow superthink audit methodology for dependency changes

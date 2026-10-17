@@ -7,15 +7,15 @@
 
 **BEFORE ANY IMPLEMENTATION - CONSULTATION VERIFICATION:**
 - ✅ `CLAUDE.md` - Functional specifications and development rules
-- ✅ `UNIVERSAL_ENTITY_ARCHITECTURE.md` - Universal entity patterns and reuse strategies
-- ✅ `USER_MANAGEMENT_FEATURE_PLAN.md` - Revolutionary user/role system design
-- ✅ `DATABASE_SCHEMA_UPDATES.txt` - Schema definitions and migration requirements
-- ✅ `DEVELOPMENT_PLAN.md` - Current architecture and file structure
-- ✅ `DEPENDENCY_MAPPING.md` - Component dependencies and import rules
-- ✅ `SUPERTHINK_AUDIT.md` - Code quality standards and React hooks compliance
-- ✅ `RESOLUTION_CHECKLIST.md` - Error resolution methodology
-- ✅ `SLA_IMPLEMENTATION.md` - SLA calculator and business rules
-- ✅ `PRODUCTION_REQUIREMENTS.md` - Environment and deployment requirements
+- ✅ `docs/reference/UNIVERSAL_ENTITY_ARCHITECTURE.md` - Universal entity patterns and reuse strategies
+- ✅ `docs/reference/USER_MANAGEMENT_FEATURE_PLAN.md` - Revolutionary user/role system design
+- ✅ `docs/reference/DATABASE_SCHEMA_UPDATES.txt` - Schema definitions and migration requirements
+- ✅ `docs/reference/DEVELOPMENT_PLAN.md` - Current architecture and file structure
+- ✅ `docs/reference/DEPENDENCY_MAPPING.md` - Component dependencies and import rules
+- ✅ `docs/reference/SUPERTHINK_AUDIT.md` - Code quality standards and React hooks compliance
+- ✅ `docs/reference/RESOLUTION_CHECKLIST.md` - Error resolution methodology
+- ✅ `docs/reference/SLA_IMPLEMENTATION.md` - SLA calculator and business rules
+- ✅ `docs/reference/PRODUCTION_REQUIREMENTS.md` - Environment and deployment requirements
 
 ## 🎯 GENERAL IMPLEMENTATION SEQUENCE & BROAD STEPS
 

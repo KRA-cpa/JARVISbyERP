@@ -303,8 +303,8 @@ fetch(process.env.REACT_APP_API_URL + '?action=ping')
 
 **Documentation:**
 - `CLAUDE.md` - Overall system specifications
-- `DEVELOPMENT_PLAN.md` - Authentication implementation status
-- `PRODUCTION_REQUIREMENTS.md` - Environment requirements
+- `docs/reference/DEVELOPMENT_PLAN.md` - Authentication implementation status
+- `docs/reference/PRODUCTION_REQUIREMENTS.md` - Environment requirements
 
 ---
 

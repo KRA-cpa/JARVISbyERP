@@ -1,7 +1,7 @@
 
 # STAGING Gemini Integration - September 27, 2025
 
-This file contains the proposed changes to the database schema and AppScript code based on the analysis in `SUPERTHINK_TODO_ANALYSIS_2025-09-27.md`.
+This file contains the proposed changes to the database schema and AppScript code based on the analysis in `docs/planning/SUPERTHINK_TODO_ANALYSIS_2025-09-27.md`.
 
 ## 1. PROPOSED_DATABASE_SCHEMA_UPDATES.txt
 

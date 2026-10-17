@@ -498,9 +498,9 @@ const results = verifyAllFunctionsRuntimeSafety();
 - **`APPSCRIPT_IMPLEMENTATION.md`** - Deployment and integration guide
 - **`APPSCRIPT_API.md`** - Complete API endpoint documentation
 - **`CLAUDE.md`** - Overall system specifications and requirements
-- **`DEVELOPMENT_PLAN.md`** - Project phases and architecture overview
-- **`DEPENDENCY_MAPPING.md`** - Component relationship mapping
-- **`SUPERTHINK_AUDIT.md`** - Frontend audit methodology and results
+- **`docs/reference/DEVELOPMENT_PLAN.md`** - Project phases and architecture overview
+- **`docs/reference/DEPENDENCY_MAPPING.md`** - Component relationship mapping
+- **`docs/reference/SUPERTHINK_AUDIT.md`** - Frontend audit methodology and results
 
 **Last Updated**: September 17, 2025 - **COMPLETE AUDIT FINISHED**
 **Recent Fix**: Payload validation errors resolved (Version 2.8)

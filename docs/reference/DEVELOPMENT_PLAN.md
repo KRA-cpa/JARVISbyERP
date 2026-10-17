@@ -105,7 +105,7 @@
 - **Enhanced authentication controls** - Direct page access for setup phase
 
 **Documentation & Configuration:**
-- **`STATS_TOGGLES.md`** - Dashboard card toggle system documentation
+- **`docs/guides/STATS_TOGGLES.md`** - Dashboard card toggle system documentation
 - **Enhanced `LiveClock.js`** - Updated Philippine time format (DD Mmm YYYY HH:MM:SS AM/PM)
 - **Tailwind CSS v3 configuration** - Updated build system and styling framework
 
@@ -651,8 +651,8 @@ src/
 ### 🔗 Dependencies & Hooks Architecture
 
 #### **📋 Dependency Documentation References:**
-- **`DEPENDENCY_MAPPING.md`** - Complete component dependency architecture with 7-layer hierarchy
-- **`SUPERTHINK_AUDIT.md`** - File-by-file dependency audit results and validation
+- **`docs/reference/DEPENDENCY_MAPPING.md`** - Complete component dependency architecture with 7-layer hierarchy
+- **`docs/reference/SUPERTHINK_AUDIT.md`** - File-by-file dependency audit results and validation
 
 #### **⚛️ React Hooks Implementation:**
 
@@ -830,13 +830,13 @@ npx eslint src/ --ext .js
 
 ### 🎉 **SUPERTHINK AUDIT METHODOLOGY & LATEST COMPLETION** (September 17, 2025)
 
-**Superthink Audit Definition**: A comprehensive systematic review process for React applications focusing on code quality, architectural consistency, and production readiness. See `SUPERTHINK_AUDIT.md` for complete methodology and reusable process documentation.
+**Superthink Audit Definition**: A comprehensive systematic review process for React applications focusing on code quality, architectural consistency, and production readiness. See `docs/reference/SUPERTHINK_AUDIT.md` for complete methodology and reusable process documentation.
 
 **Latest Audit Completion**: Complete review of all React hooks, dependencies, and syntax errors across 43 JavaScript files
 
 #### **📋 Audit Documentation Created:**
-- **`SUPERTHINK_AUDIT.md`** - Complete audit report with file-by-file analysis
-- **`DEPENDENCY_MAPPING.md`** - Comprehensive component dependency architecture mapping
+- **`docs/reference/SUPERTHINK_AUDIT.md`** - Complete audit report with file-by-file analysis
+- **`docs/reference/DEPENDENCY_MAPPING.md`** - Comprehensive component dependency architecture mapping
 
 #### **🔧 Critical Issues Resolved:**
 1. **✅ Vercel Compilation Error** - Fixed missing `useAPIData` function, `useUsers` hook, and `useTicketTypes` export in useAPI.js
@@ -978,13 +978,13 @@ Config (3) → Context (1) → Firebase/Google Sheets
   - [x] Real-time sync across devices and sessions
 - [x] **Database Schema** - New `user_preferences` table
   - [x] 12 preference columns (dark_mode, timezone, language, notifications, etc.)
-  - [x] Complete schema documentation in `DATABASE_SCHEMA_UPDATES.txt`
+  - [x] Complete schema documentation in `docs/reference/DATABASE_SCHEMA_UPDATES.txt`
 
 **🔧 Implementation Details:**
 - **Files Updated**: `AdminPage.js`, `DarkModeContext.js`, `UserPreferencesPanel.js`, `App.js`
-- **Backend Files**: `APPSCRIPT.txt`, `DATABASE_SCHEMA_UPDATES.txt`
+- **Backend Files**: `APPSCRIPT.txt`, `docs/reference/DATABASE_SCHEMA_UPDATES.txt`
 - **API Endpoints**: Added `getUserPreferences` and `updateUserPreferences` to Google Apps Script
-- **Documentation**: Created `ADMIN_PANEL_STATS_DOCUMENTATION.md` with comprehensive analysis
+- **Documentation**: Created `docs/guides/ADMIN_PANEL_STATS_DOCUMENTATION.md` with comprehensive analysis
 
 **Status**: 🟢 **COMPLETED** | All objectives achieved, production-ready implementation
 
@@ -993,13 +993,13 @@ Config (3) → Context (1) → Firebase/Google Sheets
 ### ✅ Phase 8.95: Per-Company SLA Support & Enhanced Documentation (COMPLETED)
 
 **🏢 Per-Company Workflow & SLA Architecture:**
-- [x] **Database Schema Analysis** - Updated `DATABASE_SCHEMA_UPDATES.txt` with per-company SLA API endpoints
+- [x] **Database Schema Analysis** - Updated `docs/reference/DATABASE_SCHEMA_UPDATES.txt` with per-company SLA API endpoints
   - [x] Enhanced `workflow_steps` table with mandatory `company_id` field
   - [x] Company-specific workflow configuration support
   - [x] Per-company SLA targets and performance tracking
   - [x] New API endpoints: `SLAStatistics.getPerformanceByCompany()`, `SLAStatistics.getPerformanceByTicketType()`
 - [x] **Admin Panel Statistics Enhancement** - Comprehensive per-company SLA metrics documentation
-  - [x] Updated `ADMIN_PANEL_STATS_DOCUMENTATION.md` with per-company SLA support
+  - [x] Updated `docs/guides/ADMIN_PANEL_STATS_DOCUMENTATION.md` with per-company SLA support
   - [x] Enhanced SLA performance calculations with company-specific workflow support
   - [x] Cross-company benchmarking and performance comparison systems
   - [x] Advanced analytics roadmap with 3-tier implementation plan
@@ -1175,8 +1175,8 @@ Config (3) → Context (1) → Firebase/Google Sheets
 6. **Phase 10** (Testing & Deployment) - Production readiness
 
 **📊 Documentation:**
-- **Admin Panel Stats:** `ADMIN_PANEL_STATS_DOCUMENTATION.md` - Comprehensive admin statistics analysis and roadmap
-- **Detailed Analysis:** `SUPERTHINK_ANALYSIS_TICKET_TYPE_COMPANY_FEATURES.md`
+- **Admin Panel Stats:** `docs/guides/ADMIN_PANEL_STATS_DOCUMENTATION.md` - Comprehensive admin statistics analysis and roadmap
+- **Detailed Analysis:** `docs/archive/2025-09/SUPERTHINK_ANALYSIS_TICKET_TYPE_COMPANY_FEATURES.md`
 - **Implementation Guide:** Technical specifications and API contracts documented
 - **Risk Assessment:** High/Medium/Low risk categorization with mitigation strategies
 
@@ -1197,7 +1197,7 @@ Config (3) → Context (1) → Firebase/Google Sheets
 ### ✅ Admin Panel Navigation Reordering
 - **Updated AdminPage.js** with new button sequence: Overview > Companies > Ticket Types > Custom Fields > Dropdown Lists > Users > Roles
 - **Added Users button** (disabled) with proper icon and description: "Per-user management and permissions"
-- **Created comprehensive plan** for per-user management feature in `USER_MANAGEMENT_FEATURE_PLAN.md`
+- **Created comprehensive plan** for per-user management feature in `docs/reference/USER_MANAGEMENT_FEATURE_PLAN.md`
 
 ### ✅ Profile Settings Fix & New Component
 - **Fixed profile navigation issue** - /profile route was missing, causing dashboard redirect

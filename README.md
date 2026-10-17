@@ -5,11 +5,25 @@ This project is a React-based multi-tenant ticketing system with workflow orches
 ## 📋 MANDATORY DEVELOPMENT REFERENCES
 
 **⚠️ BEFORE ANY DEVELOPMENT WORK, CONSULT THESE REQUIRED DOCUMENTS:**
-- **`PRODUCTION_REQUIREMENTS.md`** - 🚨 **CRITICAL** - Node.js, CSS, runtime requirements, and proof of concept database documentation
+- **`docs/reference/PRODUCTION_REQUIREMENTS.md`** - 🚨 **CRITICAL** - Node.js, CSS, runtime requirements, and proof of concept database documentation
 - **`Claude.md`** - Complete functional specifications and architecture overview
-- **`DEVELOPMENT_PLAN.md`** - 43-file structure, hooks documentation, and dependency hierarchy
-- **`DEPENDENCY_MAPPING.md`** - Component relationships and import/export rules
-- **`SUPERTHINK_AUDIT.md`** - Code quality standards and audit methodology
+- **`docs/reference/DEVELOPMENT_PLAN.md`** - 43-file structure, hooks documentation, and dependency hierarchy
+- **`docs/reference/DEPENDENCY_MAPPING.md`** - Component relationships and import/export rules
+- **`docs/reference/SUPERTHINK_AUDIT.md`** - Code quality standards and audit methodology
+
+## 📁 Repository Layout
+
+| Folder | Contents |
+|---|---|
+| `docs/reference/` | Mandatory development references and database schema |
+| `docs/guides/` | Setup, testing and how-to guides |
+| `docs/design/` | Feature designs and system analyses |
+| `docs/planning/` | Active TODOs and plans |
+| `docs/backups/` | Conversation backup system docs |
+| `docs/archive/` | Finished audits and superseded docs |
+| `appscript_files/` | Google Apps Script backend — latest `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` + deploy guide |
+
+Full layout and rules: see the 📁 REPO LAYOUT section in `Claude.md`.
 
 ## Production Requirements
 
@@ -24,7 +38,7 @@ This project is a React-based multi-tenant ticketing system with workflow orches
 ### **🔬 Proof of Concept Notice**
 This system uses Google Sheets + Apps Script as a proof of concept database backend. While fully functional, it's not suitable for high-volume production use. Future migration to traditional database planned.
 
-**See `PRODUCTION_REQUIREMENTS.md` for complete dependency documentation.**
+**See `docs/reference/PRODUCTION_REQUIREMENTS.md` for complete dependency documentation.**
 
 ---
 

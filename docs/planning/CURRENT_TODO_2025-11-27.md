@@ -119,7 +119,7 @@
 |------|---------|
 | `appscript_files/APPSCRIPT.txt` | v8.0 - 9 new functions, 16 new endpoints |
 | `CLAUDE.md` | v3.3 - File size optimization, typo fixes |
-| `SUPERTHINK_TODO_ANALYSIS_2025-09-27.md` | Updated with November 27 completion status |
+| `docs/planning/SUPERTHINK_TODO_ANALYSIS_2025-09-27.md` | Updated with November 27 completion status |
 
 ---
 
