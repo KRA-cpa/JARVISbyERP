@@ -28,3 +28,13 @@ logs/
 dev-*.log
 proxy-*.log
 api-*.log
+
+# Claude conversation backups
+.claude/conversation-backups/latest/
+.claude/conversation-backups/backup-password.txt
+.claude/checkpoints/
+!.claude/conversation-backups/encrypted/
+!.claude/conversation-backups/backup-index.json
+
+# Claude Code local settings (per-machine permissions + SessionStart hook — see REF_SessionLog.md §4)
+.claude/settings.local.json

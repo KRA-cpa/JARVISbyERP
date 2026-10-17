@@ -2,8 +2,9 @@
 
 A. DO NOT FORGET to Read first md/txt/or any file before you update.
 B. Consult SUPERTHINK_TODO_ANALYSIS_2025-09-27.md on current/completed to do.
+C. Log every session in `REF_SessionLog.md` (see 🗓️ SESSION LOG below).
 
-**Version:** 3.2 **Date:** September 28, 2025 - 🎯 **TICKET TAGS & COLLABORATION SYSTEM UPDATE**
+**Version:** 3.4 **Date:** October 17, 2026 - 🗓️ **SESSION LOG SETUP**
 
 ### **🔗 MANDATORY DEVELOPMENT REFERENCES**
 
@@ -17,7 +18,7 @@ B. Consult SUPERTHINK_TODO_ANALYSIS_2025-09-27.md on current/completed to do.
    - Mandatory update clause for design requirement changes
 
 2. **`DEVELOPMENT_PLAN.md`** - ⚠️ **MANDATORY REFERENCE**
-   - Complete 43-file architecture with current file structure
+   - Complete 45-file architecture with current file structure
    - React hooks documentation and usage patterns
    - 7-layer dependency hierarchy and import rules
    - Code quality standards and best practices
@@ -88,6 +89,30 @@ B. Consult SUPERTHINK_TODO_ANALYSIS_2025-09-27.md on current/completed to do.
 - **🚀 NEW: USER/ROLE INTEGRATION** - Follow USER_MANAGEMENT_FEATURE_PLAN.md for all user/role implementations
 - **🚨 MANDATORY: UNIVERSAL ENTITY ARCHITECTURE** - Must consult UNIVERSAL_ENTITY_ARCHITECTURE.md before any entity-related work
 
+### **🤖 CLAUDE CONVERSATION HISTORY BACKUP SYSTEM**
+
+**Automated Backup System:** ✅ **ACTIVE** | AES-256-CBC | `.claude/conversation-backups/encrypted/`
+**Backup Password**: stored in `.claude/conversation-backups/backup-password.txt` (gitignored — keep a copy in your password manager; never commit the value)
+
+**Claude's Session Start Duty:** Run `./scripts/check-backup-health.sh`
+- ✅ Healthy (<24h): Silent | ⚠️ Due (24-36h): Inform user | 🔴 Overdue (>36h): Run `./scripts/backup-conversations.sh`
+
+**Docs:** `CLAUDE_BACKUP_SETUP.md`, `QUICK_REFERENCE_BACKUPS.md`, `Automated_Conversation_Backup_Strategy_20251108-190744.md`
+
+### **🗓️ SESSION LOG**
+
+**Authority document:** `REF_SessionLog.md` in the repo root — single source of truth for all session logging rules, the session log table, and the subproject map.
+
+At the start of every Claude Code session, Claude must:
+1. Read `REF_SessionLog.md` and log the current session in §2 of that file (Status: OPEN)
+2. If the subproject is not clear from the first message, ask before logging
+3. Mark CLOSED per the criteria in `REF_SessionLog.md §3`:
+   - (a) Session dump written, (b) work formally wrapped, or (c) user asks "OK to close?" → Claude checks open items → confirms clear or flags open
+4. Handoff exception: if user says they are closing this convo and continuing in a new one, carry forward as handoff — do NOT auto-close
+5. On a new machine where the memory file is absent: write `feedback_session_log_workflow.md` at `%USERPROFILE%\.claude\projects\[project-folder]\memory\` per `REF_SessionLog.md §4`
+
+**This section is enforced by:** SessionStart hook in `.claude/settings.local.json` (echoes a one-line reminder at session start; file is gitignored — recreate per machine) + memory file `feedback_session_log_workflow.md`
+
 ### **📊 SUPERTHINK AUDIT METHODOLOGY & LATEST RESULTS**
 
 **🔍 SUPERTHINK AUDIT METHODOLOGY:**
@@ -106,25 +131,7 @@ Comprehensive systematic review process for React applications focusing on:
 - **Dependency Architecture**: Complete 7-layer hierarchy established and documented
 - **Production Ready**: Application compiles successfully with only minor ESLint warnings
 
-**🔧 REACT ERROR #130 COMPLETE RESOLUTION (September 21, 2025):**
-- **Error Type**: Runtime undefined component/hook reference error (React minified error #130)
-- **Root Causes Identified & Fixed**:
-  1. ✅ Incorrect toast hook usage pattern in 3 admin components
-  2. ✅ Missing icon definitions (Document, Documents, History, List, Plus, ChevronUp, ChevronDown, Eye, EyeOff)
-  3. ✅ Missing route definitions causing navigation failures
-  4. ✅ Undefined component references at runtime
-- **Components Fixed**:
-  - `AdminTicketTypeManager.js` → Replaced with `AdminTicketTypeList.js` (modal removal)
-  - `AdminCustomFieldManager.js` → Replaced with `AdminCustomFieldList.js` (modal removal)
-  - `AdminWorkflowBuilder.js` - Fixed all toast method calls and added ToastContainer
-  - All page components verified for proper imports and exports
-- **Prevention Measures Implemented**:
-  - ✅ Complete icon inventory management in `Icons.js`
-  - ✅ All navigation routes defined in `App.js`
-  - ✅ Proper hook destructuring patterns throughout codebase
-  - ✅ Comprehensive prevention guide: `REACT_ERROR_130_PREVENTION_GUIDE.md`
-- **Status**: ✅ **COMPLETELY RESOLVED** - Zero runtime errors, all components functional
-- **Best Practices**: Automated prevention strategies documented for future development
+**🔧 REACT ERROR #130:** ✅ **RESOLVED** - See `REACT_ERROR_130_PREVENTION_GUIDE.md` for complete resolution details and prevention strategies.
 
 **📋 QUALITY METRICS ACHIEVED:**
 - **ESLint Compliance**: All critical warnings resolved, only minor style preferences remain
@@ -374,7 +381,7 @@ Administrators will have access to a dedicated UI to configure the entire system
 
 * **Ticket Action Logging:**  
   * Every state change on a ticket (creation, status change, field value update, step change) will be recorded in the `ticket_action_logs` sheet.  
-  * The `details` column will store a JSON string representing the change (e.g., `{"field": "status", "from": "New", "to": "Pending Approval"}`).poc  
+  * The `details` column will store a JSON string representing the change (e.g., `{"field": "status", "from": "New", "to": "Pending Approval"}`).  
   * This provides a detailed, immutable record for compliance and debugging, separate from the user-facing `ticket_history`.  
 * **Admin Action Logging:**  
   * Every successful user login will be recorded in the `admin_action_logs` sheet with an `action_type` of "USER\_LOGIN".  
@@ -386,11 +393,7 @@ Administrators will have access to a dedicated UI to configure the entire system
 
 Notes:
 
-App,js
-
-The mock user data is currently essential for the proof-of-concept to work. It acts as a placeholder for a real user login, allowing the `App.js` component to render the main dashboard and header with user information.
-
-Once you fully connect the frontend to Firebase Authentication and your Google Sheet backend API, you will replace that entire `setTimeout` block with the live `onAuthStateChanged` listener and an API call to fetch the user's profile. At that point, the mock data will be removed.
+**App.js Note:** Mock user data is placeholder for Firebase Authentication. Replace `setTimeout` block with `onAuthStateChanged` listener and API profile call when fully connected.
 
 
 
@@ -427,36 +430,9 @@ Once you fully connect the frontend to Firebase Authentication and your Google S
 ⚡ WORKFLOWS    → custom_fields (entity_category='workflow_step') → custom_field_values (future)
 ```
 
-### **What IS Universal (Reused Infrastructure):**
-✅ **Custom Fields Infrastructure** - Same tables, same functions, same UI components
-✅ **AdminCustomFieldBuilder** - Same component works for all entity types with entityCategory prop
-✅ **API Functions** - Same getCustomFields, createCustomField, setCustomFieldValue with entityCategory parameter
-✅ **Dropdown System** - Unified dropdown_lists shared across all entity types
-✅ **Validation Logic** - Same form validation and business rules for all entities
-
-### **What is NOT Universal (Entity-Specific Features):**
-❌ **SLAs** - Only apply to tickets/workflows, NOT user profiles or roles
-❌ **Workflow Engine** - Specific to ticket processing only
-❌ **Approval Routing** - Ticket-specific business logic only
-❌ **Status Transitions** - Not relevant for user/role management
-
-### **Implementation Benefits:**
-- **90% Code Reuse** - Same components, hooks, and functions for all entity types
-- **Zero New Components** - AdminCustomFieldBuilder enhanced with entityCategory prop
-- **Backward Compatible** - All existing ticket functionality unchanged (default entityCategory='ticket')
-- **Consistent UX** - Same admin experience across tickets, users, and roles
-
-### **Usage Examples:**
-```javascript
-// For tickets (existing)
-<AdminCustomFieldBuilder entityTypeId="tt_purchase" entityCategory="ticket" />
-
-// For user profiles (new)
-<AdminCustomFieldBuilder entityTypeId="upt_employee" entityCategory="user_profile" />
-
-// For roles (new)
-<AdminCustomFieldBuilder entityTypeId="rt_manager" entityCategory="role" />
-```
+**Reused:** Custom fields, AdminCustomFieldBuilder (entityCategory prop), API functions, dropdown system, validation
+**NOT Universal:** SLAs, workflow engine, approval routing, status transitions (ticket-specific only)
+**Benefits:** 90% code reuse, backward compatible, consistent UX across entity types
 
 **Mandatory Reference**: `UNIVERSAL_ENTITY_ARCHITECTURE.md` - Required reading before any entity-related development work.
 
@@ -527,24 +503,10 @@ KEY FEATURES:
 - Links to custom_field_values for additional configurable attributes
 ```
 
-#### **Universal Entity Implementation Impact**
-
-**Schema Changes Summary:**
-- Modified Tables: 3 (custom_fields, custom_field_values, user_role_assignments)
-- New Tables: 3 (user_profile_types, role_types, user_profiles)
-- Total Columns Added: 3 across existing tables
-- Backward Compatibility: 100% for all existing functionality
-
-**Development Efficiency Benefits:**
-- Code Reuse: 90% - Same components for all entity management
-- API Reuse: 85% - Enhanced existing functions vs creating new ones
-- UI Reuse: 95% - AdminCustomFieldBuilder works for all entity types
-- Implementation Time: 35-45 days vs 60+ days for separate systems
-
-**Next Implementation Steps:**
-1. Execute `completeSystemReset()` in Google Apps Script
-2. Implement enhanced API functions with entityCategory support
-3. Update frontend components with universal entity capabilities
+#### **Implementation Impact**
+- Modified: 3 tables | New: 3 tables | 100% backward compatible
+- Code/API/UI Reuse: 90%/85%/95% | Est. time: 35-45 days vs 60+ days separate
+- **Next:** Execute `completeSystemReset()`, implement entityCategory API support, update frontend
 
 ### **🏷️ PHASE 11.0: TICKET TAGS & COLLABORATION SYSTEM**
 
