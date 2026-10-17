@@ -1,14 +1,16 @@
 /*
 =================================================================================
  * Ticketing & Workflow Orchestration System - Google Apps Script Backend API
- * 
- * Version: 6.0 (Payload standardization - comprehensive pattern alignment)
+ *
+ * Version: 8.0 (User Management & Universal Entity Architecture)
  * Phase 1A: Custom Fields System (12 functions) → v6.1
  * Phase 1B: Workflow Steps System (18 functions) → v6.2
  * Phase 1C: Ticket Management (15 functions) → v6.3
  * Phase 1D: Integration & Admin (17 functions) → v6.4
- * 
- * 
+ * Phase 10.0: User Management (8 functions) → v8.0
+ * Phase 11.0: Tags & Collaboration (25 functions) → v7.0
+ *
+ * Last Updated: November 27, 2025
  * Author: System Generated
  * Description: This script provides a complete serverless backend using Google Sheets
  * for the dynamic ticketing system, as specified in the design document. It includes
@@ -43,7 +45,11 @@ const SHEETS = {
     SEQUENCE_COUNTERS: "sequence_counters",
     TICKET_ACTION_LOGS: "ticket_action_logs",
     ADMIN_ACTION_LOGS: "admin_action_logs",
-    USER_PREFERENCES: "user_preferences"
+    USER_PREFERENCES: "user_preferences",
+    // Phase 10.0: Universal Entity Architecture - User Management
+    USER_PROFILE_TYPES: "user_profile_types",
+    ROLE_TYPES: "role_types",
+    USER_PROFILES: "user_profiles"
 };
 
 /**
@@ -219,6 +225,80 @@ function auditFieldsForSheets(auditFields) {
   });
 
   return sheetsFields;
+}
+
+/**
+ * Generic deactivate record function for any table
+ * @param {string} sheetName - Name of the sheet/table
+ * @param {string} recordId - ID of the record to deactivate
+ * @param {string} reason - Reason for deactivation
+ * @returns {Object} Result of the deactivation operation
+ */
+function deactivateRecord(sheetName, recordId, reason = 'admin_request') {
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(sheetName);
+
+    if (!sheet) {
+      return { status: 'error', message: `Sheet '${sheetName}' not found` };
+    }
+
+    const data = sheet.getDataRange().getValues();
+    const headers = data[0];
+    const rows = data.slice(1);
+
+    // Find the ID column (usually 'id' or first column)
+    const idIndex = headers.indexOf('id');
+    const idColumnIndex = idIndex >= 0 ? idIndex : 0;
+
+    // Find the row to deactivate
+    const rowIndex = rows.findIndex(row => row[idColumnIndex] === recordId);
+    if (rowIndex === -1) {
+      return { status: 'error', message: `Record '${recordId}' not found in ${sheetName}` };
+    }
+
+    const actualRowIndex = rowIndex + 2; // +1 for header, +1 for 0-based index
+
+    // Get deactivation audit fields
+    const deactivationFields = deactivateAuditFields(reason);
+
+    // Update specific columns by header name
+    const columnsToUpdate = {
+      'is_active': 'FALSE',
+      'updated_at': deactivationFields.updated_at,
+      'updated_by': deactivationFields.updated_by,
+      'deactivated_at': deactivationFields.deactivated_at,
+      'deactivated_by': deactivationFields.deactivated_by,
+      'deactivation_reason': reason
+    };
+
+    Object.keys(columnsToUpdate).forEach(columnName => {
+      const columnIndex = headers.indexOf(columnName);
+      if (columnIndex >= 0) {
+        sheet.getRange(actualRowIndex, columnIndex + 1).setValue(columnsToUpdate[columnName]);
+      }
+    });
+
+    // Log the admin action
+    logAdminAction(getCurrentUserId(), `DEACTIVATE_${sheetName.toUpperCase()}`, sheetName, recordId, { reason: reason });
+
+    Logger.log(`Deactivated record in ${sheetName}: ${recordId} (Reason: ${reason})`);
+    return {
+      status: 'success',
+      data: {
+        id: recordId,
+        sheet: sheetName,
+        deactivated: true,
+        reason: reason,
+        deactivated_at: deactivationFields.deactivated_at
+      },
+      message: `Record ${recordId} deactivated successfully`
+    };
+
+  } catch (error) {
+    Logger.log(`Error deactivating record in ${sheetName}: ${error.message}`);
+    return { status: 'error', message: error.toString() };
+  }
 }
 
 /**
@@ -570,6 +650,31 @@ function doGet(e) {
             data: getGlobalSLAPerformance()
           });
 
+        // Phase 10.0: User Management GET endpoints
+        case 'getUserProfileTypes':
+          return createJsonResponse({
+            success: true,
+            data: getUserProfileTypes(params.company_id || null)
+          });
+
+        case 'getRoleTypes':
+          return createJsonResponse({
+            success: true,
+            data: getRoleTypes(params.company_id || null)
+          });
+
+        case 'getUserProfiles':
+          return createJsonResponse({
+            success: true,
+            data: getUserProfiles(params.company_id || null)
+          });
+
+        case 'getCustomFields':
+          return createJsonResponse({
+            success: true,
+            data: getCustomFields(params.entity_type_id, params.entity_category || 'ticket')
+          });
+
         default:
           return createJsonResponse({
             success: false,
@@ -814,6 +919,90 @@ function doPost(e) {
           return createJsonResponse({
             success: true,
             data: checkDropdownPersistence()
+          });
+
+        // Phase 10.0: User Management POST endpoints
+        case 'createUserProfileType':
+          const userProfileTypeData = data.payload || data;
+          return createJsonResponse({
+            success: true,
+            data: createUserProfileType(userProfileTypeData)
+          });
+
+        case 'updateUserProfileType':
+          const updateUserProfileTypeData = data.payload || data;
+          return createJsonResponse({
+            success: true,
+            data: updateUserProfileType(updateUserProfileTypeData.id, updateUserProfileTypeData)
+          });
+
+        case 'deleteUserProfileType':
+          const deleteUserProfileTypeData = data.payload || data;
+          return createJsonResponse({
+            success: true,
+            data: deactivateRecord(SHEETS.USER_PROFILE_TYPES, deleteUserProfileTypeData.id, deleteUserProfileTypeData.reason || 'admin_request')
+          });
+
+        case 'createRoleType':
+          const roleTypeData = data.payload || data;
+          return createJsonResponse({
+            success: true,
+            data: createRoleType(roleTypeData)
+          });
+
+        case 'updateRoleType':
+          const updateRoleTypeData = data.payload || data;
+          return createJsonResponse({
+            success: true,
+            data: updateRoleType(updateRoleTypeData.id, updateRoleTypeData)
+          });
+
+        case 'deleteRoleType':
+          const deleteRoleTypeData = data.payload || data;
+          return createJsonResponse({
+            success: true,
+            data: deactivateRecord(SHEETS.ROLE_TYPES, deleteRoleTypeData.id, deleteRoleTypeData.reason || 'admin_request')
+          });
+
+        case 'createUserProfile':
+          const userProfileData = data.payload || data;
+          return createJsonResponse({
+            success: true,
+            data: createUserProfile(userProfileData)
+          });
+
+        case 'updateUserProfile':
+          const updateUserProfileData = data.payload || data;
+          return createJsonResponse({
+            success: true,
+            data: updateUserProfile(updateUserProfileData.user_id, updateUserProfileData)
+          });
+
+        case 'createCustomField':
+          const customFieldData = data.payload || data;
+          return createJsonResponse({
+            success: true,
+            data: createCustomField(customFieldData.entity_type_id, customFieldData, customFieldData.entity_category || 'ticket')
+          });
+
+        case 'setCustomFieldValue':
+          const customFieldValueData = data.payload || data;
+          return createJsonResponse({
+            success: true,
+            data: setCustomFieldValue(customFieldValueData.entity_id, customFieldValueData.field_id, customFieldValueData.value, customFieldValueData.entity_category || 'ticket')
+          });
+
+        // User Management Setup endpoints
+        case 'initializeUserManagementTables':
+          return createJsonResponse({
+            success: true,
+            data: initializeUserManagementTables()
+          });
+
+        case 'completeUserManagementSetup':
+          return createJsonResponse({
+            success: true,
+            data: completeUserManagementSetup()
           });
 
         default:
@@ -3428,8 +3617,11 @@ function cleanResetAllTables() {
       { name: 'companies', initFunction: 'initializeCompaniesSheet' },
       { name: 'roles', initFunction: 'initializeRolesSheet' },
       { name: 'ticket_types', initFunction: 'initializeTicketTypesSheet' },
-      { name: 'admin_action_logs', initFunction: 'initializeAdminActionLogsSheet' }
-      // Note: custom_fields and workflow_steps init functions not yet implemented
+      { name: 'admin_action_logs', initFunction: 'initializeAdminActionLogsSheet' },
+      // Phase 10.0: User Management tables
+      { name: 'user_profile_types', initFunction: 'initializeUserProfileTypesSheet' },
+      { name: 'role_types', initFunction: 'initializeRoleTypesSheet' },
+      { name: 'user_profiles', initFunction: 'initializeUserProfilesSheet' }
     ];
 
     tablesToReset.forEach(table => {
@@ -12252,4 +12444,341 @@ function handleTagsCollaborationAPI(action, data) {
 // Version: 7.0
 // =================================================================================
 
-// DATABASE SCHEMA CHECK - end
+// =================================================================================
+// PHASE 10.0: USER MANAGEMENT TABLE INITIALIZATION
+// Initialize new tables for Universal Entity Architecture
+// Added: November 27, 2025
+// =================================================================================
+
+/**
+ * Initialize user_profile_types sheet with correct schema
+ * Schema: id|name|description|code|company_id|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+ */
+function initializeUserProfileTypesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(SHEETS.USER_PROFILE_TYPES);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.USER_PROFILE_TYPES);
+    Logger.log('Created new user_profile_types sheet');
+  }
+
+  // Clear existing data and set headers
+  sheet.clear();
+
+  const headers = [
+    'id', 'name', 'description', 'code', 'company_id',
+    'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by',
+    'deactivated_at', 'deactivated_by', 'deactivation_reason'
+  ];
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+  sheet.setFrozenRows(1);
+
+  Logger.log('Initialized user_profile_types sheet with ' + headers.length + ' columns');
+  return sheet;
+}
+
+/**
+ * Initialize role_types sheet with correct schema
+ * Schema: id|name|description|code|company_id|permission_level|can_approve_steps|max_approval_amount|requires_certification|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+ */
+function initializeRoleTypesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(SHEETS.ROLE_TYPES);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.ROLE_TYPES);
+    Logger.log('Created new role_types sheet');
+  }
+
+  // Clear existing data and set headers
+  sheet.clear();
+
+  const headers = [
+    'id', 'name', 'description', 'code', 'company_id',
+    'permission_level', 'can_approve_steps', 'max_approval_amount', 'requires_certification',
+    'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by',
+    'deactivated_at', 'deactivated_by', 'deactivation_reason'
+  ];
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+  sheet.setFrozenRows(1);
+
+  Logger.log('Initialized role_types sheet with ' + headers.length + ' columns');
+  return sheet;
+}
+
+/**
+ * Initialize user_profiles sheet with correct schema
+ * Schema: user_id|user_profile_type_id|display_name|email|phone|immediate_approver_id|backup_approver_id|status|hire_date|termination_date|last_login_at|is_active|created_at|created_by|updated_at|updated_by|deactivated_at|deactivated_by|deactivation_reason
+ */
+function initializeUserProfilesSheet() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  let sheet = ss.getSheetByName(SHEETS.USER_PROFILES);
+
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEETS.USER_PROFILES);
+    Logger.log('Created new user_profiles sheet');
+  }
+
+  // Clear existing data and set headers
+  sheet.clear();
+
+  const headers = [
+    'user_id', 'user_profile_type_id', 'display_name', 'email', 'phone',
+    'immediate_approver_id', 'backup_approver_id', 'status', 'hire_date', 'termination_date',
+    'last_login_at', 'is_active', 'created_at', 'created_by', 'updated_at', 'updated_by',
+    'deactivated_at', 'deactivated_by', 'deactivation_reason'
+  ];
+
+  sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
+  sheet.setFrozenRows(1);
+
+  Logger.log('Initialized user_profiles sheet with ' + headers.length + ' columns');
+  return sheet;
+}
+
+/**
+ * Add entity_category column to custom_fields sheet
+ * This enables universal entity architecture
+ */
+function addEntityCategoryToCustomFields() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(SHEETS.CUSTOM_FIELDS);
+
+  if (!sheet) {
+    Logger.log('custom_fields sheet not found');
+    return { success: false, message: 'custom_fields sheet not found' };
+  }
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  // Check if entity_category already exists
+  if (headers.includes('entity_category')) {
+    Logger.log('entity_category column already exists in custom_fields');
+    return { success: true, message: 'entity_category already exists' };
+  }
+
+  // Find position after ticket_type_id (index 1 typically)
+  const ticketTypeIdIndex = headers.indexOf('ticket_type_id');
+  const insertPosition = ticketTypeIdIndex >= 0 ? ticketTypeIdIndex + 2 : 3; // 1-based
+
+  // Insert new column
+  sheet.insertColumnAfter(insertPosition - 1);
+  sheet.getRange(1, insertPosition).setValue('entity_category');
+  sheet.getRange(1, insertPosition).setFontWeight('bold');
+
+  // Set default value 'ticket' for all existing rows
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    const range = sheet.getRange(2, insertPosition, lastRow - 1, 1);
+    const values = [];
+    for (let i = 0; i < lastRow - 1; i++) {
+      values.push(['ticket']);
+    }
+    range.setValues(values);
+  }
+
+  Logger.log('Added entity_category column to custom_fields at position ' + insertPosition);
+  return { success: true, message: 'entity_category column added' };
+}
+
+/**
+ * Add entity_category column to custom_field_values sheet
+ * This enables universal entity architecture
+ */
+function addEntityCategoryToCustomFieldValues() {
+  const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  const sheet = ss.getSheetByName(SHEETS.CUSTOM_FIELD_VALUES);
+
+  if (!sheet) {
+    Logger.log('custom_field_values sheet not found');
+    return { success: false, message: 'custom_field_values sheet not found' };
+  }
+
+  const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+
+  // Check if entity_category already exists
+  if (headers.includes('entity_category')) {
+    Logger.log('entity_category column already exists in custom_field_values');
+    return { success: true, message: 'entity_category already exists' };
+  }
+
+  // Find position after ticket_id (index 1 typically)
+  const ticketIdIndex = headers.indexOf('ticket_id');
+  const insertPosition = ticketIdIndex >= 0 ? ticketIdIndex + 2 : 3; // 1-based
+
+  // Insert new column
+  sheet.insertColumnAfter(insertPosition - 1);
+  sheet.getRange(1, insertPosition).setValue('entity_category');
+  sheet.getRange(1, insertPosition).setFontWeight('bold');
+
+  // Set default value 'ticket' for all existing rows
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 1) {
+    const range = sheet.getRange(2, insertPosition, lastRow - 1, 1);
+    const values = [];
+    for (let i = 0; i < lastRow - 1; i++) {
+      values.push(['ticket']);
+    }
+    range.setValues(values);
+  }
+
+  Logger.log('Added entity_category column to custom_field_values at position ' + insertPosition);
+  return { success: true, message: 'entity_category column added' };
+}
+
+/**
+ * Initialize all user management tables and add entity_category columns
+ * One-click setup for Universal Entity Architecture
+ */
+function initializeUserManagementTables() {
+  Logger.log('=== INITIALIZING USER MANAGEMENT TABLES ===');
+
+  const results = {
+    success: true,
+    initialized: [],
+    errors: []
+  };
+
+  try {
+    // Initialize new tables
+    initializeUserProfileTypesSheet();
+    results.initialized.push('user_profile_types');
+
+    initializeRoleTypesSheet();
+    results.initialized.push('role_types');
+
+    initializeUserProfilesSheet();
+    results.initialized.push('user_profiles');
+
+    // Add entity_category columns to existing tables
+    const cfResult = addEntityCategoryToCustomFields();
+    if (cfResult.success) {
+      results.initialized.push('custom_fields (entity_category)');
+    } else {
+      results.errors.push('custom_fields: ' + cfResult.message);
+    }
+
+    const cfvResult = addEntityCategoryToCustomFieldValues();
+    if (cfvResult.success) {
+      results.initialized.push('custom_field_values (entity_category)');
+    } else {
+      results.errors.push('custom_field_values: ' + cfvResult.message);
+    }
+
+    Logger.log('=== USER MANAGEMENT TABLES INITIALIZED ===');
+    Logger.log('Initialized: ' + results.initialized.join(', '));
+
+    if (results.errors.length > 0) {
+      Logger.log('Errors: ' + results.errors.join(', '));
+      results.success = false;
+    }
+
+  } catch (error) {
+    Logger.log('Error in initializeUserManagementTables: ' + error.message);
+    results.success = false;
+    results.errors.push(error.message);
+  }
+
+  return results;
+}
+
+/**
+ * Create test data for user management system
+ */
+function createUserManagementTestData() {
+  Logger.log('=== CREATING USER MANAGEMENT TEST DATA ===');
+
+  const results = {
+    success: true,
+    created: [],
+    errors: []
+  };
+
+  try {
+    // Create test user profile types
+    const employeeType = createUserProfileType({
+      name: 'Standard Employee',
+      description: 'Regular full-time employee profile',
+      code: 'EMP',
+      company_id: null // Global
+    });
+    results.created.push('User Profile Type: ' + employeeType.data.name);
+
+    const contractorType = createUserProfileType({
+      name: 'Contractor',
+      description: 'External contractor or consultant',
+      code: 'CTR',
+      company_id: null
+    });
+    results.created.push('User Profile Type: ' + contractorType.data.name);
+
+    // Create test role types
+    const approvalRoleType = createRoleType({
+      name: 'Approval Roles',
+      description: 'Roles that can approve workflow steps',
+      code: 'APR',
+      company_id: null,
+      permission_level: 3,
+      can_approve_steps: true,
+      max_approval_amount: 50000,
+      requires_certification: false
+    });
+    results.created.push('Role Type: ' + approvalRoleType.data.name);
+
+    const departmentRoleType = createRoleType({
+      name: 'Department Roles',
+      description: 'Departmental management roles',
+      code: 'DEP',
+      company_id: null,
+      permission_level: 2,
+      can_approve_steps: true,
+      max_approval_amount: 10000,
+      requires_certification: false
+    });
+    results.created.push('Role Type: ' + departmentRoleType.data.name);
+
+    Logger.log('=== USER MANAGEMENT TEST DATA CREATED ===');
+    Logger.log('Created: ' + results.created.join(', '));
+
+  } catch (error) {
+    Logger.log('Error in createUserManagementTestData: ' + error.message);
+    results.success = false;
+    results.errors.push(error.message);
+  }
+
+  return results;
+}
+
+/**
+ * Complete user management system setup (one-click solution)
+ */
+function completeUserManagementSetup() {
+  Logger.log('=== COMPLETE USER MANAGEMENT SETUP ===');
+
+  const initResult = initializeUserManagementTables();
+  if (!initResult.success) {
+    Logger.log('Initialization failed, aborting test data creation');
+    return initResult;
+  }
+
+  const testDataResult = createUserManagementTestData();
+
+  return {
+    success: initResult.success && testDataResult.success,
+    initialization: initResult,
+    testData: testDataResult,
+    message: 'User management system setup complete'
+  };
+}
+
+// =================================================================================
+// END OF PHASE 10.0: USER MANAGEMENT TABLE INITIALIZATION
+// Total functions added: 8
+// Version: 8.0
+// =================================================================================
