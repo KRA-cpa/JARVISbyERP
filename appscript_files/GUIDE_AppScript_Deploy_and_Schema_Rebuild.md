@@ -2,12 +2,13 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.0.0
+Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.1.0
 Created: 17 October 2026 UTC+8 (Philippine Standard Time) | Modified: 17 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Step-by-step guide to paste a new AppScript version and rebuild all Google Sheet tables safely | Status: Active
 
 REVISION HISTORY:
 - v1.0.0 | 17 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial guide for AppScript v8.1 (TABLE_SCHEMAS + rebuildAllTables)
+- v1.1.0 | 17 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v8.2 (resolveColumnMapping implemented, KEEP policy); removed "implement first" prerequisite
 ===============================================================================
 -->
 
@@ -15,7 +16,7 @@ REVISION HISTORY:
 
 > Use this guide every time a new `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` file is created.
 > **Latest file is the one with the newest timestamp** in `appscript_files/`.
-> Current: `APPSCRIPT_v8.1_20261017_1409.txt`
+> Current: `APPSCRIPT_v8.2_20261017_1444.txt`
 
 **Time needed:** ~15 minutes | **Risk:** Low — the rebuild never deletes data and backs up every tab it changes
 
@@ -25,7 +26,6 @@ REVISION HISTORY:
 
 | Check | How |
 |---|---|
-| ☐ `resolveColumnMapping()` is implemented | Open the latest file, search `function resolveColumnMapping`. If the body still says `TODO(user)` and `return null;`, stop. Tabs that need repair will show `ERROR: resolveColumnMapping() is not implemented yet` (nothing is changed, but they won't be fixed). |
 | ☐ You can open the Google Sheet | Sheet ID `1EjFpr_yktSU6QAeBSAvcr6iWVtmaOCV1t5unvImmot4` (same as `SPREADSHEET_ID` in the script) |
 | ☐ An `xSchema` tab exists in the Sheet | Needed by `analyzeCurrentSchema()` in §4. If missing: in the Sheet click **+** (bottom-left) → rename the new tab to `xSchema` |
 | ☐ Nobody is using the app | The apply step locks the script while it rewrites rows |
@@ -36,10 +36,10 @@ REVISION HISTORY:
 
 1. Open the Google Sheet → **Extensions → Apps Script** (or open the project from script.google.com).
 2. In the left panel, click the script file (usually `Code.gs`).
-3. In the repo, open the latest file: `appscript_files/APPSCRIPT_v8.1_20261017_1409.txt` → select all → copy.
+3. In the repo, open the latest file: `appscript_files/APPSCRIPT_v8.2_20261017_1444.txt` → select all → copy.
 4. In the editor: **Ctrl+A** → **Ctrl+V** to replace everything.
 5. **Ctrl+S** to save. If a red error bar appears, the paste was incomplete — repeat steps 3–5.
-6. Quick check: the first lines must say `Version: 8.1`.
+6. Quick check: the first lines must say `Version: 8.2`.
 
 > Pasting and saving updates the **editor** only. The live web app keeps serving the old version until you redeploy (§5).
 
@@ -66,7 +66,7 @@ This **only reports**. It changes nothing.
 **Review before applying:**
 - **`added`** — new empty columns. Normal.
 - **`moved`** — existing columns that will change position. Data moves with its header. Normal.
-- **`extra`** — columns in the tab that are **not** in `TABLE_SCHEMAS`. What happens to them depends on `resolveColumnMapping()` (kept at the end, or dropped and kept only in the backup). If a name looks like a typo of a real column (e.g. `creatd_at`), fix the header in the Sheet by hand and re-run the dry run.
+- **`extra`** — columns in the tab that are **not** in `TABLE_SCHEMAS`. They are **kept**, moved after the official columns, with their data. A blank header becomes `_unnamed_<col>`; a repeated header becomes `<name>_dup_<col>`. If a name looks like a typo of a real column (e.g. `creatd_at`), fix the header in the Sheet by hand **before applying** and re-run the dry run — otherwise its data stays in the extra column instead of the real one.
 
 > ⚠️ Repair matches columns **by header name**. If a tab has rows that were written under the wrong headers in the past (the Sept 24, 2025 schema issue), those values stay in the wrong columns after the repair. Spot-check a few rows in `tickets` and `custom_field_values` after §3.
 
@@ -102,7 +102,7 @@ This **only reports**. It changes nothing.
 | step_approvers | 2 | admin_action_logs | 7 | collaboration_notifications | 10 |
 | user_role_assignments | 24 | user_preferences | 12 | shared_ticket_access_logs | 9 |
 
-A table has **more** columns than listed only if `resolveColumnMapping()` keeps `extra` columns — that's expected.
+A table with **more** columns than listed had `extra` columns, which are kept at the end — that's expected. Delete them in the Sheet by hand once you're sure they aren't needed.
 
 4. Run **`rebuildAllTables`** (dry run) once more → every table should now say `OK`.
 
@@ -128,7 +128,6 @@ A table has **more** columns than listed only if `resolveColumnMapping()` keeps 
 
 | Error | Cause | Fix |
 |---|---|---|
-| `resolveColumnMapping() is not implemented yet` | §0 prerequisite not done | Implement the function, re-paste, re-run |
 | `xSchema sheet not found` | No `xSchema` tab | Create it (§0) |
 | `Lock timeout` / `Could not obtain lock` | Another script run in progress | Wait a minute, run again |
 | `A sheet with the name "_bak_…" already exists` | Two applies in the same second | Run again |

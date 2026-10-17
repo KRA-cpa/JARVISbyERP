@@ -67,7 +67,7 @@ Reorg record: `docs/planning/PLAN_RepoReorg_20261017.md` + `docs/planning/REORG_
    - Schema migration and update tracking
 
 7. **`APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt`** - ⚠️ **MANDATORY REFERENCE**
-   - **Latest File**: `./appscript_files/APPSCRIPT_v8.1_20261017_1409.txt` (v8.1 — adds `TABLE_SCHEMAS` + `rebuildAllTables()` safe schema repair)
+   - **Latest File**: `./appscript_files/APPSCRIPT_v8.2_20261017_1444.txt` (v8.2 — `TABLE_SCHEMAS` + `rebuildAllTables()` safe schema repair, ready to run; keeps unknown columns)
    - **Naming Rule**: every AppScript update is a NEW file `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` (UTC+8); never overwrite older versions. The newest timestamp is the latest.
    - **Snapshot**: `./appscript_files/APPSCRIPT.txt` is frozen at v8.0 (Nov 27, 2025) — do not edit
    - **Schema Source of Truth**: `TABLE_SCHEMAS` in the latest file (column order follows the positional writers)

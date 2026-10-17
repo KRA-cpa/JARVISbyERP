@@ -847,8 +847,8 @@ Phase 5 (SLA) → Phase 6 (Admin) → Phase 7 (Firebase) + Phase 8 (Testing)
 - File: `appscript_files/APPSCRIPT_v8.1_20261017_1409.txt` (new timestamped-file convention; APPSCRIPT.txt frozen at v8.0)
 - `TABLE_SCHEMAS`: authoritative headers for all 33 tables (verified: coverage 33/33, 12 positional writers aligned)
 - `rebuildAllTables()` (dry run) / `rebuildAllTablesApply()`: safe repair — creates missing tabs, backs up + re-maps drifted tabs
-- [ ] Implement `resolveColumnMapping()` (column-mapping policy — user contribution)
-- [ ] Paste v8.1 into Apps Script → run dry run → review Logger → apply → `analyzeCurrentSchema()`
+- [x] ✅ `resolveColumnMapping()` implemented in v8.2 (`appscript_files/APPSCRIPT_v8.2_20261017_1444.txt`) — KEEP policy for unknown columns; re-runs are no-ops (tested against a fake Sheets API: 5 scenarios pass)
+- [ ] Paste v8.2 into Apps Script → run dry run → review Logger → apply → `analyzeCurrentSchema()`
 - [ ] Follow-up: `createCustomFieldValue()` (not routed) writes positional values without entity_category — convert to header-driven or remove
 - ✅ Priority 2 frontend components already exist (AdminUserProfileTypeList/AdminRoleTypeList + AdminPage tabs); remaining wiring bugs: `/admin/user-profile-types/create` route renders AdminCustomFieldCreatePage, `?tab=` ignored by AdminPage, `/:id/edit` routes missing
 

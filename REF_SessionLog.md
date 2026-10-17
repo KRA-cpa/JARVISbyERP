@@ -37,12 +37,26 @@ REVISION HISTORY:
 | Session ID | Date | Subproject / Topic | Status | Output File |
 |---|---|---|---|---|
 | 2b1ab64c | 17 Oct 2026 | Meta / Repo check (backup overdue, password in unpushed commits, uncommitted Phase 10.0 work) + session log setup copied from HolmesWatson | CLOSED — 3 items carry forward (see Pending below) | `REF_SessionLog.md`; Claude.md v3.4 (🗓️ SESSION LOG); `.claude/settings.local.json` SessionStart hook (now gitignored); memory/feedback_session_log_workflow.md; backup-20261017-135150.enc; commits 60fc8e5..6a70fe6; plan `~/.claude/plans/check-repo-refactored-shore.md` |
-| e9025b24 | 17 Oct 2026 | AppScript Backend / v8.1 timestamped file + `rebuildAllTables()` safe schema repair (all 33 tables); Meta / repo reorg into `docs/` | OPEN — pending: user implements `resolveColumnMapping()`, runs guide in Apps Script | `appscript_files/APPSCRIPT_v8.1_20261017_1409.txt`; `appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md`; `docs/planning/PLAN_RepoReorg_20261017.md` (D1–D5 = recommended, executed on `chore/repo-reorg`); `docs/planning/REORG_MANIFEST.tsv`; `scripts/reorg-move.sh`, `scripts/reorg-relink.js`; Claude.md v3.5 (📁 REPO LAYOUT); memory/feedback_appscript_timestamped_files.md; plan `~/.claude/plans/select-one-high-impact-vast-shamir.md` |
+| e9025b24 | 17 Oct 2026 | AppScript Backend / v8.1 timestamped file + `rebuildAllTables()` safe schema repair (all 33 tables); Meta / repo reorg into `docs/` | CLOSED — 7 items carry forward (see Pending below) | `appscript_files/APPSCRIPT_v8.1_20261017_1409.txt`; `appscript_files/APPSCRIPT_v8.2_20261017_1444.txt` (resolveColumnMapping implemented); `appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md`; `docs/planning/PLAN_RepoReorg_20261017.md` (D1–D5 = recommended, executed on `chore/repo-reorg`); `docs/planning/REORG_MANIFEST.tsv`; `scripts/reorg-move.sh`, `scripts/reorg-relink.js`; Claude.md v3.5 (📁 REPO LAYOUT); memory/feedback_appscript_timestamped_files.md, memory/feedback_claude_writes_all_code.md; commits 757a9d3, 5d4b3f3, 9fb9695; plan `~/.claude/plans/select-one-high-impact-vast-shamir.md` |
+
+### Pending — e9025b24 (17 Oct 2026)
+
+1. **Commit v8.2 + doc updates**: still uncommitted at close: `appscript_files/APPSCRIPT_v8.2_20261017_1444.txt` (new), `Claude.md`, `REF_SessionLog.md`, the deploy guide, `docs/planning/SUPERTHINK_TODO_ANALYSIS_2025-09-27.md`, `docs/reference/DATABASE_SCHEMA_UPDATES.txt`.
+2. **Run the deploy guide in Apps Script** (user): paste v8.2 → `rebuildAllTables()` dry run → fix any typo'd `extra` headers → `rebuildAllTablesApply()` → `analyzeCurrentSchema()` → redeploy the web app (guide §5).
+3. **Frontend Phase 10.0 wiring bugs** (found this session, not fixed):
+   - `/admin/user-profile-types/create` renders `AdminCustomFieldCreatePage`
+   - `AdminPage` ignores `?tab=`
+   - `/admin/{role-types,user-profile-types}/:id/edit` routes are missing
+   - Plan v1 is in `~/.claude/plans/select-one-high-impact-vast-shamir.md` (overwritten by the AppScript plan; details also in `docs/planning/SUPERTHINK_TODO_ANALYSIS_2025-09-27.md` Priority 1.1)
+4. **`createCustomFieldValue()`** (not routed) writes positional values without `entity_category` → convert to header-driven or remove.
+5. **`npm run test:api-health` always fails (HTTP 302)**: `scripts/test-api.js` doesn't follow the Apps Script redirect. Pre-existing; not caused by the reorg.
+6. **Delete merged branch `chore/repo-reorg`** (local only; fully merged into `main3`).
+7. **114 pre-existing dangling doc references** (files that never existed), listed by `node scripts/reorg-relink.js --check`. Optional cleanup.
 
 ### Pending — 2b1ab64c (17 Oct 2026)
 
-1. **Push `main3`** — 4 commits ahead of `origin/main3` (60fc8e5..6a70fe6 + session-log close-out); verified password-free (tree + messages). Awaiting user OK.
-2. **Verify SessionStart hook** — the first new session should show "SESSION LOG REMINDER" in startup context. Hook matcher is `startup` only: a fresh `claude` launch fires it; `/clear` does NOT (matcher `clear`) — add a `clear` matcher if `/clear` is the usual way to start a new convo.
+1. **Push `main3`**: now **8** commits ahead of `origin/main3` (adds 3098df1 plus this session's 757a9d3, 5d4b3f3, 9fb9695). The earlier 4 were verified password-free; the new ones contain no secrets. Awaiting user OK.
+2. **SessionStart hook**: ✅ confirmed by e9025b24: the reminder did NOT fire after `/clear` (matcher is `startup` only). Add a `clear` matcher to `.claude/settings.local.json` if `/clear` is the usual way to start a new convo.
 3. **Delete local safety branch** `backup/main3-pre-rewrite-20261017` once satisfied with the rewrite — it contains the backup password; never push it (and avoid `git push --all` until deleted).
 4. *(Optional, not started)* Review/merge `origin/claude/verify-todos-codebase-JgyRz` (quota checker, redeploy plan, decisions register); fix malformed global git `safe.directory` entries.
 
