@@ -35,7 +35,14 @@ REVISION HISTORY:
 
 | Session ID | Date | Subproject / Topic | Status | Output File |
 |---|---|---|---|---|
-| 2b1ab64c | 17 Oct 2026 | Meta / Repo check (backup overdue, password in unpushed commits, uncommitted Phase 10.0 work) + session log setup copied from HolmesWatson | OPEN | `REF_SessionLog.md`; Claude.md v3.4 (🗓️ SESSION LOG); `.claude/settings.local.json` SessionStart hook (now gitignored); memory/feedback_session_log_workflow.md; plan `~/.claude/plans/check-repo-refactored-shore.md` |
+| 2b1ab64c | 17 Oct 2026 | Meta / Repo check (backup overdue, password in unpushed commits, uncommitted Phase 10.0 work) + session log setup copied from HolmesWatson | CLOSED — 3 items carry forward (see Pending below) | `REF_SessionLog.md`; Claude.md v3.4 (🗓️ SESSION LOG); `.claude/settings.local.json` SessionStart hook (now gitignored); memory/feedback_session_log_workflow.md; backup-20261017-135150.enc; commits 60fc8e5..6a70fe6; plan `~/.claude/plans/check-repo-refactored-shore.md` |
+
+### Pending — 2b1ab64c (17 Oct 2026)
+
+1. **Push `main3`** — 4 commits ahead of `origin/main3` (60fc8e5..6a70fe6 + session-log close-out); verified password-free (tree + messages). Awaiting user OK.
+2. **Verify SessionStart hook** — the first new session should show "SESSION LOG REMINDER" in startup context. Hook matcher is `startup` only: a fresh `claude` launch fires it; `/clear` does NOT (matcher `clear`) — add a `clear` matcher if `/clear` is the usual way to start a new convo.
+3. **Delete local safety branch** `backup/main3-pre-rewrite-20261017` once satisfied with the rewrite — it contains the backup password; never push it (and avoid `git push --all` until deleted).
+4. *(Optional, not started)* Review/merge `origin/claude/verify-todos-codebase-JgyRz` (quota checker, redeploy plan, decisions register); fix malformed global git `safe.directory` entries.
 
 ---
 
