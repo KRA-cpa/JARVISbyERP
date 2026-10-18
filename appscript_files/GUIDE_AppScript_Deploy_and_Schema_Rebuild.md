@@ -2,13 +2,15 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.1.0
+Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.2.0
 Created: 17 October 2026 UTC+8 (Philippine Standard Time) | Modified: 17 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Step-by-step guide to paste a new AppScript version and rebuild all Google Sheet tables safely | Status: Active
 
 REVISION HISTORY:
 - v1.0.0 | 17 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial guide for AppScript v8.1 (TABLE_SCHEMAS + rebuildAllTables)
 - v1.1.0 | 17 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v8.2 (resolveColumnMapping implemented, KEEP policy); removed "implement first" prerequisite
+- v1.1.1 | 17 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Added BLOCKED banner: apply step on hold until v8.3 fixes code review CR-01–CR-04
+- v1.2.0 | 17 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v8.3 (code review fixes); banner removed; §0/§3 redeploy-first note (write lock); `defaulted` log field; lock-timeout error row
 ===============================================================================
 -->
 
@@ -16,7 +18,9 @@ REVISION HISTORY:
 
 > Use this guide every time a new `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` file is created.
 > **Latest file is the one with the newest timestamp** in `appscript_files/`.
-> Current: `APPSCRIPT_v8.2_20261017_1444.txt`
+> Current: `APPSCRIPT_v8.3_20261017_1510.txt`
+
+> ✅ **v8.3 fixes the bugs that blocked v8.2** (code review CR-01–CR-07, `docs/planning/TODO_CodeReview_20261017.md`). Do not apply with v8.2. Offline test: `node appscript_files/tools/CODE_REVIEW_FIXES_TEST_v8.3.js appscript_files/APPSCRIPT_v8.3_20261017_1510.txt` → 11 PASS.
 
 **Time needed:** ~15 minutes | **Risk:** Low — the rebuild never deletes data and backs up every tab it changes
 
@@ -28,7 +32,7 @@ REVISION HISTORY:
 |---|---|
 | ☐ You can open the Google Sheet | Sheet ID `1EjFpr_yktSU6QAeBSAvcr6iWVtmaOCV1t5unvImmot4` (same as `SPREADSHEET_ID` in the script) |
 | ☐ An `xSchema` tab exists in the Sheet | Needed by `analyzeCurrentSchema()` in §4. If missing: in the Sheet click **+** (bottom-left) → rename the new tab to `xSchema` |
-| ☐ Nobody is using the app | The apply step locks the script while it rewrites rows |
+| ☐ Nobody is using the app, **or** you redeploy (§5) before applying (§3) | v8.3's apply step holds the script lock, and v8.3's web-app writes wait for it. The web app that's live now runs older code that never takes the lock, so a write from it during §3 can be lost. Redeploying first is safe: v8.3 writes by header name and works on the old layout too |
 
 ---
 
@@ -36,10 +40,10 @@ REVISION HISTORY:
 
 1. Open the Google Sheet → **Extensions → Apps Script** (or open the project from script.google.com).
 2. In the left panel, click the script file (usually `Code.gs`).
-3. In the repo, open the latest file: `appscript_files/APPSCRIPT_v8.2_20261017_1444.txt` → select all → copy.
+3. In the repo, open the latest file: `appscript_files/APPSCRIPT_v8.3_20261017_1510.txt` → select all → copy.
 4. In the editor: **Ctrl+A** → **Ctrl+V** to replace everything.
 5. **Ctrl+S** to save. If a red error bar appears, the paste was incomplete — repeat steps 3–5.
-6. Quick check: the first lines must say `Version: 8.2`.
+6. Quick check: the first lines must say `Version: 8.3`.
 
 > Pasting and saving updates the **editor** only. The live web app keeps serving the old version until you redeploy (§5).
 
@@ -58,13 +62,14 @@ This **only reports**. It changes nothing.
 |---|---|---|
 | `OK: <table>` | Headers already match | None |
 | `CREATED: <table>` | Tab is missing or empty — will be created with headers | None |
-| `REPAIRED: <table> … added: […] moved: […] extra: […]` | Headers differ — tab will be backed up and its rows re-mapped by column name | Review `extra` (see below) |
+| `REPAIRED: <table> … added: […] moved: […] extra: […]` (+ `defaulted: […]`) | Headers differ — tab will be backed up and its rows re-mapped by column name | Review `extra` (see below) |
 | `ERROR: <table>: …` | Something failed for that table | Stop — see §6 |
 
 5. Last line: `=== REBUILD COMPLETE: X created, Y ok, Z repaired, N errors ===`
 
 **Review before applying:**
-- **`added`** — new empty columns. Normal.
+- **`added`** — new columns, empty for existing rows. Normal.
+- **`defaulted`** — added columns that existing rows get a value for instead of blank (`COLUMN_DEFAULTS`): `entity_category = 'ticket'` in `custom_fields` / `custom_field_values`. Normal.
 - **`moved`** — existing columns that will change position. Data moves with its header. Normal.
 - **`extra`** — columns in the tab that are **not** in `TABLE_SCHEMAS`. They are **kept**, moved after the official columns, with their data. A blank header becomes `_unnamed_<col>`; a repeated header becomes `<name>_dup_<col>`. If a name looks like a typo of a real column (e.g. `creatd_at`), fix the header in the Sheet by hand **before applying** and re-run the dry run — otherwise its data stays in the extra column instead of the real one.
 
@@ -73,6 +78,8 @@ This **only reports**. It changes nothing.
 ---
 
 ## §3 Apply — `rebuildAllTablesApply()`
+
+> If people may be using the app, do §5 (redeploy) **now**, then come back here — see §0.
 
 1. Function dropdown → **`rebuildAllTablesApply`** → **Run**.
 2. Wait for `=== REBUILD COMPLETE … ===` in the Execution log. The `REPAIRED` / `CREATED` counts should match the dry run.
@@ -112,7 +119,7 @@ A table with **more** columns than listed had `extra` columns, which are kept at
 
 1. **Deploy → Manage deployments**.
 2. Select the active web-app deployment → **✏️ Edit**.
-3. **Version → New version** → description e.g. `v8.1 20261017_1409` → **Deploy**.
+3. **Version → New version** → description e.g. `v8.3 20261017_1510` → **Deploy**.
 4. The web-app URL stays the same — no frontend change needed.
 5. Open the app → Admin page → confirm the API status shows connected and lists load.
 
@@ -130,6 +137,7 @@ A table with **more** columns than listed had `extra` columns, which are kept at
 |---|---|---|
 | `xSchema sheet not found` | No `xSchema` tab | Create it (§0) |
 | `Lock timeout` / `Could not obtain lock` | Another script run in progress | Wait a minute, run again |
+| App shows a save error with `lock` in it during §3 | v8.3 web-app writes wait up to 30s for the rebuild's lock, then fail rather than lose data | Retry the save after the rebuild finishes |
 | `A sheet with the name "_bak_…" already exists` | Two applies in the same second | Run again |
 | `Exceeded maximum execution time` | 6-minute limit | Run again — finished tables are skipped |
 

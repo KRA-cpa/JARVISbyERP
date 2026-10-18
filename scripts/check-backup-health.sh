@@ -1,6 +1,7 @@
 #!/bin/bash
 # Check backup health - Claude runs this at session start
-# Version: 1.0
+# Version: 1.1 (17 Oct 2026: code review CR-10 — age comes from backup-index.json last_backup;
+#               file mtime is only a fallback, since a git checkout/clone resets it)
 
 BACKUP_DIR="$(pwd)/.claude/conversation-backups"
 ENCRYPTED_DIR="$BACKUP_DIR/encrypted"
@@ -36,13 +37,24 @@ if [ -z "$LATEST_BACKUP" ]; then
     exit 1
 fi
 
-# Calculate backup age
-BACKUP_TIME=$(stat -c %Y "$LATEST_BACKUP" 2>/dev/null || stat -f %m "$LATEST_BACKUP")
+# Calculate backup age from the index (the real backup time); fall back to file mtime
+BACKUP_TIME=""
+AGE_SOURCE="backup-index.json last_backup"
+if [ -f "$INDEX_FILE" ] && command -v jq &> /dev/null; then
+    LAST_BACKUP=$(jq -r '.last_backup // empty' "$INDEX_FILE" 2>/dev/null)
+    if [ -n "$LAST_BACKUP" ]; then
+        BACKUP_TIME=$(date -d "$LAST_BACKUP" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%S%z" "$LAST_BACKUP" +%s 2>/dev/null)
+    fi
+fi
+if [ -z "$BACKUP_TIME" ]; then
+    AGE_SOURCE="file mtime (index unreadable — may look newer than it is after a checkout)"
+    BACKUP_TIME=$(stat -c %Y "$LATEST_BACKUP" 2>/dev/null || stat -f %m "$LATEST_BACKUP")
+fi
 NOW=$(date +%s)
 HOURS_SINCE=$(( ($NOW - $BACKUP_TIME) / 3600 ))
 
 echo "Latest backup: $(basename "$LATEST_BACKUP")"
-echo "Age: $HOURS_SINCE hours ago"
+echo "Age: $HOURS_SINCE hours ago (from $AGE_SOURCE)"
 
 # Get backup stats from index
 if [ -f "$INDEX_FILE" ] && command -v jq &> /dev/null; then

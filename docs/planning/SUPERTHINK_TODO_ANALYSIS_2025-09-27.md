@@ -848,8 +848,9 @@ Phase 5 (SLA) → Phase 6 (Admin) → Phase 7 (Firebase) + Phase 8 (Testing)
 - `TABLE_SCHEMAS`: authoritative headers for all 33 tables (verified: coverage 33/33, 12 positional writers aligned)
 - `rebuildAllTables()` (dry run) / `rebuildAllTablesApply()`: safe repair — creates missing tabs, backs up + re-maps drifted tabs
 - [x] ✅ `resolveColumnMapping()` implemented in v8.2 (`appscript_files/APPSCRIPT_v8.2_20261017_1444.txt`) — KEEP policy for unknown columns; re-runs are no-ops (tested against a fake Sheets API: 5 scenarios pass)
-- [ ] Paste v8.2 into Apps Script → run dry run → review Logger → apply → `analyzeCurrentSchema()`
-- [ ] Follow-up: `createCustomFieldValue()` (not routed) writes positional values without entity_category — convert to header-driven or remove
+- [ ] Paste **v8.3** (`appscript_files/APPSCRIPT_v8.3_20261017_1510.txt`) into Apps Script → dry run → review Logger → redeploy → apply → `analyzeCurrentSchema()` (deploy guide v1.2.0; never apply with v8.2)
+- [x] ✅ Code review findings CR-01–CR-13 + 6 extra issues fixed (v8.3 + scripts v1.1, 17 Oct 2026): `docs/planning/TODO_CodeReview_20261017.md`
+- [x] ✅ `createCustomFieldValue()` (and update/delete) converted to header-driven rows in v8.3
 - ✅ Priority 2 frontend components already exist (AdminUserProfileTypeList/AdminRoleTypeList + AdminPage tabs); remaining wiring bugs: `/admin/user-profile-types/create` route renders AdminCustomFieldCreatePage, `?tab=` ignored by AdminPage, `/:id/edit` routes missing
 
 ### **Priority 2: Frontend Components (Est. 2-3 hours)**

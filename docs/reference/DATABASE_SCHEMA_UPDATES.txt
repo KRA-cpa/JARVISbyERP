@@ -28,11 +28,13 @@
 
 ---
 
-## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v8.2)
+## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v8.3)
 
-`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v8.2_20261017_1444.txt` is now the single source of truth
+`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v8.3_20261017_1510.txt` is now the single source of truth
 for the headers of all 33 tables (25 in SHEETS + 8 in TAG_SHEETS). Where this document and the code
 disagree, the code's positional writers win (e.g. roles = 5 columns as written by createRole(), not 11).
+Since v8.3 every initialize*Sheet() writes these headers (ensureTableSheet), all custom_field_values
+writers are header-driven, and the rebuild fills a newly added entity_category with 'ticket' (COLUMN_DEFAULTS).
 
 - **Dry run**: run `rebuildAllTables()` in the Apps Script editor → Logger shows created / ok / repaired per table
 - **Apply**: run `rebuildAllTablesApply()` → missing tabs created; drifted tabs backed up to

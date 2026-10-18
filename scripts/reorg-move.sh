@@ -12,6 +12,10 @@ DRY_RUN=false
 
 moved=0
 while IFS=$'\t' read -r old new; do
+    # The manifest may be checked out with CRLF (core.autocrlf=true): drop the trailing \r
+    old="${old%$'\r'}"
+    new="${new%$'\r'}"
+
     # Skip comments and blank lines
     [[ -z "$old" || "$old" == \#* ]] && continue
 
