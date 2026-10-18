@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import { useCompanies, useRoles, useDropdownLists, useTickets, useUsers, useTicketTypes, useUserProfileTypes, useRoleTypes } from '../hooks/useAPI';
 import Header from '../components/shared/Header';
@@ -21,6 +22,8 @@ const AdminPage = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [activeSubTab, setActiveSubTab] = useState(null);
   const [showBackendInfo, setShowBackendInfo] = useState(false);
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
 
   // Fetch real data from API with manual refresh capability
   const { data: companies, loading: companiesLoading, error: companiesError, refetch: refetchCompanies } = useCompanies();
@@ -237,6 +240,23 @@ const AdminPage = () => {
       ]
     }
   ];
+
+  // Open the tab named in ?tab= - create/edit pages link back with a tab id (ticket-types)
+  // or a sub-tab id (user-profile-types), so a sub-tab id also selects its parent tab
+  useEffect(() => {
+    if (!requestedTab) return;
+    const parentTab = adminTabs.find(t => t.id === requestedTab || t.subTabs?.some(st => st.id === requestedTab));
+    if (!parentTab) return;
+
+    setActiveTab(parentTab.id);
+    if (parentTab.id !== requestedTab) {
+      setActiveSubTab(requestedTab);
+    } else {
+      setActiveSubTab(parentTab.subTabs?.find(st => !st.disabled)?.id || null);
+    }
+    // adminTabs is static config rebuilt each render; only a new ?tab= should re-run this
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requestedTab]);
 
   // Generate admin modules with real data
   const getModuleStats = (moduleId) => {

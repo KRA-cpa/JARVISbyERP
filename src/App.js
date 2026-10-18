@@ -17,6 +17,7 @@ import UnauthorizedPage from './pages/UnauthorizedPage';
 import AdminTicketTypeCreatePage from './pages/AdminTicketTypeCreatePage';
 import AdminCustomFieldCreatePage from './pages/AdminCustomFieldCreatePage';
 import AdminRoleTypeCreatePage from './pages/AdminRoleTypeCreatePage';
+import AdminUserProfileTypeCreatePage from './pages/AdminUserProfileTypeCreatePage';
 import ProfilePage from './pages/ProfilePage';
 
 // Shared Components
@@ -179,10 +180,28 @@ const AppRoutes = () => {
           />
 
           <Route
+            path="/admin/role-types/:id/edit"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminRoleTypeCreatePage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/admin/user-profile-types/create"
             element={
               <ProtectedRoute requireAdmin={true}>
-                <AdminCustomFieldCreatePage />
+                <AdminUserProfileTypeCreatePage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/user-profile-types/:id/edit"
+            element={
+              <ProtectedRoute requireAdmin={true}>
+                <AdminUserProfileTypeCreatePage />
               </ProtectedRoute>
             }
           />

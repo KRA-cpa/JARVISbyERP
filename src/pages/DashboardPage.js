@@ -23,6 +23,8 @@ const DashboardPage = () => {
   const [selectedCompany, setSelectedCompany] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
   const [selectedPriority, setSelectedPriority] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const isRefreshing = refreshing || ticketsLoading;
 
   // Mock notifications for demo
   const mockNotifications = [
@@ -72,6 +74,17 @@ const DashboardPage = () => {
   const handleQuickAction = (action, ticketId) => {
     success(`${action} action completed for ticket ${ticketId}`);
     refetchTickets();
+  };
+
+  // Manual refresh: spin for at least 600 ms - a local or failing request can finish
+  // before the browser paints, so the loading flag alone would never show the spin
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchTickets(), new Promise(resolve => setTimeout(resolve, 600))]);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const renderTicketRow = (ticket) => {
@@ -433,11 +446,12 @@ const DashboardPage = () => {
                       </button>
                     )}
                     <button
-                      onClick={() => refetchTickets()}
-                      className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2"
+                      onClick={handleRefresh}
+                      disabled={isRefreshing}
+                      className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors duration-200 flex items-center space-x-2 disabled:opacity-75 disabled:cursor-wait"
                     >
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Refresh</span>
+                      <Icons.Refresh size={16} className={isRefreshing ? 'animate-spin' : ''} />
+                      <span>{isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
                     </button>
                   </div>
                 </div>

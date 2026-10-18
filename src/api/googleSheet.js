@@ -250,7 +250,8 @@ class BaseAPI {
       // GET requests for read operations, POST for write operations
       const readActions = [
         'ping', 'getCompanies', 'getTickets', 'getTicketTypes', 'getRoles',
-        'getDropdownLists', 'getCustomFields', 'getWorkflowSteps', 'getSystemHealth'
+        'getDropdownLists', 'getCustomFields', 'getWorkflowSteps', 'getSystemHealth',
+        'getUserProfileTypes', 'getRoleTypes' // routed in doGet only - doPost has no case for them
       ];
 
       const isGetRequest = readActions.includes(action);
@@ -1690,6 +1691,27 @@ class CustomFieldsAPI extends BaseAPI {
   }
 }
 
+/**
+ * Unwrap a Phase 10.0 AppScript handler result.
+ * Those handlers return { status, data, message }, and doGet / createHandlerResponse wrap that again
+ * in { success, data }, so response.data is the handler result rather than the records.
+ * Mock data has no outer wrapper (response.data is already the records), so it passes through.
+ * @param {Object} response - makeRequest() response
+ * @returns {*} The records / record, or undefined when the handler returned none
+ */
+const unwrapHandlerResult = (response) => {
+  const result = response?.data;
+  const isHandlerResult = result && !Array.isArray(result) && typeof result.status === 'string'
+    && ('data' in result || 'message' in result);
+
+  if (!isHandlerResult) return result;
+  if (result.status === 'error') {
+    // doGet reports handler failures as success: true, so makeRequest() doesn't throw for them
+    throw new Error(result.message || 'Request failed');
+  }
+  return result.data;
+};
+
 // User Profile Types API - Universal Entity Architecture
 class UserProfileTypesAPI extends BaseAPI {
   constructor() {
@@ -1698,14 +1720,13 @@ class UserProfileTypesAPI extends BaseAPI {
 
   async getAll(companyId = null) {
     const response = await this.makeRequest('getUserProfileTypes', companyId ? { company_id: companyId } : {});
-    return response.data || [];
+    return unwrapHandlerResult(response) || [];
   }
 
+  // AppScript has no single-record route, so look the record up in the (active-only) list
   async getById(id) {
-    const response = await this.makeRequest('getUserProfileType', {
-      user_profile_type_id: id
-    });
-    return response.data;
+    const userProfileTypes = await this.getAll();
+    return userProfileTypes.find(upt => upt.id === id) || null;
   }
 
   async create(data) {
@@ -1719,7 +1740,7 @@ class UserProfileTypesAPI extends BaseAPI {
       code: data.code?.trim() || '',
       company_id: data.company_id || null
     });
-    return response.data;
+    return unwrapHandlerResult(response);
   }
 
   async update(id, data) {
@@ -1735,7 +1756,7 @@ class UserProfileTypesAPI extends BaseAPI {
       company_id: data.company_id,
       is_active: data.is_active
     });
-    return response.data;
+    return unwrapHandlerResult(response);
   }
 
   async delete(id) {
@@ -1746,7 +1767,7 @@ class UserProfileTypesAPI extends BaseAPI {
     const response = await this.makeRequest('deleteUserProfileType', {
       user_profile_type_id: id
     });
-    return response.data;
+    return unwrapHandlerResult(response);
   }
 
   getMockData(action, params = {}) {
@@ -1786,9 +1807,6 @@ class UserProfileTypesAPI extends BaseAPI {
     switch (action) {
       case 'getUserProfileTypes':
         return { status: 'success', data: mockUserProfileTypes };
-      case 'getUserProfileType':
-        const userProfileType = mockUserProfileTypes.find(upt => upt.id === params.user_profile_type_id);
-        return { status: 'success', data: userProfileType };
       case 'createUserProfileType':
       case 'updateUserProfileType':
         return {
@@ -1815,14 +1833,13 @@ class RoleTypesAPI extends BaseAPI {
 
   async getAll(companyId = null) {
     const response = await this.makeRequest('getRoleTypes', companyId ? { company_id: companyId } : {});
-    return response.data || [];
+    return unwrapHandlerResult(response) || [];
   }
 
+  // AppScript has no single-record route, so look the record up in the (active-only) list
   async getById(id) {
-    const response = await this.makeRequest('getRoleType', {
-      role_type_id: id
-    });
-    return response.data;
+    const roleTypes = await this.getAll();
+    return roleTypes.find(rt => rt.id === id) || null;
   }
 
   async create(data) {
@@ -1836,7 +1853,7 @@ class RoleTypesAPI extends BaseAPI {
       code: data.code?.trim() || '',
       company_id: data.company_id || null
     });
-    return response.data;
+    return unwrapHandlerResult(response);
   }
 
   async update(id, data) {
@@ -1852,7 +1869,7 @@ class RoleTypesAPI extends BaseAPI {
       company_id: data.company_id,
       is_active: data.is_active
     });
-    return response.data;
+    return unwrapHandlerResult(response);
   }
 
   async delete(id) {
@@ -1863,7 +1880,7 @@ class RoleTypesAPI extends BaseAPI {
     const response = await this.makeRequest('deleteRoleType', {
       role_type_id: id
     });
-    return response.data;
+    return unwrapHandlerResult(response);
   }
 
   getMockData(action, params = {}) {
@@ -1903,9 +1920,6 @@ class RoleTypesAPI extends BaseAPI {
     switch (action) {
       case 'getRoleTypes':
         return { status: 'success', data: mockRoleTypes };
-      case 'getRoleType':
-        const roleType = mockRoleTypes.find(rt => rt.id === params.role_type_id);
-        return { status: 'success', data: roleType };
       case 'createRoleType':
       case 'updateRoleType':
         return {

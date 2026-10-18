@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
 import Header from '../components/shared/Header';
 import Icons from '../components/shared/Icons';
@@ -19,13 +19,16 @@ import { API } from '../api/googleSheet';
  */
 const AdminRoleTypeCreatePage = () => {
   const navigate = useNavigate();
+  const { id } = useParams();
+  const isEditMode = Boolean(id);
   const { user } = useUser();
   const { success, error: showError, warning, ToastContainer } = useToast();
   const [loading, setLoading] = useState(false);
+  const [recordLoading, setRecordLoading] = useState(isEditMode);
 
   // API data
   const { data: companies, loading: companiesLoading } = useCompanies();
-  const { createRoleType } = useRoleTypeMutations();
+  const { createRoleType, updateRoleType } = useRoleTypeMutations();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -74,6 +77,13 @@ const AdminRoleTypeCreatePage = () => {
         is_active: formData.is_active
       };
 
+      if (isEditMode) {
+        await updateRoleType(id, roleTypeData);
+        success('Role type updated successfully');
+        navigate('/admin?tab=role-types');
+        return;
+      }
+
       const result = await createRoleType(roleTypeData);
       success('Role type created successfully');
 
@@ -117,18 +127,51 @@ const AdminRoleTypeCreatePage = () => {
     setTimeout(() => setDraftSaved(false), 2000);
   };
 
-  // Load draft on component mount
+  // On mount: edit mode loads the record, create mode restores any saved draft
   useEffect(() => {
-    const savedDraft = localStorage.getItem('roleTypeDraft');
-    if (savedDraft) {
-      try {
-        const draft = JSON.parse(savedDraft);
-        setFormData(draft);
-      } catch (err) {
-        console.error('Failed to load draft:', err);
+    if (!isEditMode) {
+      const savedDraft = localStorage.getItem('roleTypeDraft');
+      if (savedDraft) {
+        try {
+          const draft = JSON.parse(savedDraft);
+          setFormData(draft);
+        } catch (err) {
+          console.error('Failed to load draft:', err);
+        }
       }
+      return;
     }
-  }, []);
+
+    let cancelled = false;
+    API.RoleTypes.getById(id)
+      .then(record => {
+        if (cancelled) return;
+        if (!record) {
+          showError('Role type not found');
+          navigate('/admin?tab=role-types');
+          return;
+        }
+        setFormData({
+          name: record.name || '',
+          description: record.description || '',
+          code: record.code || '',
+          company_id: record.company_id || '',
+          is_active: record.is_active !== false
+        });
+      })
+      .catch(err => {
+        if (!cancelled) showError(err.message || 'Failed to load role type');
+      })
+      .finally(() => {
+        if (!cancelled) setRecordLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // showError and navigate are recreated each render; including them would refetch in a loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   // Development-time component validation to prevent Error #130
   useEffect(() => {
@@ -184,7 +227,7 @@ const AdminRoleTypeCreatePage = () => {
                 <li aria-current="page">
                   <div className="flex items-center">
                     <Icons.ChevronRight size={14} className="text-gray-400" />
-                    <span className="ml-1 text-sm font-medium text-gray-500 md:ml-2">Create New</span>
+                    <span className="ml-1 text-sm font-medium text-gray-500 md:ml-2">{isEditMode ? 'Edit' : 'Create New'}</span>
                   </div>
                 </li>
               </ol>
@@ -192,7 +235,7 @@ const AdminRoleTypeCreatePage = () => {
 
             {/* Page Header */}
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-gray-900">Create New Role Type</h1>
+              <h1 className="text-3xl font-bold text-gray-900">{isEditMode ? 'Edit Role Type' : 'Create New Role Type'}</h1>
               <p className="mt-2 text-sm text-gray-600">
                 Define a new category for roles with configurable custom fields and permission structures.
               </p>
@@ -208,6 +251,12 @@ const AdminRoleTypeCreatePage = () => {
               {/* Main Form - 2 columns */}
               <div className="lg:col-span-2">
                 <div className="bg-white shadow rounded-lg">
+                  {recordLoading ? (
+                    <div className="px-6 py-12 flex items-center justify-center text-sm text-gray-500">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
+                      Loading role type...
+                    </div>
+                  ) : (
                   <form onSubmit={handleSubmit}>
                     <div className="px-6 py-6">
                       <div className="space-y-6">
@@ -299,6 +348,7 @@ const AdminRoleTypeCreatePage = () => {
                         </div>
 
                         {/* Active Status */}
+                        {!isEditMode && (
                         <div className="flex items-center">
                           <input
                             type="checkbox"
@@ -311,6 +361,7 @@ const AdminRoleTypeCreatePage = () => {
                             Active (available for assignment)
                           </label>
                         </div>
+                        )}
                       </div>
                     </div>
 
@@ -325,6 +376,7 @@ const AdminRoleTypeCreatePage = () => {
                           <Icons.ArrowLeft size={16} className="mr-2" />
                           Cancel
                         </button>
+                        {!isEditMode && (
                         <button
                           type="button"
                           onClick={saveDraft}
@@ -334,16 +386,22 @@ const AdminRoleTypeCreatePage = () => {
                           <Icons.Save size={16} className="mr-2" />
                           Save Draft
                         </button>
+                        )}
                       </div>
                       <button
                         type="submit"
-                        disabled={loading}
+                        disabled={loading || recordLoading}
                         className="inline-flex items-center px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                       >
                         {loading ? (
                           <>
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                            Creating...
+                            {isEditMode ? 'Saving...' : 'Creating...'}
+                          </>
+                        ) : isEditMode ? (
+                          <>
+                            <Icons.Save size={16} className="mr-2" />
+                            Save Changes
                           </>
                         ) : (
                           <>
@@ -354,6 +412,7 @@ const AdminRoleTypeCreatePage = () => {
                       </button>
                     </div>
                   </form>
+                  )}
                 </div>
               </div>
 
