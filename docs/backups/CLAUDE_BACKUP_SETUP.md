@@ -1,8 +1,10 @@
 # Claude CLI Conversation Backup - Portable Setup Guide
 
-**Version:** 1.1
-**Date:** 2025-11-08
+**Version:** 1.2
+**Date:** 2025-11-08 (v1.2: 2026-10-18 — scripts synced to v1.1)
 **Purpose:** Copy this file to any directory/repo to set up automated conversation backups
+
+> **Scripts synced with `scripts/` v1.1 (18 Oct 2026)** — code review fixes CR-08–CR-13 (see `docs/guides/GUIDE_CodeReview_Compliance.md` §2). The files in `scripts/` are the source of truth; re-copy from there if they differ.
 
 ---
 
@@ -67,6 +69,35 @@ cat >> .gitignore <<'EOF'
 EOF
 ```
 
+### Step 4b: Create Project-Folder Helper
+
+Create file: `scripts/lib/claude-project-dir.sh` (sourced by the backup and checkpoint scripts — finds the exact Claude project folder, never a broader one)
+
+```bash
+#!/bin/bash
+# claude-project-dir.sh — find this repo's Claude Code project folder (sourced by backup/checkpoint scripts)
+# Claude names the folder after the repo path with every non-alphanumeric character replaced by '-',
+# e.g. "Z:/Work Files/project/jarvisbyerp" -> "Z--Work-Files-project-jarvisbyerp".
+# Usage: source scripts/lib/claude-project-dir.sh; PROJECT_DIR=$(claude_project_dir) || exit 1
+
+claude_project_dir() {
+    local projects_root="$HOME/.claude/projects"
+    local repo_path key
+    repo_path=$(pwd -W 2>/dev/null || pwd)   # pwd -W = Windows path on Git Bash
+    key=$(printf '%s' "$repo_path" | sed 's/[^a-zA-Z0-9]/-/g')
+
+    if [ -d "$projects_root/$key" ]; then
+        echo "$projects_root/$key"
+        return 0
+    fi
+
+    echo "ERROR: Claude project folder not found: $projects_root/$key" >&2
+    echo "Run this from the repo root. Folders for this repo name:" >&2
+    find "$projects_root" -maxdepth 1 -type d -name "*$(basename "$repo_path" | sed 's/[^a-zA-Z0-9]/-/g')*" >&2
+    return 1
+}
+```
+
 ### Step 5: Create Backup Script
 
 Create file: `scripts/backup-conversations.sh`
@@ -74,14 +105,18 @@ Create file: `scripts/backup-conversations.sh`
 ```bash
 #!/bin/bash
 # Claude CLI Conversation Backup Script
-# Version: 1.0
-# Usage: ./scripts/backup-conversations.sh [quick|full]
+# Version: 1.1 (17 Oct 2026: code review CR-08/CR-09/CR-12 — commit only backup files, fail on
+#               encryption errors, password via file not argv, exact project folder only)
+# Usage: ./scripts/backup-conversations.sh [quick|full]   (run from the repo root)
 
-set -e
+set -o pipefail
+source "$(dirname "$0")/lib/claude-project-dir.sh"
 
 BACKUP_DIR="$(pwd)/.claude/conversation-backups"
 SOURCE_DIR="$HOME/.claude/projects"
 TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
+# Taken before the scan: a conversation written during the backup is newer and gets picked up next run
+SCAN_START=$(date -Iseconds 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
 PASSWORD_FILE="$BACKUP_DIR/backup-password.txt"
 INDEX_FILE="$BACKUP_DIR/backup-index.json"
 MODE="${1:-full}"
@@ -112,23 +147,21 @@ fi
 mkdir -p "$BACKUP_DIR/latest"
 mkdir -p "$BACKUP_DIR/encrypted"
 
-# Load password
-PASSWORD=$(cat "$PASSWORD_FILE")
-
 # Get last backup timestamp
-LAST_BACKUP=$(jq -r '.last_backup // "1970-01-01T00:00:00Z"' "$INDEX_FILE" 2>/dev/null)
+if command -v jq &> /dev/null; then
+    LAST_BACKUP=$(jq -r '.last_backup // "1970-01-01T00:00:00Z"' "$INDEX_FILE" 2>/dev/null || echo "1970-01-01T00:00:00Z")
+else
+    LAST_BACKUP="1970-01-01T00:00:00Z"
+    echo -e "${YELLOW}NOTE: jq not installed, backing up all conversations${NC}"
+fi
 LAST_BACKUP_EPOCH=$(date -d "$LAST_BACKUP" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$LAST_BACKUP" +%s 2>/dev/null || echo 0)
 
 echo "Last backup: $LAST_BACKUP"
 
-# Find project directory for current repo
-REPO_NAME=$(basename "$(pwd)" | sed 's/ /-/g' | sed 's/[^a-zA-Z0-9-]/_/g')
-PROJECT_DIR=$(find "$SOURCE_DIR" -type d -name "*$REPO_NAME*" 2>/dev/null | head -1)
-
-if [ -z "$PROJECT_DIR" ]; then
-    echo -e "${YELLOW}WARNING: No matching project directory found for: $REPO_NAME${NC}"
-    echo "Searching all projects..."
-    PROJECT_DIR="$SOURCE_DIR"
+# Find this repo's project directory (exact match only — never fall back to every project's conversations)
+if ! PROJECT_DIR=$(claude_project_dir); then
+    echo -e "${RED}ERROR: Backup aborted — no project directory for this repo${NC}"
+    exit 1
 fi
 
 echo "Source: $PROJECT_DIR"
@@ -160,16 +193,32 @@ done
 BACKUP_FILE="$BACKUP_DIR/encrypted/backup-$TIMESTAMP.enc"
 echo -e "${YELLOW}Encrypting...${NC}"
 
-tar -czf - -C "$BACKUP_DIR/latest" . 2>/dev/null | \
-    openssl enc -aes-256-cbc -salt -pbkdf2 -pass "pass:$PASSWORD" \
-    -out "$BACKUP_FILE"
+# Password is read from the file by openssl (file:), so it never appears in a process listing.
+# Git Bash doesn't translate a POSIX path after "file:", so give openssl a Windows path there.
+# pipefail makes a tar or openssl failure fail the whole pipeline.
+PASSWORD_PATH="$PASSWORD_FILE"
+command -v cygpath &> /dev/null && PASSWORD_PATH=$(cygpath -m "$PASSWORD_FILE")
+if ! tar -czf - -C "$BACKUP_DIR/latest" . | \
+    openssl enc -aes-256-cbc -salt -pbkdf2 -pass "file:$PASSWORD_PATH" \
+    -out "$BACKUP_FILE"; then
+    echo -e "${RED}ERROR: Encryption failed — partial file removed, index and git left unchanged${NC}"
+    rm -f "$BACKUP_FILE"
+    exit 1
+fi
 
-BACKUP_SIZE=$(du -m "$BACKUP_FILE" 2>/dev/null | cut -f1 || echo "unknown")
+if [ ! -s "$BACKUP_FILE" ]; then
+    echo -e "${RED}ERROR: Backup file is empty — removed, index and git left unchanged${NC}"
+    rm -f "$BACKUP_FILE"
+    exit 1
+fi
+
+BACKUP_SIZE=$(du -m "$BACKUP_FILE" 2>/dev/null | cut -f1)
+[[ "$BACKUP_SIZE" =~ ^[0-9]+$ ]] || BACKUP_SIZE=0
 echo -e "${GREEN}✅ Created: backup-$TIMESTAMP.enc ($BACKUP_SIZE MB)${NC}"
 
 # Update index
 if command -v jq &> /dev/null; then
-    CURRENT_TIME=$(date -Iseconds 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
+    CURRENT_TIME="$SCAN_START"
 
     jq --arg timestamp "$CURRENT_TIME" \
        --arg backup_file "backup-$TIMESTAMP.enc" \
@@ -182,16 +231,20 @@ if command -v jq &> /dev/null; then
             created: $timestamp,
             sessions_count: $sessions_count,
             size_mb: $size_mb
-        }]' "$INDEX_FILE" > "$INDEX_FILE.tmp" && mv "$INDEX_FILE.tmp" "$INDEX_FILE"
+        }]' "$INDEX_FILE" > "$INDEX_FILE.tmp" && mv "$INDEX_FILE.tmp" "$INDEX_FILE" \
+        || echo -e "${RED}WARNING: index update failed — last_backup not advanced${NC}"
 else
     echo -e "${YELLOW}WARNING: jq not installed, skipping index update${NC}"
 fi
 
-# Git commit (optional)
+# Git commit (optional). The pathspec commits ONLY the backup file and index, never other staged work.
 if git rev-parse --git-dir > /dev/null 2>&1; then
-    git add "$BACKUP_FILE" "$INDEX_FILE" 2>/dev/null || true
-    git commit -m "chore: backup conversations $TIMESTAMP - ${#NEW_FILES[@]} sessions" 2>/dev/null || true
-    echo -e "${GREEN}✅ Committed to git${NC}"
+    if git add "$BACKUP_FILE" "$INDEX_FILE" && \
+       git commit -m "chore: backup conversations $TIMESTAMP - ${#NEW_FILES[@]} sessions" -- "$BACKUP_FILE" "$INDEX_FILE"; then
+        echo -e "${GREEN}✅ Committed to git (backup files only)${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Git commit failed — backup file is on disk but not committed${NC}"
+    fi
 fi
 
 echo -e "${GREEN}=== Backup Complete ===${NC}"
@@ -213,31 +266,81 @@ Create file: `scripts/check-backup-health.sh`
 ```bash
 #!/bin/bash
 # Check backup health - Claude runs this at session start
+# Version: 1.1 (17 Oct 2026: code review CR-10 — age comes from backup-index.json last_backup;
+#               file mtime is only a fallback, since a git checkout/clone resets it)
+
 BACKUP_DIR="$(pwd)/.claude/conversation-backups"
 ENCRYPTED_DIR="$BACKUP_DIR/encrypted"
+INDEX_FILE="$BACKUP_DIR/backup-index.json"
 
-if [ ! -d "$ENCRYPTED_DIR" ] || [ -z "$(ls -A $ENCRYPTED_DIR 2>/dev/null)" ]; then
-    echo "❌ No backups found"
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+echo "=== Backup Health Check ==="
+
+# Check if backup system is initialized
+if [ ! -d "$ENCRYPTED_DIR" ]; then
+    echo -e "${RED}❌ Backup system not initialized${NC}"
+    echo "Run: ./scripts/backup-conversations.sh"
     exit 1
 fi
 
+# Check if any backups exist
+if [ -z "$(ls -A "$ENCRYPTED_DIR" 2>/dev/null)" ]; then
+    echo -e "${RED}❌ No backups found${NC}"
+    echo "Run: ./scripts/backup-conversations.sh"
+    exit 1
+fi
+
+# Get latest backup file
 LATEST_BACKUP=$(ls -t "$ENCRYPTED_DIR"/*.enc 2>/dev/null | head -1)
-BACKUP_TIME=$(stat -c %Y "$LATEST_BACKUP" 2>/dev/null || stat -f %m "$LATEST_BACKUP")
+
+if [ -z "$LATEST_BACKUP" ]; then
+    echo -e "${RED}❌ No backup files found${NC}"
+    exit 1
+fi
+
+# Calculate backup age from the index (the real backup time); fall back to file mtime
+BACKUP_TIME=""
+AGE_SOURCE="backup-index.json last_backup"
+if [ -f "$INDEX_FILE" ] && command -v jq &> /dev/null; then
+    LAST_BACKUP=$(jq -r '.last_backup // empty' "$INDEX_FILE" 2>/dev/null)
+    if [ -n "$LAST_BACKUP" ]; then
+        BACKUP_TIME=$(date -d "$LAST_BACKUP" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%S%z" "$LAST_BACKUP" +%s 2>/dev/null)
+    fi
+fi
+if [ -z "$BACKUP_TIME" ]; then
+    AGE_SOURCE="file mtime (index unreadable — may look newer than it is after a checkout)"
+    BACKUP_TIME=$(stat -c %Y "$LATEST_BACKUP" 2>/dev/null || stat -f %m "$LATEST_BACKUP")
+fi
 NOW=$(date +%s)
 HOURS_SINCE=$(( ($NOW - $BACKUP_TIME) / 3600 ))
 
-echo "Latest backup: $(basename $LATEST_BACKUP)"
-echo "Age: $HOURS_SINCE hours ago"
+echo "Latest backup: $(basename "$LATEST_BACKUP")"
+echo "Age: $HOURS_SINCE hours ago (from $AGE_SOURCE)"
 
+# Get backup stats from index
+if [ -f "$INDEX_FILE" ] && command -v jq &> /dev/null; then
+    BACKUP_COUNT=$(jq '.backup_files | length' "$INDEX_FILE" 2>/dev/null || echo "unknown")
+    TOTAL_CONVERSATIONS=$(jq '.total_conversations' "$INDEX_FILE" 2>/dev/null || echo "unknown")
+    echo "Total backups: $BACKUP_COUNT"
+    echo "Total conversations: $TOTAL_CONVERSATIONS"
+fi
+
+# Health status
 if [ $HOURS_SINCE -gt 36 ]; then
-    echo "🔴 BACKUP OVERDUE (>36 hours)"
-    echo "ACTION: Run ./scripts/backup-conversations.sh"
+    echo -e "${RED}🔴 BACKUP OVERDUE (>36 hours)${NC}"
+    echo "ACTION REQUIRED: Run ./scripts/backup-conversations.sh"
     exit 2
 elif [ $HOURS_SINCE -gt 24 ]; then
-    echo "⚠️  Backup due soon (>24 hours)"
+    echo -e "${YELLOW}⚠️  Backup due soon (>24 hours)${NC}"
+    echo "Recommended: Run ./scripts/backup-conversations.sh"
     exit 1
 else
-    echo "✅ Backup status: HEALTHY"
+    echo -e "${GREEN}✅ Backup status: HEALTHY${NC}"
     exit 0
 fi
 ```
@@ -339,12 +442,11 @@ jq -r '.backup_files[] | "\(.created) - \(.filename) (\(.sessions_count) session
 ```bash
 # Set variables
 BACKUP_FILE="backup-20251108-190744.enc"  # UPDATE THIS
-PASSWORD=$(cat .claude/conversation-backups/backup-password.txt)
 RESTORE_DIR=".claude/conversation-backups/restored-$(date +%Y%m%d-%H%M%S)"
 
-# Decrypt and extract
+# Decrypt and extract (openssl reads the password from the file, so it never appears on the command line)
 mkdir -p "$RESTORE_DIR"
-openssl enc -aes-256-cbc -d -pbkdf2 -pass "pass:$PASSWORD" \
+openssl enc -aes-256-cbc -d -pbkdf2 -pass "file:.claude/conversation-backups/backup-password.txt" \
     -in ".claude/conversation-backups/encrypted/$BACKUP_FILE" | \
     tar -xzf - -C "$RESTORE_DIR"
 

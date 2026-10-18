@@ -1,5 +1,7 @@
 # Automated Conversation History Backup Strategy
 
+> **Historical design doc (Nov 2025).** The script snippets below are v1.0 and contain issues fixed on 18 Oct 2026 (password in argv, unscoped `git commit`, unchecked encryption, mtime-based health, project-folder fallback). Use `scripts/` v1.1 and `docs/backups/CLAUDE_BACKUP_SETUP.md` v1.2; rules in `docs/guides/GUIDE_CodeReview_Compliance.md` §2.
+
 **Document Version:** 1.0
 **Date Created:** 2025-11-08 19:07:44
 **Purpose:** Design efficient, automated system for backing up Claude CLI conversation history

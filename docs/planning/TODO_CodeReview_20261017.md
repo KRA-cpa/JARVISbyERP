@@ -17,6 +17,7 @@ REVISION HISTORY:
 > **Scope:** `origin/main3...HEAD` (9 commits, 122 files), reviewed at HEAD `4a4cd11`.
 > **Line numbers** refer to `appscript_files/APPSCRIPT_v8.2_20261017_1444.txt` unless another file is named.
 > **Fixed in:** `appscript_files/APPSCRIPT_v8.3_20261017_1510.txt` and `scripts/` v1.1 (session 1d61f1cf).
+> **Rules derived from these findings:** `docs/guides/GUIDE_CodeReview_Compliance.md` (A1–A11, S1–S9, P1–P4 + pre-commit checklist; §5 maps each finding to its rule).
 
 ## ✅ Blocker lifted
 

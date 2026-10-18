@@ -5,7 +5,7 @@ B. Consult `docs/planning/SUPERTHINK_TODO_ANALYSIS_2025-09-27.md` on current/com
 C. Log every session in `REF_SessionLog.md` (see 🗓️ SESSION LOG below).
 D. New docs go in the matching `docs/` folder (see 📁 REPO LAYOUT below) — never the repo root.
 
-**Version:** 3.5 **Date:** October 17, 2026 - 📁 **REPO REORG** (docs moved to `docs/`; v3.4 = session log setup)
+**Version:** 3.6 **Date:** October 18, 2026 - ⚖️ **CODE REVIEW COMPLIANCE** (mandatory reference #11; v3.5 = repo reorg into `docs/`)
 
 ### **📁 REPO LAYOUT**
 
@@ -100,6 +100,13 @@ Reorg record: `docs/planning/PLAN_RepoReorg_20261017.md` + `docs/planning/REORG_
    - Required reading before any component, API, or schema work involving entities
    - Implementation guidelines and backward compatibility requirements
 
+11. **`docs/guides/GUIDE_CodeReview_Compliance.md`** - 🚨 **MANDATORY FOR ALL APPSCRIPT AND `scripts/` CHANGES**
+   - **File Location**: `./docs/guides/GUIDE_CodeReview_Compliance.md`
+   - Rules from the 17 Oct 2026 code review (findings: `docs/planning/TODO_CodeReview_20261017.md`)
+   - AppScript A1–A11: header-driven rows, `TABLE_SCHEMAS` only, `COLUMN_DEFAULTS`, no destructive routes, `withScriptLock`, `createHandlerResponse`, frontend key matching, offline test
+   - Scripts S1–S9: `pipefail`, no secrets in argv, pathspec commits, recorded times not mtimes, exact-match scope, CRLF, sandbox tests
+   - §4 pre-commit checklist — tick it before every AppScript or script commit
+
 **⚠️ CRITICAL DEVELOPMENT RULES:**
 - **NO COMPONENT CREATION** without consulting dependency mapping
 - **NO HOOK MODIFICATIONS** without reviewing audit documentation
@@ -112,6 +119,7 @@ Reorg record: `docs/planning/PLAN_RepoReorg_20261017.md` + `docs/planning/REORG_
 - **🚀 NEW: UNIVERSAL ENTITY RULES** - All entity types (tickets, users, roles) must use unified custom field patterns
 - **🚀 NEW: USER/ROLE INTEGRATION** - Follow `docs/reference/USER_MANAGEMENT_FEATURE_PLAN.md` for all user/role implementations
 - **🚨 MANDATORY: UNIVERSAL ENTITY ARCHITECTURE** - Must consult `docs/reference/UNIVERSAL_ENTITY_ARCHITECTURE.md` before any entity-related work
+- **⚖️ CODE REVIEW COMPLIANCE** - AppScript and `scripts/` changes follow `docs/guides/GUIDE_CodeReview_Compliance.md` (tick its §4 checklist); run `/code-review` before pushing a batch and log findings in `docs/planning/TODO_CodeReview_<YYYYMMDD>.md`
 
 ### **🤖 CLAUDE CONVERSATION HISTORY BACKUP SYSTEM**
 

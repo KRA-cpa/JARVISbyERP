@@ -1,9 +1,10 @@
 # RESOLUTION CHECKLIST - MANDATORY REFERENCE
 
 **Document Type:** 🚨 **MANDATORY REFERENCE FOR ALL ERROR RESOLUTION**
-**Version:** 1.0
-**Date:** September 25, 2025
+**Version:** 1.1
+**Date:** September 25, 2025 (v1.1: October 18, 2026 — code review compliance checks added)
 **Status:** ENFORCED - Must be consulted before any error resolution
+**Companion:** `docs/guides/GUIDE_CodeReview_Compliance.md` — rules A1–A11 / S1–S9 behind the ⚖️ checks below
 
 ---
 
@@ -20,8 +21,8 @@
 Check each technical domain independently with specific rules:
 - ✅ **Frontend Domain**: 8 specific checks required
 - ✅ **API Domain**: 7 specific checks required
-- ✅ **AppScript Domain**: 9 specific checks required
-- ✅ **Google Sheet Schema Domain**: 6 specific checks required
+- ✅ **AppScript Domain**: 13 specific checks required
+- ✅ **Google Sheet Schema Domain**: 7 specific checks required
 
 **3. ENFORCEMENT**: All resolution steps must follow this fundamental principle
 
@@ -79,7 +80,7 @@ Check each technical domain independently with specific rules:
 - Can simple test payload be processed successfully?
 - Are error responses formatted consistently?
 
-#### **⚙️ APPSCRIPT DOMAIN CHECK (9 Required Checks)**
+#### **⚙️ APPSCRIPT DOMAIN CHECK (13 Required Checks)**
 
 **Function Structure:**
 - [ ] **Function Pattern**: Does function follow same structure as working AppScript functions?
@@ -96,12 +97,19 @@ Check each technical domain independently with specific rules:
 - [ ] **Success Validation**: Is success/failure validation same as working operations?
 - [ ] **Version Consistency**: Are version references (pingAPI, headers) synchronized?
 
+**⚖️ Code Review Compliance (v1.1 — `docs/guides/GUIDE_CodeReview_Compliance.md`):**
+- [ ] **Header-Driven Writes (A1/A2)**: Rows built with `rowFromRecord(headers, record)`; tabs created with `ensureTableSheet()`; no new positional arrays or hard-coded header lists
+- [ ] **Write Lock (A5)**: Writes run under `withScriptLock()` (automatic for `doPost` writes); no direct `LockService` calls
+- [ ] **Error Responses (A6/A7/A8)**: `{status:'error'}` results go through `createHandlerResponse()`; request keys match `src/api/googleSheet.js`; ids compared with `String()`
+- [ ] **Non-Destructive (A4)**: Nothing reachable from `doPost`/`doGet` clears or deletes a tab; init/seed functions are idempotent
+
 **Specific AppScript Tests:**
 - Can function execute independently in Apps Script editor?
 - Does function write test data to sheets successfully?
 - Are all Logger.log statements appearing in execution log?
+- Does the offline test pass? `node appscript_files/tools/CODE_REVIEW_FIXES_TEST_v8.3.js <latest APPSCRIPT file>`
 
-#### **📊 GOOGLE SHEET SCHEMA DOMAIN CHECK (6 Required Checks)**
+#### **📊 GOOGLE SHEET SCHEMA DOMAIN CHECK (7 Required Checks)**
 
 **Schema Structure:**
 - [ ] **Column Count**: Does sheet have correct number of columns for data structure?
@@ -112,10 +120,11 @@ Check each technical domain independently with specific rules:
 - [ ] **Schema Migration**: Have recent schema changes been applied correctly?
 - [ ] **Sample Data**: Does existing data match expected column structure?
 - [ ] **Foreign Keys**: Are relationship columns (IDs) consistent across related sheets?
+- [ ] **⚖️ TABLE_SCHEMAS Match (A2/A3)**: Does `rebuildAllTables()` (dry run) report `OK` for the table? New columns that filters depend on have a `COLUMN_DEFAULTS` entry?
 
 **Specific Schema Tests:**
 - Can sample data be written directly to sheet?
-- Do column headers match models.js definitions?
+- Do column headers match `TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v*.txt`?
 - Are all required columns present?
 
 ### **STEP 3: DOMAIN-SPECIFIC SIMPLE SOLUTIONS**
@@ -174,12 +183,17 @@ Check each technical domain independently with specific rules:
 ### **✅ AppScript Working Patterns:**
 - **createCompany()**: Standard business object creation
 - **createRole()**: Standard entity creation with validation
-- **doPost()**: Standard request routing and processing
+- **doPost() → routePostAction()**: Request routing; writes locked via `withScriptLock()` (v8.3)
+- **setCustomFieldValue()**: Header-driven upsert keyed by entity + category + field
+- **createCustomFieldValue() / updateCustomFieldValue()**: `rowFromRecord(headers, record)` create/update (v8.3)
+- **ensureTableSheet()**: Idempotent tab creation from `TABLE_SCHEMAS` (v8.3)
+- **createHandlerResponse()**: Maps `{status:'error'}` handler results to `success:false` (v8.3)
 
 ### **✅ Schema Working Patterns:**
-- **companies**: 10 columns with audit fields
-- **roles**: 12 columns with company assignment
-- **users**: Standard user table structure
+- **Source of truth**: `TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v*.txt` (expected column counts: deploy guide §4)
+- **companies**: 15 columns with code locking + audit fields
+- **roles**: 5 columns (as written by createRole())
+- **user_profiles**: 19 columns, keyed by Firebase `user_id`
 
 ---
 
@@ -188,8 +202,9 @@ Check each technical domain independently with specific rules:
 ### **MANDATORY DOMAIN CHECKS:**
 - **ALL 8 Frontend checks** must be completed for frontend issues
 - **ALL 7 API checks** must be completed for API issues
-- **ALL 9 AppScript checks** must be completed for AppScript issues
-- **ALL 6 Schema checks** must be completed for schema issues
+- **ALL 13 AppScript checks** must be completed for AppScript issues
+- **ALL 7 Schema checks** must be completed for schema issues
+- **Script issues** (`scripts/`): follow rules S1–S9 in `docs/guides/GUIDE_CodeReview_Compliance.md`
 
 ### **CROSS-DOMAIN ISSUES:**
 If issue spans multiple domains, ALL relevant domain checks must be completed independently
@@ -211,5 +226,5 @@ Must document which working pattern from each domain was used as reference
 ---
 
 **Document Status:** 🚨 MANDATORY REFERENCE
-**Last Updated:** September 25, 2025
+**Last Updated:** October 18, 2026 (v1.1 — code review compliance checks)
 **Enforcement:** REQUIRED for all development error resolution

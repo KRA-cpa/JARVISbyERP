@@ -1,7 +1,7 @@
 # Quick Reference - Automated Conversation Backups
 
-**Version:** 1.0
-**Last Updated:** 2025-11-08
+**Version:** 1.1
+**Last Updated:** 2026-10-18 (decrypt reads the password file; scripts v1.1)
 
 ---
 
@@ -116,12 +116,11 @@ ls -lh .claude/conversation-backups/encrypted/
 ```bash
 # Set variables
 BACKUP_FILE="backup-20251108-192413.enc"
-PASSWORD=$(cat .claude/conversation-backups/backup-password.txt)
 RESTORE_DIR=".claude/conversation-backups/restored-$(date +%Y%m%d-%H%M%S)"
 
-# Decrypt and extract
+# Decrypt and extract (openssl reads the password from the file, so it never appears on the command line)
 mkdir -p "$RESTORE_DIR"
-openssl enc -aes-256-cbc -d -pbkdf2 -pass "pass:$PASSWORD" \
+openssl enc -aes-256-cbc -d -pbkdf2 -pass "file:.claude/conversation-backups/backup-password.txt" \
     -in ".claude/conversation-backups/encrypted/$BACKUP_FILE" | \
     tar -xzf - -C "$RESTORE_DIR"
 
