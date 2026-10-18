@@ -2,8 +2,8 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.2.0
-Created: 17 October 2026 UTC+8 (Philippine Standard Time) | Modified: 17 October 2026 UTC+8 (Philippine Standard Time)
+Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.3.0
+Created: 17 October 2026 UTC+8 (Philippine Standard Time) | Modified: 19 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Step-by-step guide to paste a new AppScript version and rebuild all Google Sheet tables safely | Status: Active
 
 REVISION HISTORY:
@@ -11,6 +11,7 @@ REVISION HISTORY:
 - v1.1.0 | 17 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v8.2 (resolveColumnMapping implemented, KEEP policy); removed "implement first" prerequisite
 - v1.1.1 | 17 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Added BLOCKED banner: apply step on hold until v8.3 fixes code review CR-01–CR-04
 - v1.2.0 | 17 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v8.3 (code review fixes); banner removed; §0/§3 redeploy-first note (write lock); `defaulted` log field; lock-timeout error row
+- v1.3.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5 step 3: the New version description is copied from the file header's `Deploy description:` line (rule A11, from v8.4 on)
 ===============================================================================
 -->
 
@@ -119,7 +120,7 @@ A table with **more** columns than listed had `extra` columns, which are kept at
 
 1. **Deploy → Manage deployments**.
 2. Select the active web-app deployment → **✏️ Edit**.
-3. **Version → New version** → description e.g. `v8.3 20261017_1510` → **Deploy**.
+3. **Version → New version** → **Description**: copy the `Deploy description:` line from the header of the file you pasted (from v8.4 on, e.g. `v8.4 20261019_0500 - <summary>`). For v8.3, which predates that line, use `v8.3 20261017_1510 - code review fixes CR-01..CR-07`. → **Deploy**.
 4. The web-app URL stays the same — no frontend change needed.
 5. Open the app → Admin page → confirm the API status shows connected and lists load.
 

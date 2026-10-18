@@ -618,10 +618,12 @@ src/
 ├── hooks/ (2 files)
 │   ├── useAPI.js                      # React hooks for API data fetching
 │   └── useWorkflowRouter.js           # Workflow routing operations hooks
-├── pages/ (5 files)
-│   ├── AdminPage.js                   # ✅ Updated: Admin panel with reordered navigation (Overview > Companies > Ticket Types > Custom Fields > Dropdown Lists > Users > Roles)
+├── pages/ (9 files)
+│   ├── AdminPage.js                   # ✅ Updated: Admin panel with reordered navigation (Overview > Companies > Ticket Types > Custom Fields > Dropdown Lists > Users > Roles); opens the tab or sub-tab named in ?tab= (Oct 18, 2026)
 │   ├── AdminTicketTypeCreatePage.js   # Dedicated ticket type creation and editing page
 │   ├── AdminCustomFieldCreatePage.js  # Dedicated custom field creation and editing page
+│   ├── AdminUserProfileTypeCreatePage.js # Phase 10.0: user profile type create + edit (/admin/user-profile-types/create, /:id/edit)
+│   ├── AdminRoleTypeCreatePage.js     # Phase 10.0: role type create + edit (/admin/role-types/create, /:id/edit)
 │   ├── DashboardPage.js               # Main user dashboard with statistics
 │   ├── LoginPage.js                   # Google Sign-In authentication page
 │   ├── ProfilePage.js                 # ✅ NEW: User profile settings with tabbed interface (Profile, Preferences, Notifications, Security)

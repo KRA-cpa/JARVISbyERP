@@ -11,7 +11,7 @@ D. New docs go in the matching `docs/` folder (see 📁 REPO LAYOUT below) — n
 
 | Folder | Contents |
 |---|---|
-| `/` (root) | `Claude.md`, `README.md`, `Gemini.md`, `REF_SessionLog.md`, configs only |
+| `/` (root) | `Claude.md`, `README.md`, `Gemini.md`, `REF_SessionLog.md`, configs, and dev launchers: `run-backend.bat` (local mock :3001), `run-frontend.bat [live\|local]` (:3000), `run-dev.bat [local\|live]` (both windows), `AdminCMD.bat` |
 | `docs/reference/` | Mandatory references below + `docs/reference/DATABASE_SCHEMA_UPDATES.txt` |
 | `docs/guides/` | How-to, setup and testing guides |
 | `docs/design/` | Feature designs and system analyses |
@@ -72,6 +72,7 @@ Reorg record: `docs/planning/PLAN_RepoReorg_20261017.md` + `docs/planning/REORG_
    - **Offline test**: `node appscript_files/tools/CODE_REVIEW_FIXES_TEST_v8.3.js <latest APPSCRIPT file>` (fake Sheets runtime, 11 tests)
    - **Header rule (v8.3)**: write rows by header name (`rowFromRecord`), create tabs with `ensureTableSheet()`, and take `withScriptLock()` for writes. No positional rows, no hard-coded header lists.
    - **Naming Rule**: every AppScript update is a NEW file `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` (UTC+8); never overwrite older versions. The newest timestamp is the latest.
+   - **Deploy description (from v8.4)**: the file header has a `Deploy description:` line (`v<ver> <YYYYMMDD_HHMM> - <summary>`) to paste into New version → Description on redeploy. `ping` always says `8.0.0`, so this description is how a live deployment is traced to its file.
    - **Snapshot**: `./appscript_files/APPSCRIPT.txt` is frozen at v8.0 (Nov 27, 2025) — do not edit
    - **Schema Source of Truth**: `TABLE_SCHEMAS` in the latest file (column order follows the positional writers)
    - **Deploy / Rebuild Guide**: `./appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md` — paste → dry run → apply → verify → redeploy

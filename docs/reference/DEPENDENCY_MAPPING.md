@@ -279,6 +279,22 @@ Config
 - **Component Reuse**: ✅ Zero new components needed
 - **Status**: ✅ Ready for tab addition
 
+### **🔌 PHASE 10.0 ADMIN WIRING (October 18, 2026)**
+
+| File | Layer | Imports (new in bold) | Used by |
+|---|---|---|---|
+| `src/App.js` | App | `AdminRoleTypeCreatePage`, **`AdminUserProfileTypeCreatePage`** | — |
+| `src/pages/AdminPage.js` | Page | **`useSearchParams`** (react-router-dom), `AdminUserProfileTypeList`, `AdminRoleTypeList` | `/admin` route |
+| `src/pages/AdminUserProfileTypeCreatePage.js` | Page | **`useParams`**, `useUserProfileTypeMutations`, `useCompanies`, `API` (`UserProfileTypes.getById`) | `/admin/user-profile-types/create`, **`/admin/user-profile-types/:id/edit`** |
+| `src/pages/AdminRoleTypeCreatePage.js` | Page | **`useParams`**, `useRoleTypeMutations`, `useCompanies`, `API` (`RoleTypes.getById`) | `/admin/role-types/create`, **`/admin/role-types/:id/edit`** |
+| `src/components/admin/AdminUserProfileTypeList.js` / `AdminRoleTypeList.js` | Component | unchanged | `AdminPage` sub-tabs `user-profile-types` / `role-types` |
+| `src/api/googleSheet.js` | API | **`unwrapHandlerResult()`** (module-private) used by `UserProfileTypesAPI` / `RoleTypesAPI` | hooks in `useAPI.js` |
+
+- **`?tab=`**: `AdminPage` accepts a tab id or a sub-tab id. A sub-tab id also selects its parent tab (`user-profile-types` → `users`, `role-types` → `roles`).
+- **Response shape**: Phase 10.0 handlers return `{status, data, message}`, and doGet / `createHandlerResponse` wrap that in `{success, data}`. `unwrapHandlerResult()` returns the inner `data` and throws on an inner `status: 'error'`. Mock data (no outer wrapper) passes through.
+- **Reads**: `getUserProfileTypes` / `getRoleTypes` are in `makeRequest`'s `readActions` (GET). doPost has no case for them.
+- **`getById`**: AppScript has no single-record route, so `getById` filters `getAll()` (active records only).
+
 ### **📊 DEPENDENCY IMPACT ANALYSIS**
 
 #### **Zero Breaking Changes**
@@ -597,5 +613,5 @@ npm install eslint-plugin-import
 ---
 
 **Status**: ✅ COMPLETE - Full dependency mapping with Phase 11.0 tag & collaboration system integration
-**Last Updated**: September 28, 2025 - Added Phase 11.0 component dependencies and integration requirements
+**Last Updated**: October 18, 2026 - Phase 10.0 admin wiring (type create/edit routes, `?tab=`, API response unwrap); previously September 28, 2025 - Phase 11.0 component dependencies
 **Next Update**: Backend integration and testing documentation

@@ -2,12 +2,13 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 1.0.0
-Created: 18 October 2026 UTC+8 (Philippine Standard Time) | Modified: 18 October 2026 UTC+8 (Philippine Standard Time)
+Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 1.1.0
+Created: 18 October 2026 UTC+8 (Philippine Standard Time) | Modified: 19 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Coding rules derived from the 17 Oct 2026 code review (CR-01–CR-13 + X-1–X-6), so new AppScript and script changes don't reintroduce them | Status: Active — MANDATORY for AppScript and scripts/ changes
 
 REVISION HISTORY:
 - v1.0.0 | 18 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial rules A1–A11, S1–S9, P1–P4 from docs/planning/TODO_CodeReview_20261017.md
+- v1.1.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A11 step 2: header carries a `Deploy description:` line to paste at redeploy
 ===============================================================================
 -->
 
@@ -129,7 +130,12 @@ try { sheet = ss.getSheetByName(name); } catch (e) { sheet = ss.insertSheet(name
 ### A11 — Every change is a new timestamped file, tested offline *(process)*
 
 1. Copy the latest file to `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` (UTC+8). Never edit an older version.
-2. Update the header block: `Version:`, a `Phase` line listing the changes, and `Last Updated`.
+2. Update the header block: `Version:`, a `Phase` line listing the changes, `Last Updated`, and a `Deploy description:` line to paste into **Deploy → Manage deployments → ✏️ Edit → Version: New version → Description** when redeploying. Format: `v<ver> <YYYYMMDD_HHMM> - <short summary>`, with the same timestamp as the file name, kept under about 100 characters:
+   ```
+    * Deploy description: v8.4 20261019_0500 - is_active writable for user profile / role types
+    *   (paste at redeploy: Deploy > Manage deployments > Edit > New version > Description)
+   ```
+   The description is how a deployment is traced back to its file. `ping` can't do it: its `version` has been `8.0.0` since v8.0.
 3. Run the offline test (no Google access needed). Add a test for any new behaviour:
    ```bash
    node appscript_files/tools/CODE_REVIEW_FIXES_TEST_v8.3.js appscript_files/APPSCRIPT_v<new>.txt
@@ -219,7 +225,7 @@ git show --name-only HEAD; git diff --cached --name-only     # only the intended
 ## §4 Pre-Commit Checklist
 
 **AppScript change**
-- [ ] New timestamped file; header block updated (A11)
+- [ ] New timestamped file; header block updated, including the `Deploy description:` line (A11)
 - [ ] No positional rows added; no new columns in front of a pinned prefix (A1)
 - [ ] Headers only in `TABLE_SCHEMAS`; tabs created via `ensureTableSheet` (A2)
 - [ ] New column that filters depend on → `COLUMN_DEFAULTS` entry (A3)

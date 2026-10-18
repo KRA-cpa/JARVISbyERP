@@ -326,9 +326,12 @@ Google Apps Script: completeUserManagementSetup()
 
 **UI Integration Status:**
 - [x] ✅ **AdminRoleTypeCreatePage component created**
-- [ ] 🔄 **AdminUserProfileTypeCreatePage component** (Next task)
-- [ ] 🔄 **Add User Profiles and Role Types tabs to AdminPage.js**
-- [ ] 🔄 **Route integration in App.js**
+- [x] ✅ **AdminUserProfileTypeCreatePage component** (exists; route fixed Oct 18, 2026 - it rendered `AdminCustomFieldCreatePage`)
+- [x] ✅ **User Profiles and Role Types tabs in AdminPage.js** (sub-tabs `user-profile-types` / `role-types`; `?tab=` now honoured, Oct 18, 2026)
+- [x] ✅ **Route integration in App.js** (create + `/:id/edit` for both types, Oct 18, 2026; both create pages also handle edit)
+- [x] ✅ **API response unwrap** (Oct 18, 2026): `getAll()` / create / update / delete returned the `{status, data}` handler wrapper; the list reads were sent as POST, which doPost doesn't route. Fixed in `src/api/googleSheet.js`
+- [ ] 🔄 **`is_active` not writable (needs AppScript v8.4)**: `createUserProfileType` / `createRoleType` always set `is_active: true`, and `update*` skips `is_active`, so the create-form Active checkbox and the list's activate/deactivate toggle do nothing. `get*Types` returns active rows only, so an inactive type can't be listed or reactivated either. The edit page hides the checkbox
+- [ ] 🔄 **Live test after v8.3 deploy**: list → create → edit → delete for both types against the real Sheet
 
 ### **🥈 PHASE 2: Role Maintenance Implementation (Priority: HIGH)**
 **Estimated Time**: 5-7 days | **Dependencies**: Phase 1 complete
