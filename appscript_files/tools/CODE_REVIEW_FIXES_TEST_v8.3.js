@@ -1,123 +1,13 @@
 // Usage: node appscript_files/tools/CODE_REVIEW_FIXES_TEST_v8.3.js appscript_files/APPSCRIPT_v8.3_20261017_1510.txt
 // Runs the AppScript file against an in-memory fake of SpreadsheetApp/LockService (no Google access needed).
 // Fake Google Sheets runtime for APPSCRIPT v8.3 - exercises the code review fixes CR-01..CR-07
-const fs = require('fs');
-const vm = require('vm');
+// Shared fake runtime: ./lib/fakeSheetsRuntime.js (also used by ROUTES_AND_APPROVALS_TEST_v9.0.js)
 const assert = require('assert');
+const lib = require('./lib/fakeSheetsRuntime');
 
-function makeRuntime() {
-  const sheets = new Map();
-  let lockHeld = false;
-  const lockLog = [];
-
-  class Range {
-    constructor(sheet, r, c, nr, nc) { Object.assign(this, { sheet, r, c, nr: nr || 1, nc: nc || 1 }); }
-    getValues() {
-      const out = [];
-      for (let i = 0; i < this.nr; i++) {
-        const row = [];
-        for (let j = 0; j < this.nc; j++) {
-          const v = (this.sheet.rows[this.r - 1 + i] || [])[this.c - 1 + j];
-          row.push(v === undefined ? '' : v);
-        }
-        out.push(row);
-      }
-      return out;
-    }
-    setValues(values) {
-      assert.strictEqual(values.length, this.nr, 'setValues row count');
-      values.forEach((row, i) => {
-        assert.strictEqual(row.length, this.nc, 'setValues col count');
-        row.forEach((v, j) => this.sheet.set(this.r + i, this.c + j, v));
-      });
-      return this;
-    }
-    setValue(v) { this.sheet.set(this.r, this.c, v); return this; }
-    clearContent() { for (let i = 0; i < this.nr; i++) for (let j = 0; j < this.nc; j++) this.sheet.set(this.r + i, this.c + j, ''); return this; }
-    setFontWeight() { return this; }
-    setBackground() { return this; }
-    setFontColor() { return this; }
-  }
-
-  class Sheet {
-    constructor(name) { this.name = name; this.rows = []; this.maxCols = 26; }
-    getName() { return this.name; }
-    setName(n) { sheets.delete(this.name); this.name = n; sheets.set(n, this); return this; }
-    set(r, c, v) {
-      while (this.rows.length < r) this.rows.push([]);
-      const row = this.rows[r - 1];
-      while (row.length < c) row.push('');
-      row[c - 1] = v;
-      if (c > this.maxCols) this.maxCols = c;
-    }
-    trimmed() {
-      const rows = this.rows.map(r => r.slice());
-      while (rows.length && rows[rows.length - 1].every(v => v === '')) rows.pop();
-      return rows;
-    }
-    getLastRow() { return this.trimmed().length; }
-    getLastColumn() { return this.trimmed().reduce((m, r) => { let n = r.length; while (n && r[n - 1] === '') n--; return Math.max(m, n); }, 0); }
-    getMaxColumns() { return this.maxCols; }
-    insertColumnsAfter(after, n) { this.maxCols += n; }
-    getDataRange() { return new Range(this, 1, 1, Math.max(this.getLastRow(), 1), Math.max(this.getLastColumn(), 1)); }
-    getRange(r, c, nr, nc) { return new Range(this, r, c, nr, nc); }
-    appendRow(row) { this.rows = this.trimmed(); this.rows.push(row.slice()); }
-    clearContents() { this.rows = []; }
-    clear() { this.rows = []; }
-    setFrozenRows() {}
-    autoResizeColumns() {}
-    copyTo() { const s = new Sheet('copy'); s.rows = this.rows.map(r => r.slice()); sheets.set('copy', s); return s; }
-  }
-
-  const ss = {
-    getSheetByName: name => sheets.get(name) || null,
-    insertSheet: name => { if (sheets.has(name)) throw new Error(`sheet ${name} exists`); const s = new Sheet(name); sheets.set(name, s); return s; },
-    deleteSheet: s => sheets.delete(s.name),
-    getSheets: () => [...sheets.values()]
-  };
-
-  const context = {
-    console: { log() {}, error() {} },
-    Logger: { log() {} },
-    SpreadsheetApp: { openById: () => ss },
-    Session: { getActiveUser: () => ({ getEmail: () => 'admin@example.com' }) },
-    Utilities: { formatDate: (d, tz, fmt) => (fmt === 'yyyy' ? '2026' : '20261017_151000') },
-    ContentService: {
-      MimeType: { JSON: 'json', TEXT: 'text' },
-      createTextOutput: text => ({ text, setMimeType() { return this; } })
-    },
-    LockService: {
-      getScriptLock: () => ({
-        // Non-reentrant on purpose: a second waitLock in the same execution must never happen
-        waitLock() { if (lockHeld) throw new Error('LOCK ALREADY HELD (would deadlock)'); lockHeld = true; lockLog.push('acquire'); },
-        releaseLock() { lockHeld = false; lockLog.push('release'); }
-      })
-    }
-  };
-  vm.createContext(context);
-  const src = fs.readFileSync(process.argv[2], 'utf8');
-  vm.runInContext(src + '\n;this.__TABLE_SCHEMAS = TABLE_SCHEMAS; this.__SHEETS = SHEETS;', context);
-
-  const table = (name, headers, rows = []) => {
-    const s = ss.insertSheet(name);
-    s.rows = [headers.slice(), ...rows.map(r => r.slice())];
-    return s;
-  };
-  const json = name => {
-    const rows = sheets.get(name).trimmed();
-    const [h, ...rest] = rows;
-    return rest.map(r => Object.fromEntries(h.map((k, i) => [k, r[i] === undefined ? '' : r[i]])));
-  };
-  const post = body => JSON.parse(context.doPost({ postData: { contents: JSON.stringify(body) } }).text);
-  return { ctx: context, ss, sheets, table, json, post, lockLog, isLocked: () => lockHeld };
-}
-
-const same = (a, b, msg) => assert.deepStrictEqual(JSON.parse(JSON.stringify(a)), JSON.parse(JSON.stringify(b)), msg);
-const results = [];
-function test(name, fn) {
-  try { fn(); results.push(`PASS  ${name}`); }
-  catch (e) { results.push(`FAIL  ${name}\n      ${e.stack.split('\n').slice(0, 3).join('\n      ')}`); process.exitCode = 1; }
-}
+const makeRuntime = () => lib.makeRuntime(process.argv[2]);
+const same = lib.same;
+const { test, report } = lib.makeTestRunner();
 
 // Old (pre-rebuild) headers: custom_fields / custom_field_values without entity_category
 const OLD_CF = ['id', 'ticket_type_id', 'name', 'label', 'type', 'is_required', 'is_hidden', 'sort_order',
@@ -292,4 +182,4 @@ test('CR-07 delete with unknown id -> success:false; frontend key + numeric id w
   same([log.action_type, log.target_entity, log.target_id], ['DEACTIVATE_USER_PROFILE_TYPES', 'user_profile_types', '42']);
 });
 
-console.log(results.join('\n'));
+report();

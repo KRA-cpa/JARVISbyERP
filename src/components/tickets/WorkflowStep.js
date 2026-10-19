@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../../contexts/UserContext';
-import { useWorkflowSteps, useStepApprovals, useCanUserApprove } from '../../hooks/useAPI';
+import { useWorkflowSteps, useStepApprovals, useApprovalEligibility } from '../../hooks/useAPI';
 import { useToast } from '../shared/Toast';
 import { API } from '../../api/googleSheet';
 import {
@@ -8,20 +8,21 @@ import {
   getApprovalCounts,
   WORKFLOW_CONSTANTS
 } from '../../utils/workflowEngine';
-import { useAutoWorkflowRouter } from '../../hooks/useWorkflowRouter';
 import { processExternalAppIntegration, verifyTaskCompletion } from '../../utils/externalAppIntegration';
 import Icons from '../shared/Icons';
 
 const WorkflowStep = ({ ticket, onTicketUpdate }) => {
   const { user } = useUser();
   const { success, error: showError } = useToast();
-  const { processAfterApproval, processAfterTaskCompletion, isProcessing: isRouting } = useAutoWorkflowRouter();
+  // Firebase users carry uid; the backend moves the ticket itself (AppScript v9.0 submitStepApproval),
+  // so there is no client-side routing after an approval
+  const currentUserId = user?.uid || user?.id;
 
   // Get workflow steps for this ticket type
   const { data: workflowSteps, loading: stepsLoading } = useWorkflowSteps(ticket?.ticket_type_id);
 
   // Find current step
-  const currentStep = workflowSteps?.find(step => step.id === ticket?.current_step_id);
+  const currentStep = workflowSteps?.find(step => String(step.id) === String(ticket?.current_step_id));
 
   // Get approvals for current step
   const { data: stepApprovals, loading: approvalsLoading, refetch: refetchApprovals } = useStepApprovals(
@@ -29,8 +30,9 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
     currentStep?.id
   );
 
-  // Check if current user can approve
-  const { data: canApprove } = useCanUserApprove(user?.id, currentStep?.id, ticket?.id);
+  // Can the current user act on this step? (company + ticket type roles in force; 'all' logic progress)
+  const { data: eligibility, refetch: refetchEligibility } = useApprovalEligibility(currentUserId, currentStep?.id, ticket?.id);
+  const canApprove = Boolean(eligibility?.can_approve);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
@@ -70,29 +72,31 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
 
     setIsSubmitting(true);
     try {
-      await API.StepApprovals.submitApproval(
+      const result = await API.StepApprovals.submitApproval(
         ticket.id,
         currentStep.id,
-        user.id,
+        currentUserId,
         pendingAction,
         comment
       );
 
-      success(`Step ${pendingAction}d successfully!`);
+      if (result?.partial) {
+        const required = result.required_role_ids?.length || 0;
+        const approved = (result.approved_role_ids || []).filter(id => (result.required_role_ids || []).includes(id)).length;
+        success(`Approval recorded (${approved} of ${required} approver roles) - waiting for the others`);
+      } else {
+        success(`Step ${pendingAction}d successfully!`);
+      }
       setShowCommentModal(false);
 
-      // Refetch approvals and trigger ticket update
+      // The backend already moved the ticket: refresh what this screen shows
       await refetchApprovals();
-
-      // Trigger automatic workflow progression
-      await processAfterApproval(ticket.id, pendingAction);
-
-      // Always trigger ticket update to refresh UI
+      await refetchEligibility();
       onTicketUpdate?.();
 
     } catch (error) {
       console.error('Approval submission failed:', error);
-      showError('Failed to submit approval. Please try again.');
+      showError(error.message || 'Failed to submit approval. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -122,16 +126,12 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
       await API.StepApprovals.submitApproval(
         ticket.id,
         currentStep.id,
-        user.id,
+        currentUserId,
         'complete',
         'External task completed'
       );
 
       success('Task marked as complete!');
-
-      // Trigger automatic workflow progression
-      await processAfterTaskCompletion(ticket.id);
-
       onTicketUpdate?.();
 
     } catch (error) {
@@ -248,8 +248,15 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
               </div>
 
               <div className="text-sm text-gray-600">
-                <strong>Logic:</strong> {currentStep.approver_logic === 'any' ? 'Any approver' : 'All approvers'} must approve
+                <strong>Logic:</strong> {currentStep.approver_logic === 'all' ? 'Every approver role' : 'Any one approver'} must approve
               </div>
+
+              {currentStep.approver_logic === 'all' && eligibility?.required_role_ids?.length > 0 && (
+                <div className="text-sm text-gray-600 mt-1">
+                  <strong>Approver roles:</strong>{' '}
+                  {(eligibility.approved_role_ids || []).filter(id => eligibility.required_role_ids.includes(id)).length} of {eligibility.required_role_ids.length} have approved this step
+                </div>
+              )}
 
               <div className="text-sm text-gray-600 mt-1">
                 <strong>Status:</strong> {completionStatus.reason}
@@ -338,10 +345,10 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
                 {/* Task Completion Button */}
                 <button
                   onClick={handleExternalTaskComplete}
-                  disabled={isSubmitting || isRouting}
+                  disabled={isSubmitting}
                   className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
                 >
-                  {(isSubmitting || isRouting) && (
+                  {(isSubmitting) && (
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                   )}
                   <Icons.Success size={16} className="mr-2" />
@@ -378,15 +385,24 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
             </div>
           )}
 
+          {/* Why the current user can't act */}
+          {!canApprove && eligibility && currentStep.step_type === WORKFLOW_CONSTANTS.STEP_TYPES.APPROVAL && (
+            <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">
+              {eligibility.already_approved
+                ? 'You have approved this step. It moves on when every approver role has approved.'
+                : 'You are not an approver for this step (no role in force for this company and ticket type).'}
+            </div>
+          )}
+
           {/* Action Buttons */}
           {canApprove && currentStep.step_type === WORKFLOW_CONSTANTS.STEP_TYPES.APPROVAL && (
             <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200">
               <button
                 onClick={() => handleApprovalAction('approve')}
-                disabled={isSubmitting || isRouting}
+                disabled={isSubmitting}
                 className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
               >
-                {(isSubmitting || isRouting) && (
+                {(isSubmitting) && (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                 )}
                 <Icons.Success size={16} className="mr-2" />
@@ -395,10 +411,10 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
 
               <button
                 onClick={() => handleApprovalAction('reject')}
-                disabled={isSubmitting || isRouting}
+                disabled={isSubmitting}
                 className="flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
               >
-                {(isSubmitting || isRouting) && (
+                {(isSubmitting) && (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                 )}
                 <Icons.Error size={16} className="mr-2" />
@@ -407,10 +423,10 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
 
               <button
                 onClick={() => handleApprovalAction('return')}
-                disabled={isSubmitting || isRouting}
+                disabled={isSubmitting}
                 className="flex items-center justify-center px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors disabled:opacity-50"
               >
-                {(isSubmitting || isRouting) && (
+                {(isSubmitting) && (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
                 )}
                 <Icons.Edit size={16} className="mr-2" />

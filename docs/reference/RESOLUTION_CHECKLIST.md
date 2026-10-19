@@ -1,10 +1,10 @@
 # RESOLUTION CHECKLIST - MANDATORY REFERENCE
 
 **Document Type:** 🚨 **MANDATORY REFERENCE FOR ALL ERROR RESOLUTION**
-**Version:** 1.1
-**Date:** September 25, 2025 (v1.1: October 18, 2026 — code review compliance checks added)
+**Version:** 1.2
+**Date:** September 25, 2025 (v1.1: October 18, 2026 — code review compliance checks added; v1.2: October 19, 2026 — API contract checks)
 **Status:** ENFORCED - Must be consulted before any error resolution
-**Companion:** `docs/guides/GUIDE_CodeReview_Compliance.md` — rules A1–A11 / S1–S9 behind the ⚖️ checks below
+**Companion:** `docs/guides/GUIDE_CodeReview_Compliance.md` — rules A1–A13 / S1–S9 behind the ⚖️ checks below
 
 ---
 
@@ -60,7 +60,7 @@ Check each technical domain independently with specific rules:
 - Do props match expected structure?
 - Are error states handled gracefully?
 
-#### **🔌 API DOMAIN CHECK (7 Required Checks)**
+#### **🔌 API DOMAIN CHECK (10 Required Checks)**
 
 **Endpoint Structure:**
 - [ ] **URL Pattern**: Does endpoint follow same URL structure as working endpoints?
@@ -74,6 +74,11 @@ Check each technical domain independently with specific rules:
 
 **Integration Testing:**
 - [ ] **Direct API Test**: Can endpoint be called directly with simple payload?
+
+**⚖️ Contract (A12 / A13):**
+- [ ] **Route exists**: `npm run check:api-contract` - is the action routed in `doGet` (if it is in `readActions`) or `routePostAction` of the newest AppScript file? An empty list or "no data" can be an unrouted action (before v9.0 they answered without `status: 'error'`)
+- [ ] **Handler defined**: the case calls a function that exists (the check flags `undefined-function`)
+- [ ] **No `action` key**: the payload has no key named `action` - it would replace the route name in the flat POST body
 
 **Specific API Tests:**
 - Does endpoint respond to ping/health check?

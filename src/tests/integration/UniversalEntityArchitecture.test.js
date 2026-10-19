@@ -16,6 +16,8 @@ import AdminRoleTypeList from '../../components/admin/AdminRoleTypeList';
 
 // Mock all required hooks and contexts
 jest.mock('../../contexts/UserContext', () => ({
+  // renderWithProviders (testUtils TestWrapper) renders UserProvider - without it the element type is undefined
+  UserProvider: ({ children }) => children,
   useUser: () => ({
     user: {
       uid: 'admin-user-id',
@@ -205,9 +207,7 @@ describe('Universal Entity Architecture Integration Tests', () => {
       });
 
       // Test User Profile Type List
-      render(
-        renderWithProviders(<AdminUserProfileTypeList />)
-      );
+      renderWithProviders(<AdminUserProfileTypeList />);
 
       // Should display existing user profile types
       await waitFor(() => {
@@ -236,9 +236,7 @@ describe('Universal Entity Architecture Integration Tests', () => {
         useNavigate: () => mockNavigate
       }));
 
-      render(
-        renderWithProviders(<AdminUserProfileTypeCreatePage />)
-      );
+      renderWithProviders(<AdminUserProfileTypeCreatePage />);
 
       // Fill form
       await userEvent.type(screen.getByLabelText(/profile type name/i), 'Test Profile Type');
@@ -280,9 +278,7 @@ describe('Universal Entity Architecture Integration Tests', () => {
         name: 'test_field'
       });
 
-      render(
-        renderWithProviders(<AdminCustomFieldCreatePage />)
-      );
+      renderWithProviders(<AdminCustomFieldCreatePage />);
 
       // Should show user profile context
       expect(screen.getByText(/Create New Custom Field for User Profiles/i)).toBeInTheDocument();
@@ -322,9 +318,7 @@ describe('Universal Entity Architecture Integration Tests', () => {
         code: 'NEW'
       });
 
-      render(
-        renderWithProviders(<AdminRoleTypeList />)
-      );
+      renderWithProviders(<AdminRoleTypeList />);
 
       // Should display existing role types
       await waitFor(() => {
@@ -342,9 +336,7 @@ describe('Universal Entity Architecture Integration Tests', () => {
         name: 'Test Role Type'
       });
 
-      render(
-        renderWithProviders(<AdminRoleTypeCreatePage />)
-      );
+      renderWithProviders(<AdminRoleTypeCreatePage />);
 
       // Test validation - submit empty form
       const createButton = screen.getByText('Create Role Type');
@@ -431,9 +423,7 @@ describe('Universal Entity Architecture Integration Tests', () => {
         useSearchParams: () => [mockSearchParams]
       }));
 
-      render(
-        renderWithProviders(<AdminCustomFieldCreatePage />)
-      );
+      renderWithProviders(<AdminCustomFieldCreatePage />);
 
       // Should default to ticket mode
       expect(screen.getByText('Create New Custom Field')).toBeInTheDocument();
@@ -453,9 +443,7 @@ describe('Universal Entity Architecture Integration Tests', () => {
         useSearchParams: () => [mockSearchParams]
       }));
 
-      render(
-        renderWithProviders(<AdminCustomFieldCreatePage />)
-      );
+      renderWithProviders(<AdminCustomFieldCreatePage />);
 
       // Should show user profile specific help text
       expect(screen.getByText(/Employee ID, department, job title/i)).toBeInTheDocument();
@@ -496,9 +484,7 @@ describe('Universal Entity Architecture Integration Tests', () => {
         useNavigate: () => mockNavigate
       }));
 
-      render(
-        renderWithProviders(<AdminUserProfileTypeList />)
-      );
+      renderWithProviders(<AdminUserProfileTypeList />);
 
       // Test custom field creation navigation
       const customFieldButtons = screen.getAllByText(/Custom Fields/i);
@@ -521,9 +507,7 @@ describe('Universal Entity Architecture Integration Tests', () => {
         refetch: jest.fn()
       });
 
-      render(
-        renderWithProviders(<AdminUserProfileTypeList />)
-      );
+      renderWithProviders(<AdminUserProfileTypeList />);
 
       expect(screen.getByText(/error loading user profile types/i)).toBeInTheDocument();
     });
@@ -538,9 +522,7 @@ describe('Universal Entity Architecture Integration Tests', () => {
         refetch: jest.fn()
       });
 
-      render(
-        renderWithProviders(<AdminUserProfileTypeList />)
-      );
+      renderWithProviders(<AdminUserProfileTypeList />);
 
       expect(screen.getByText(/no user profile types yet/i)).toBeInTheDocument();
       expect(screen.getByText(/get started by creating/i)).toBeInTheDocument();
@@ -561,9 +543,7 @@ describe('Universal Entity Architecture Integration Tests', () => {
         useSearchParams: () => [mockSearchParams]
       }));
 
-      render(
-        renderWithProviders(<AdminCustomFieldCreatePage />)
-      );
+      renderWithProviders(<AdminCustomFieldCreatePage />);
 
       // Should handle invalid entity category gracefully
       expect(screen.getByText(/Entity Type/i)).toBeInTheDocument();
@@ -574,9 +554,7 @@ describe('Universal Entity Architecture Integration Tests', () => {
     it('should load quickly with multiple entity types', async () => {
       const start = performance.now();
 
-      render(
-        renderWithProviders(<AdminCustomFieldCreatePage />)
-      );
+      renderWithProviders(<AdminCustomFieldCreatePage />);
 
       const end = performance.now();
       expect(end - start).toBeLessThan(100); // Should load quickly

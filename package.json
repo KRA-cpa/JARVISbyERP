@@ -40,7 +40,14 @@
     "test:watch": "npm test -- --watch",
     "test:debug": "node --inspect-brk scripts/test-runner.js",
     "test:api-endpoints": "node scripts/test-api.js",
-    "test:api-health": "node scripts/test-api.js --health"
+    "test:api-health": "node scripts/test-api.js --health",
+    "check:api-contract": "node scripts/check-api-contract.js"
+  },
+  "jest": {
+    "moduleNameMapper": {
+      "^react-router-dom$": "<rootDir>/node_modules/react-router-dom/dist/index.js",
+      "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js"
+    }
   },
   "eslintConfig": {
     "extends": [

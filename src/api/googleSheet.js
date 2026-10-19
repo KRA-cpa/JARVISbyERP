@@ -142,6 +142,9 @@ class RequestQueue {
 
 const requestQueue = new RequestQueue(2); // Limit to 2 concurrent requests
 
+// Actions that already logged a [MOCK] fallback warning
+const mockWarnedActions = new Set();
+
 // HTTP Client with retry logic, circuit breaker, and request queue
 class HTTPClient {
   static async request(url, options = {}) {
@@ -224,6 +227,12 @@ class BaseAPI {
   }
 
   async makeRequest(action, payload = null, useCache = true) {
+    // POST bodies are flat ({ action, ...payload }): a payload key named `action` would replace the route
+    // name - submitApproval's action: 'approve' did, so approvals never reached the backend (compliance A13)
+    if (payload && Object.prototype.hasOwnProperty.call(payload, 'action')) {
+      throw new Error(`makeRequest('${action}'): the payload must not have an "action" key`);
+    }
+
     const cacheKey = this.getCacheKey(action, payload);
 
     // Check cache for GET requests
@@ -248,10 +257,12 @@ class BaseAPI {
       }
 
       // GET requests for read operations, POST for write operations
+      // Must match the doGet routes - npm run check:api-contract checks it
       const readActions = [
         'ping', 'getCompanies', 'getTickets', 'getTicketTypes', 'getRoles',
         'getDropdownLists', 'getCustomFields', 'getWorkflowSteps', 'getSystemHealth',
-        'getUserProfileTypes', 'getRoleTypes' // routed in doGet only - doPost has no case for them
+        'getUserProfileTypes', 'getRoleTypes', // routed in doGet only - doPost has no case for them
+        'getCompany', 'getDropdownOptions', 'getUserPreferences' // doGet only
       ];
 
       const isGetRequest = readActions.includes(action);
@@ -307,7 +318,9 @@ class BaseAPI {
 
       const response = await HTTPClient.request(urlString, options);
 
-      if (response.status === 'error') {
+      // AppScript v9.0+ sends success: false + status: 'error' for unknown actions and handler failures;
+      // success: false alone (older deployments) is a failure too, not an empty result
+      if (response.status === 'error' || response.success === false) {
         throw new Error(response.error || 'API request failed');
       }
 
@@ -325,8 +338,13 @@ class BaseAPI {
     } catch (error) {
       console.error(`API Error [${action}]:`, error);
 
-      // Return mock data in development if API fails
+      // Return mock data in development if API fails - say so once per action, so a broken route
+      // doesn't hide behind mock data
       if (CONFIG.ENABLE_MOCK_DATA) {
+        if (!mockWarnedActions.has(action)) {
+          mockWarnedActions.add(action);
+          console.warn(`[MOCK] ${action}: backend failed (${error.message}) - showing mock data`);
+        }
         return this.getMockData(action, payload);
       }
 
@@ -795,11 +813,13 @@ class TicketAPI extends BaseAPI {
     return response.data;
   }
 
-  async updateStatus(id, status, comment = '') {
+  // Only 'Cancelled' and 'Reopened' are direct status changes; approvals go through StepApprovals.submitApproval
+  async updateStatus(id, status, comment = '', userId = null) {
     const response = await this.makeRequest('updateTicketStatus', {
       id,
       status,
-      comment: comment.trim()
+      comment: comment.trim(),
+      user_id: userId
     });
     return response.data;
   }
@@ -911,13 +931,44 @@ class UserAPI extends BaseAPI {
     return response.data || [];
   }
 
-  async assignRole(userId, roleId, companyId = null) {
+  // assignmentData (optional): ticket_type_id, assignment_type, effective_start_date, effective_end_date,
+  // auto_expire_days, approval_required, assignment_notes
+  async assignRole(userId, roleId, companyId = null, assignmentData = {}) {
     const response = await this.makeRequest('assignUserRole', {
+      ...assignmentData,
       userId,
       roleId,
       companyId
     });
     return response.data;
+  }
+
+  // Soft-deletes one assignment (removeRole removes every assignment of the role in the company)
+  async deleteRoleAssignment(assignmentId, reason = 'Removed by admin') {
+    const response = await this.makeRequest('deleteUserRoleAssignment', {
+      assignment_id: assignmentId,
+      reason
+    });
+    return response.data;
+  }
+
+  async updateRoleAssignment(assignmentId, changes) {
+    const response = await this.makeRequest('updateUserRoleAssignment', {
+      ...changes,
+      assignment_id: assignmentId
+    });
+    return response.data;
+  }
+
+  async getExpiringAssignments(daysAhead = 30) {
+    const response = await this.makeRequest('getExpiringAssignments', { days_ahead: daysAhead });
+    return response.data || [];
+  }
+
+  // { general_role: 'maker' | 'approver' | 'both' | 'viewer', approver_role_ids, other_role_ids }
+  async getGeneralRole(userId, companyId = null) {
+    const response = await this.makeRequest('getUserGeneralRole', { userId, company_id: companyId });
+    return response.data || null;
   }
 
   async removeRole(userId, roleId, companyId = null) {
@@ -1699,6 +1750,16 @@ class CustomFieldsAPI extends BaseAPI {
  * @param {Object} response - makeRequest() response
  * @returns {*} The records / record, or undefined when the handler returned none
  */
+/**
+ * is_active as a boolean: Sheets can return 'FALSE' (a truthy string) for a deactivated row, and a blank
+ * cell counts as active (same rule as AppScript isActiveFlag).
+ * @param {Object} record - Record from the backend
+ * @returns {Object} The record with a boolean is_active
+ */
+const normalizeIsActive = (record) => (record && typeof record === 'object'
+  ? { ...record, is_active: !(record.is_active === false || String(record.is_active).trim().toUpperCase() === 'FALSE') }
+  : record);
+
 const unwrapHandlerResult = (response) => {
   const result = response?.data;
   const isHandlerResult = result && !Array.isArray(result) && typeof result.status === 'string'
@@ -1718,14 +1779,18 @@ class UserProfileTypesAPI extends BaseAPI {
     super('user_profile_types');
   }
 
-  async getAll(companyId = null) {
-    const response = await this.makeRequest('getUserProfileTypes', companyId ? { company_id: companyId } : {});
-    return unwrapHandlerResult(response) || [];
+  // includeInactive: the admin list shows deactivated types too (AppScript v9.0+ include_inactive)
+  async getAll(companyId = null, includeInactive = false) {
+    const params = {};
+    if (companyId) params.company_id = companyId;
+    if (includeInactive) params.include_inactive = true;
+    const response = await this.makeRequest('getUserProfileTypes', params);
+    return (unwrapHandlerResult(response) || []).map(normalizeIsActive);
   }
 
-  // AppScript has no single-record route, so look the record up in the (active-only) list
+  // AppScript has no single-record route, so look the record up in the list (inactive included, so they can be edited)
   async getById(id) {
-    const userProfileTypes = await this.getAll();
+    const userProfileTypes = await this.getAll(null, true);
     return userProfileTypes.find(upt => upt.id === id) || null;
   }
 
@@ -1738,7 +1803,8 @@ class UserProfileTypesAPI extends BaseAPI {
       name: data.name.trim(),
       description: data.description?.trim() || '',
       code: data.code?.trim() || '',
-      company_id: data.company_id || null
+      company_id: data.company_id || null,
+      is_active: data.is_active === undefined ? true : Boolean(data.is_active)
     });
     return unwrapHandlerResult(response);
   }
@@ -1831,14 +1897,18 @@ class RoleTypesAPI extends BaseAPI {
     super('role_types');
   }
 
-  async getAll(companyId = null) {
-    const response = await this.makeRequest('getRoleTypes', companyId ? { company_id: companyId } : {});
-    return unwrapHandlerResult(response) || [];
+  // includeInactive: the admin list shows deactivated types too (AppScript v9.0+ include_inactive)
+  async getAll(companyId = null, includeInactive = false) {
+    const params = {};
+    if (companyId) params.company_id = companyId;
+    if (includeInactive) params.include_inactive = true;
+    const response = await this.makeRequest('getRoleTypes', params);
+    return (unwrapHandlerResult(response) || []).map(normalizeIsActive);
   }
 
-  // AppScript has no single-record route, so look the record up in the (active-only) list
+  // AppScript has no single-record route, so look the record up in the list (inactive included, so they can be edited)
   async getById(id) {
-    const roleTypes = await this.getAll();
+    const roleTypes = await this.getAll(null, true);
     return roleTypes.find(rt => rt.id === id) || null;
   }
 
@@ -1851,7 +1921,8 @@ class RoleTypesAPI extends BaseAPI {
       name: data.name.trim(),
       description: data.description?.trim() || '',
       code: data.code?.trim() || '',
-      company_id: data.company_id || null
+      company_id: data.company_id || null,
+      is_active: data.is_active === undefined ? true : Boolean(data.is_active)
     });
     return unwrapHandlerResult(response);
   }
@@ -2109,12 +2180,13 @@ class StepApprovalsAPI extends BaseAPI {
     return response.data || [];
   }
 
-  async submitApproval(ticketId, stepId, userId, action, comment = '') {
+  // Returns { new_status, next_step, partial, approved_role_ids, required_role_ids, ... }
+  async submitApproval(ticketId, stepId, userId, decision, comment = '') {
     const response = await this.makeRequest('submitStepApproval', {
       ticket_id: ticketId,
       step_id: stepId,
       user_id: userId,
-      action: action, // 'approve', 'reject', 'return'
+      decision, // 'approve' | 'reject' | 'return' | 'complete' - not `action`, which is the route name
       comment: comment.trim(),
       timestamp: new Date().toISOString()
     });
@@ -2125,12 +2197,18 @@ class StepApprovalsAPI extends BaseAPI {
   }
 
   async canUserApprove(userId, stepId, ticketId = null) {
+    const eligibility = await this.getApprovalEligibility(userId, stepId, ticketId);
+    return eligibility?.can_approve || false;
+  }
+
+  // { can_approve, already_approved, approver_logic, eligible_role_ids, required_role_ids, approved_role_ids }
+  async getApprovalEligibility(userId, stepId, ticketId = null) {
     const response = await this.makeRequest('canUserApprove', {
       user_id: userId,
       step_id: stepId,
       ticket_id: ticketId
     });
-    return response.data?.can_approve || false;
+    return response.data || null;
   }
 
   getMockData(action, params = {}) {

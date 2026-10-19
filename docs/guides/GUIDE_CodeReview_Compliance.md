@@ -2,13 +2,14 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 1.1.0
+Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 1.2.0
 Created: 18 October 2026 UTC+8 (Philippine Standard Time) | Modified: 19 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Coding rules derived from the 17 Oct 2026 code review (CR-01–CR-13 + X-1–X-6), so new AppScript and script changes don't reintroduce them | Status: Active — MANDATORY for AppScript and scripts/ changes
 
 REVISION HISTORY:
 - v1.0.0 | 18 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial rules A1–A11, S1–S9, P1–P4 from docs/planning/TODO_CodeReview_20261017.md
 - v1.1.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A11 step 2: header carries a `Deploy description:` line to paste at redeploy
+- v1.2.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A12 contract check (49 frontend actions had no route; 3 routes called functions that never existed), A13 no payload key `action`, A11 ping reports API_VERSION; P1 amended (diff-scoped review + contract check), P5 done = reachable
 ===============================================================================
 -->
 
@@ -135,13 +136,30 @@ try { sheet = ss.getSheetByName(name); } catch (e) { sheet = ss.insertSheet(name
     * Deploy description: v8.4 20261019_0500 - is_active writable for user profile / role types
     *   (paste at redeploy: Deploy > Manage deployments > Edit > New version > Description)
    ```
-   The description is how a deployment is traced back to its file. `ping` can't do it: its `version` has been `8.0.0` since v8.0.
+   The description is how a deployment is traced back to its file. From v9.0, `ping` reports the `API_VERSION` constant at the top of the file too (it was stuck at `8.0.0` through v8.3): bump it with the header `Version:` line; the v9.0 offline test fails when they differ.
 3. Run the offline test (no Google access needed). Add a test for any new behaviour:
    ```bash
    node appscript_files/tools/CODE_REVIEW_FIXES_TEST_v8.3.js appscript_files/APPSCRIPT_v<new>.txt
    ```
    It runs the file against an in-memory fake of `SpreadsheetApp` / `LockService`. The fake lock throws if it's taken twice in one execution, which proves the locking is re-entrant.
 4. Keep the CRLF line endings and the file's trailing-newline state the same as the previous version, so `git diff` shows only real changes.
+
+### A12 — Every action the frontend sends has a route *(19 Oct 2026 contract diff)*
+
+Until v9.0, 49 of the 84 actions `src/api/googleSheet.js` sends had no `case` in `doGet` / `routePostAction`. Three routes (`deleteRole`, `deleteDropdownList`, `deleteTicketType`) called functions that never existed. Nobody noticed: unknown actions answered `success: false` without `status: 'error'`, `makeRequest` only threw on `status: 'error'`, and development fell back to mock data.
+
+```bash
+npm run check:api-contract        # newest APPSCRIPT_v*.txt; or: node scripts/check-api-contract.js <file>
+```
+
+- It checks: no route; sent by GET but only in doPost (and the reverse); a router case calling an undefined function; a payload with an `action` key (A13).
+- `scripts/api-contract-known-gaps.txt` lists the gaps that are known and not fixed yet. It **may only shrink**: fix a gap, then `node scripts/check-api-contract.js --update`. Never add a line to silence a new gap. `--update` refuses to add.
+- A new frontend action ships with its backend route **in the same batch**. A new GET action goes into both `readActions` and `doGet`.
+- Unknown actions and handler failures return `success: false` **and** `status: 'error'` (doGet too, via `createHandlerResponse` / `createDataResponse`), and `makeRequest` throws on either. Never answer a failure with `success: true`.
+
+### A13 — No payload key named `action` *(19 Oct 2026, approve button)*
+
+`makeRequest` posts `{ action, ...payload }`. A payload key `action` replaces the route name: `submitApproval` sent `action: 'approve'`, so the backend saw the action `approve` and every approval failed. Use a domain name (`decision`, `operation`). `makeRequest` throws on an `action` key, and the contract check flags it.
 
 ---
 
@@ -215,10 +233,11 @@ git show --name-only HEAD; git diff --cached --name-only     # only the intended
 
 ## §3 Process Rules (P1–P4)
 
-- **P1 — Review before pushing a batch.** Run `/code-review`. Record the findings in `docs/planning/TODO_CodeReview_<YYYYMMDD>.md` with `CR-nn` ids and a status per row. Mark unfinished work as **BLOCKED** in `Claude.md` and the relevant guide until it's fixed.
+- **P1 — Review before pushing a batch.** Run `/code-review` **and** `npm run check:api-contract`. `/code-review` only sees the diff, so it can't find code that was never written (the 49 missing routes were never in a diff); the contract check covers the whole repo. Record the findings in `docs/planning/TODO_CodeReview_<YYYYMMDD>.md` with `CR-nn` ids and a status per row. Mark unfinished work as **BLOCKED** in `Claude.md` and the relevant guide until it's fixed.
 - **P2 — Fix in a new AppScript file** (A11) and tick the status in the tracker with the file or commit that fixed it.
 - **P3 — Deploy order for data migrations.** The lock (A5) only protects writes from a web app that runs the new code. Redeploy the web app **before** applying a rebuild or migration, or make sure nobody is using the app. See `appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md`.
 - **P4 — Promote lessons.** When a finding reveals a new class of bug, add a rule here (new version) and a check in `docs/reference/RESOLUTION_CHECKLIST.md`.
+- **P5 — Done means reachable.** A feature or phase is done when its endpoints are routed, the contract check passes, and a live smoke test exercised them (the deploy guide's verify step). Functions written but not routed count as not started. The v6.2–v6.3 workflow engine was marked "18 functions → v6.2" and was unreachable for a year.
 
 ---
 
@@ -235,6 +254,9 @@ git show --name-only HEAD; git diff --cached --name-only     # only the intended
 - [ ] Request keys match `src/api/googleSheet.js`; ids compared with `String()` (A7, A8)
 - [ ] `logAdminAction` uses the 5-argument form (A9)
 - [ ] Offline test passes; a new test was added for new behaviour (A11)
+- [ ] `API_VERSION` matches the header `Version:` (A11)
+- [ ] `npm run check:api-contract` passes; the known-gaps list only shrank (A12)
+- [ ] No payload key named `action` (A13)
 - [ ] Dry run `rebuildAllTables()` reviewed before any apply (P3)
 
 **Script change**
@@ -263,4 +285,5 @@ git show --name-only HEAD; git diff --cached --name-only     # only the intended
 | CR-07 success:true on error | A6, A8 | | X-1 26 mis-logged audit rows | A9 |
 | X-2 frontend/backend key mismatch | A7 | | X-3 update/delete positional rows | A1 |
 | X-4 init clear + null sheet | A4, A10 | | X-5 `file:` path on Git Bash | S2 |
-| X-6 old web app ignores lock | P3 | | | |
+| X-6 old web app ignores lock | P3 | | 49 unrouted frontend actions | A12, P1, P5 |
+| Routes calling undefined functions | A12 | | Payload `action` overwrote the route | A13 |

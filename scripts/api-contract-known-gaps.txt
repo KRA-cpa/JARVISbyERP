@@ -1,0 +1,36 @@
+# Known frontend->backend contract gaps - checked by scripts/check-api-contract.js
+# Format: <kind> <action>. This list may only shrink: fix a gap, then remove its line
+# (node scripts/check-api-contract.js --update). Never add a line to silence a new gap.
+# Last updated against APPSCRIPT_v9.0_20261019_0501.txt
+
+missing assignDropdownGlobally
+missing assignDropdownToCompany
+missing checkCompanyLockStatus
+missing copyWorkflowSteps
+missing createCompanySLARule
+missing createConfigurationBackup
+missing createDefaultWorkflow
+missing createTicketLink
+missing createWorkflowStep
+missing deleteCompanySLARule
+missing deleteCustomField
+missing deleteTicketLink
+missing deleteWorkflowStep
+missing exportConfiguration
+missing generateTicketNumber
+missing getCompanySLARules
+missing getCustomField
+missing getDropdownCompanyAssignments
+missing getNextTicketNumber
+missing getTicketLinks
+missing getTicketType
+missing importConfiguration
+missing lockCompany
+missing removeDropdownCompanyAssignment
+missing runCompleteAPITest
+missing unlockCompany
+missing updateCompanySLARule
+missing updateCustomField
+missing updateDropdownCompanyAssignments
+missing updateWorkflowStep
+missing validateTicketDependencies

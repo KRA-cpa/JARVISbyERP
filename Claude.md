@@ -5,7 +5,7 @@ B. Consult `docs/planning/SUPERTHINK_TODO_ANALYSIS_2025-09-27.md` on current/com
 C. Log every session in `REF_SessionLog.md` (see 🗓️ SESSION LOG below).
 D. New docs go in the matching `docs/` folder (see 📁 REPO LAYOUT below) — never the repo root.
 
-**Version:** 3.6 **Date:** October 18, 2026 - ⚖️ **CODE REVIEW COMPLIANCE** (mandatory reference #11; v3.5 = repo reorg into `docs/`)
+**Version:** 3.7 **Date:** October 19, 2026 - 🔌 **API CONTRACT CHECK** (AppScript v9.0 routes all approval-path actions; `npm run check:api-contract`; v3.6 = code review compliance, v3.5 = repo reorg into `docs/`)
 
 ### **📁 REPO LAYOUT**
 
@@ -67,12 +67,13 @@ Reorg record: `docs/planning/PLAN_RepoReorg_20261017.md` + `docs/planning/REORG_
    - Schema migration and update tracking
 
 7. **`APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt`** - ⚠️ **MANDATORY REFERENCE**
-   - **Latest File**: `./appscript_files/APPSCRIPT_v8.3_20261017_1510.txt` (v8.3 — code review fixes CR-01–CR-07 on top of v8.2's `TABLE_SCHEMAS` + `rebuildAllTables()`; the rebuild is safe to apply)
-   - ⚠️ **Never apply the rebuild with v8.2** (data-corruption bugs; see `docs/planning/TODO_CodeReview_20261017.md`). Redeploy v8.3 before applying if the app may be in use.
-   - **Offline test**: `node appscript_files/tools/CODE_REVIEW_FIXES_TEST_v8.3.js <latest APPSCRIPT file>` (fake Sheets runtime, 11 tests)
+   - **Latest File**: `./appscript_files/APPSCRIPT_v9.0_20261019_0501.txt` (v9.0 — routes for the approval path: user roles/profile, step approvers, get/update/approve ticket, canUserApprove, getStepApprovals, getUserGeneralRole; date-aware role assignments; approver_logic 'all'; createTicket starts the workflow; loud errors; roles + role_type_id/is_active. Deploy the frontend with it: the approve request sends `decision`)
+   - ⚠️ **Never apply the rebuild with v8.2** (data-corruption bugs; see `docs/planning/TODO_CodeReview_20261017.md`). Redeploy before applying if the app may be in use.
+   - **Offline tests** (fake Sheets runtime in `appscript_files/tools/lib/fakeSheetsRuntime.js`): `node appscript_files/tools/ROUTES_AND_APPROVALS_TEST_v9.0.js <latest APPSCRIPT file>` (21 tests) and `node appscript_files/tools/CODE_REVIEW_FIXES_TEST_v8.3.js <latest APPSCRIPT file>` (11 tests)
+   - **Contract check**: `npm run check:api-contract` — every `makeRequest` action has a route in the newest file; `scripts/api-contract-known-gaps.txt` lists the 31 actions still to route in v9.1/v9.2 and may only shrink
    - **Header rule (v8.3)**: write rows by header name (`rowFromRecord`), create tabs with `ensureTableSheet()`, and take `withScriptLock()` for writes. No positional rows, no hard-coded header lists.
    - **Naming Rule**: every AppScript update is a NEW file `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` (UTC+8); never overwrite older versions. The newest timestamp is the latest.
-   - **Deploy description (from v8.4)**: the file header has a `Deploy description:` line (`v<ver> <YYYYMMDD_HHMM> - <summary>`) to paste into New version → Description on redeploy. `ping` always says `8.0.0`, so this description is how a live deployment is traced to its file.
+   - **Deploy description (from v8.4)**: the file header has a `Deploy description:` line (`v<ver> <YYYYMMDD_HHMM> - <summary>`) to paste into New version → Description on redeploy. From v9.0, `ping` also reports the file's `API_VERSION` (keep it equal to the header `Version:`; through v8.3 it always said `8.0.0`).
    - **Snapshot**: `./appscript_files/APPSCRIPT.txt` is frozen at v8.0 (Nov 27, 2025) — do not edit
    - **Schema Source of Truth**: `TABLE_SCHEMAS` in the latest file (column order follows the positional writers)
    - **Deploy / Rebuild Guide**: `./appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md` — paste → dry run → apply → verify → redeploy
@@ -104,7 +105,7 @@ Reorg record: `docs/planning/PLAN_RepoReorg_20261017.md` + `docs/planning/REORG_
 11. **`docs/guides/GUIDE_CodeReview_Compliance.md`** - 🚨 **MANDATORY FOR ALL APPSCRIPT AND `scripts/` CHANGES**
    - **File Location**: `./docs/guides/GUIDE_CodeReview_Compliance.md`
    - Rules from the 17 Oct 2026 code review (findings: `docs/planning/TODO_CodeReview_20261017.md`)
-   - AppScript A1–A11: header-driven rows, `TABLE_SCHEMAS` only, `COLUMN_DEFAULTS`, no destructive routes, `withScriptLock`, `createHandlerResponse`, frontend key matching, offline test
+   - AppScript A1–A13: header-driven rows, `TABLE_SCHEMAS` only, `COLUMN_DEFAULTS`, no destructive routes, `withScriptLock`, `createHandlerResponse`, frontend key matching, offline test, **contract check (A12)**, **no payload key `action` (A13)**
    - Scripts S1–S9: `pipefail`, no secrets in argv, pathspec commits, recorded times not mtimes, exact-match scope, CRLF, sandbox tests
    - §4 pre-commit checklist — tick it before every AppScript or script commit
 
@@ -117,10 +118,11 @@ Reorg record: `docs/planning/PLAN_RepoReorg_20261017.md` + `docs/planning/REORG_
 - **PREVENT REACT ERROR #130** by following `docs/reference/REACT_ERROR_130_PREVENTION_GUIDE.md`
 - **VERIFY ROUTES** exist in App.js before implementing navigation
 - **TEST COMPILATION** with `npm run build` before committing changes
+- **🔌 API CONTRACT** - a new frontend API action ships with its AppScript route in the same batch; `npm run check:api-contract` must pass (compliance A12). A phase is done when its endpoints are reachable, not when its functions are written (P5)
 - **🚀 NEW: UNIVERSAL ENTITY RULES** - All entity types (tickets, users, roles) must use unified custom field patterns
 - **🚀 NEW: USER/ROLE INTEGRATION** - Follow `docs/reference/USER_MANAGEMENT_FEATURE_PLAN.md` for all user/role implementations
 - **🚨 MANDATORY: UNIVERSAL ENTITY ARCHITECTURE** - Must consult `docs/reference/UNIVERSAL_ENTITY_ARCHITECTURE.md` before any entity-related work
-- **⚖️ CODE REVIEW COMPLIANCE** - AppScript and `scripts/` changes follow `docs/guides/GUIDE_CodeReview_Compliance.md` (tick its §4 checklist); run `/code-review` before pushing a batch and log findings in `docs/planning/TODO_CodeReview_<YYYYMMDD>.md`
+- **⚖️ CODE REVIEW COMPLIANCE** - AppScript and `scripts/` changes follow `docs/guides/GUIDE_CodeReview_Compliance.md` (tick its §4 checklist); run `/code-review` **and** `npm run check:api-contract` before pushing a batch (the review only sees the diff) and log findings in `docs/planning/TODO_CodeReview_<YYYYMMDD>.md`
 
 ### **🤖 CLAUDE CONVERSATION HISTORY BACKUP SYSTEM**
 

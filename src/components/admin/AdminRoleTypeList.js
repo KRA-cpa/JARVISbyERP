@@ -20,7 +20,7 @@ const AdminRoleTypeList = () => {
   const [actionLoading, setActionLoading] = useState({});
 
   // API hooks
-  const { data: roleTypes, loading, error, refetch } = useRoleTypes();
+  const { data: roleTypes, loading, error, refetch } = useRoleTypes(null, true); // inactive too, so they can be reactivated
   const { updateRoleType, deleteRoleType } = useRoleTypeMutations();
 
   // Handle status toggle

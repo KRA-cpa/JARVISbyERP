@@ -20,7 +20,7 @@ const AdminUserProfileTypeList = () => {
   const [actionLoading, setActionLoading] = useState({});
 
   // API hooks
-  const { data: userProfileTypes, loading, error, refetch } = useUserProfileTypes();
+  const { data: userProfileTypes, loading, error, refetch } = useUserProfileTypes(null, true); // inactive too, so they can be reactivated
   const { updateUserProfileType, deleteUserProfileType } = useUserProfileTypeMutations();
 
   // Handle status toggle

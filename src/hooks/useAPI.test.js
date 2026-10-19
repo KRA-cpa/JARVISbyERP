@@ -3,7 +3,7 @@
  * Tests API integration, infinite loop prevention, and data fetching
  */
 
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { useCompanies, useUsers, useTickets, useTicketTypes, useUserProfileTypes, useRoleTypes, useUserProfileTypeMutations, useRoleTypeMutations } from './useAPI';
 import { mockAPI, mockAPIResponses } from '../utils/testUtils';
 
@@ -231,8 +231,10 @@ describe('useAPI Hooks', () => {
 
       expect(result.current.callCount).toBe(1);
 
-      // Trigger refetch
-      await result.current.refetch();
+      // Trigger refetch (inside act so the state update is flushed before reading result.current)
+      await act(async () => {
+        await result.current.refetch();
+      });
       expect(result.current.callCount).toBe(2);
     });
   });
@@ -401,16 +403,14 @@ describe('useAPI Hooks', () => {
 
         const { result } = renderHook(() => useUserProfileTypeMutations());
 
-        try {
-          await result.current.createUserProfileType({
+        await act(async () => {
+          await expect(result.current.createUserProfileType({
             name: 'Duplicate Type'
-          });
-        } catch (error) {
-          expect(error.message).toBe(errorMessage);
-        }
+          })).rejects.toThrow(errorMessage);
+        });
 
+        await waitFor(() => expect(result.current.error).toBe(errorMessage));
         expect(result.current.loading).toBe(false);
-        expect(result.current.error).toBe(errorMessage);
       });
     });
 

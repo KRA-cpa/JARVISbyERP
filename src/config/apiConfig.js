@@ -38,101 +38,15 @@ const getCurrentConfig = () => {
 export const apiConfig = getCurrentConfig();
 
 /**
- * Google Sheets API Endpoint Mappings
- * Maps frontend operations to Google Apps Script function names
+ * Action names used inside this file (connection check, mock responses).
+ * Not a route list: the frontend API is src/api/googleSheet.js, and npm run check:api-contract
+ * checks that every action it sends has a route in the latest AppScript file.
+ * (Until Oct 2026 this listed ~90 names, 26 of which no code called and no backend routed.)
  */
 export const API_ENDPOINTS = {
-  // System endpoints
   ping: 'ping',
-  getSystemInfo: 'getSystemInfo',
-
-  // Authentication endpoints
-  recordLogin: 'recordLogin',
-  getUserProfile: 'getUserProfile',
-
-  // Company management
   getCompanies: 'getCompanies',
-  createCompany: 'createCompany',
-  updateCompany: 'updateCompany',
-  deleteCompany: 'deleteCompany',
-
-  // Role management
-  getRoles: 'getRoles',
-  createRole: 'createRole',
-  updateRole: 'updateRole',
-  deleteRole: 'deleteRole',
-
-  // User management
-  getUsers: 'getUsers',
-  createUser: 'createUser',
-  updateUser: 'updateUser',
-  deleteUser: 'deleteUser',
-  getUserRoles: 'getUserRoles',
-  assignUserRole: 'assignUserRole',
-
-  // Ticket management
-  getTickets: 'getTickets',
-  getTicketById: 'getTicketById',
-  createTicket: 'createTicket',
-  updateTicket: 'updateTicket',
-  deleteTicket: 'deleteTicket',
-  getNextTicketNumber: 'getNextTicketNumber',
-
-  // Ticket types
-  getTicketTypes: 'getTicketTypes',
-  createTicketType: 'createTicketType',
-  updateTicketType: 'updateTicketType',
-  deleteTicketType: 'deleteTicketType',
-
-  // Workflow management
-  getWorkflowSteps: 'getWorkflowSteps',
-  getWorkflowStepsByTicketType: 'getWorkflowStepsByTicketType',
-  createWorkflowStep: 'createWorkflowStep',
-  updateWorkflowStep: 'updateWorkflowStep',
-  deleteWorkflowStep: 'deleteWorkflowStep',
-
-  // Step approvals
-  getStepApprovals: 'getStepApprovals',
-  submitApproval: 'submitApproval',
-  getApprovalHistory: 'getApprovalHistory',
-  canUserApprove: 'canUserApprove',
-
-  // Dropdown lists
-  getDropdownLists: 'getDropdownLists',
-  createDropdownList: 'createDropdownList',
-  updateDropdownList: 'updateDropdownList',
-  deleteDropdownList: 'deleteDropdownList',
-
-  // Custom fields
-  getCustomFields: 'getCustomFields',
-  createCustomField: 'createCustomField',
-  updateCustomField: 'updateCustomField',
-  deleteCustomField: 'deleteCustomField',
-
-  // Audit logs
-  getTicketHistory: 'getTicketHistory',
-  getTicketActionLogs: 'getTicketActionLogs',
-  getAdminActionLogs: 'getAdminActionLogs',
-  createActionLog: 'createActionLog',
-
-  // Reporting
-  getReportData: 'getReportData',
-  exportData: 'exportData',
-  getStatistics: 'getStatistics',
-
-  // Integration logs
-  getIntegrationLogs: 'getIntegrationLogs',
-  createIntegrationLog: 'createIntegrationLog',
-
-  // Ticket links (for chained tickets)
-  getTicketLinks: 'getTicketLinks',
-  createTicketLink: 'createTicketLink',
-  deleteTicketLink: 'deleteTicketLink',
-
-  // Notifications
-  sendNotification: 'sendNotification',
-  sendEmail: 'sendEmail',
-  getNotificationTemplates: 'getNotificationTemplates'
+  getTicketTypes: 'getTicketTypes'
 };
 
 /**

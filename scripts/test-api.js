@@ -99,6 +99,18 @@ class APITester {
       });
     }
 
+    const body = method === 'POST' && params ? JSON.stringify(params) : null;
+    return this.send(url, method, body, Date.now(), 0);
+  }
+
+  /**
+   * One HTTP request, following redirects. Apps Script web apps always answer /exec with a 302 to
+   * script.googleusercontent.com, so without this every check saw HTTP 302 and failed.
+   * 301/302/303 continue as GET without a body (what browsers and fetch do); 307/308 keep method and body.
+   */
+  send(url, method, body, startTime, hops) {
+    const MAX_REDIRECTS = 5;
+
     return new Promise((resolve, reject) => {
       const options = {
         method: method,
@@ -110,6 +122,18 @@ class APITester {
       };
 
       const req = https.request(url, options, (res) => {
+        const location = res.headers.location;
+        if ([301, 302, 303, 307, 308].includes(res.statusCode) && location) {
+          res.resume(); // discard the redirect body
+          if (hops >= MAX_REDIRECTS) {
+            reject({ error: `Too many redirects (${MAX_REDIRECTS})`, responseTime: Date.now() - startTime });
+            return;
+          }
+          const keepMethod = res.statusCode === 307 || res.statusCode === 308;
+          resolve(this.send(new URL(location, url), keepMethod ? method : 'GET', keepMethod ? body : null, startTime, hops + 1));
+          return;
+        }
+
         let data = '';
 
         res.on('data', (chunk) => {
@@ -123,6 +147,7 @@ class APITester {
               status: res.statusCode,
               headers: res.headers,
               data: jsonData,
+              redirects: hops,
               responseTime: Date.now() - startTime
             });
           } catch (error) {
@@ -130,14 +155,13 @@ class APITester {
               status: res.statusCode,
               headers: res.headers,
               data: data,
+              redirects: hops,
               error: 'Invalid JSON response',
               responseTime: Date.now() - startTime
             });
           }
         });
       });
-
-      const startTime = Date.now();
 
       req.on('error', (error) => {
         reject({
@@ -155,9 +179,8 @@ class APITester {
         });
       });
 
-      // Send POST data if needed
-      if (method === 'POST' && params) {
-        req.write(JSON.stringify(params));
+      if (body) {
+        req.write(body);
       }
 
       req.end();

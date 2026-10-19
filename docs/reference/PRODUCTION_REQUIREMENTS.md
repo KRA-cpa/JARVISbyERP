@@ -73,6 +73,29 @@
 }
 ```
 
+### **Jest Configuration (react-router-dom v7 under CRA Jest 27)** *(added 19 Oct 2026)*
+CRA 5 runs Jest 27, whose resolver ignores package `exports`. react-router-dom 7.9.1's `"main"` points to
+`dist/main.js`, which the package doesn't ship, and its `dist/index.js` requires `react-router/dom`
+(an `exports`-only subpath). Without the mapping below, every suite that imports `src/utils/testUtils.js`
+fails with `Cannot find module 'react-router-dom'`. Mapping in `package.json`:
+```json
+"jest": {
+  "moduleNameMapper": {
+    "^react-router-dom$": "<rootDir>/node_modules/react-router-dom/dist/index.js",
+    "^react-router/dom$": "<rootDir>/node_modules/react-router/dist/development/dom-export.js"
+  }
+}
+```
+`src/setupTests.js` also polyfills `TextEncoder` / `TextDecoder` (from Node's `util`), which react-router v7
+uses and jsdom (Jest 27) doesn't provide. Re-check both when react-router or react-scripts is upgraded.
+
+### **Contract and Offline Checks** *(added 19 Oct 2026)*
+```bash
+npm run check:api-contract   # every makeRequest action has a doGet/doPost route in the newest AppScript file
+node appscript_files/tools/ROUTES_AND_APPROVALS_TEST_v9.0.js appscript_files/APPSCRIPT_v<latest>.txt
+node appscript_files/tools/CODE_REVIEW_FIXES_TEST_v8.3.js appscript_files/APPSCRIPT_v<latest>.txt
+```
+
 ## Development Dependencies
 
 ### **CSS Processing**

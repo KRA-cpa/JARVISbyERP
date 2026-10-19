@@ -28,11 +28,19 @@
 
 ---
 
-## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v8.3)
+## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v9.0)
 
-`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v8.3_20261017_1510.txt` is now the single source of truth
+`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v9.0_20261019_0501.txt` is now the single source of truth
 for the headers of all 33 tables (25 in SHEETS + 8 in TAG_SHEETS). Where this document and the code
-disagree, the code's positional writers win (e.g. roles = 5 columns as written by createRole(), not 11).
+disagree, the code wins.
+
+**v9.0 (October 19, 2026) — roles: 5 → 12 columns.** Appended after the 5 original columns:
+`role_type_id, is_active, created_by, updated_by, deactivated_at, deactivated_by, deactivation_reason`.
+createRole/updateRole are header-driven now; deleteRole deactivates (is_active = FALSE) instead of deleting the row;
+getRoles hides inactive roles unless include_inactive. COLUMN_DEFAULTS gives existing rows is_active = TRUE.
+user_role_assignments (unchanged columns) is now date-aware: an assignment is in force when is_active, not deleted,
+effective_start_date <= now, and its end (effective_end_date, else validity_end_date, else start + auto_expire_days)
+has not passed; an end date covers that whole day. Expiry writes deleted_* (the table has no deactivated_* columns).
 Since v8.3 every initialize*Sheet() writes these headers (ensureTableSheet), all custom_field_values
 writers are header-driven, and the rebuild fills a newly added entity_category with 'ticket' (COLUMN_DEFAULTS).
 

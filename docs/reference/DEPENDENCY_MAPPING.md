@@ -1,6 +1,6 @@
 # JarvisByERP Dependency Mapping
 
-**Date**: September 28, 2025 - 🏷️ **TICKET TAGS & COLLABORATION SYSTEM UPDATE**
+**Date**: September 28, 2025 - 🏷️ **TICKET TAGS & COLLABORATION SYSTEM UPDATE** (latest section: October 19, 2026 — Phase 2/3 roles & approvals, API contract)
 **Purpose**: Map all component dependencies, imports, and exports to prevent circular dependencies and ensure proper architecture with ticket tags and collaboration system integration
 
 ### **🔬 PROOF OF CONCEPT BACKEND ARCHITECTURE**
@@ -293,7 +293,24 @@ Config
 - **`?tab=`**: `AdminPage` accepts a tab id or a sub-tab id. A sub-tab id also selects its parent tab (`user-profile-types` → `users`, `role-types` → `roles`).
 - **Response shape**: Phase 10.0 handlers return `{status, data, message}`, and doGet / `createHandlerResponse` wrap that in `{success, data}`. `unwrapHandlerResult()` returns the inner `data` and throws on an inner `status: 'error'`. Mock data (no outer wrapper) passes through.
 - **Reads**: `getUserProfileTypes` / `getRoleTypes` are in `makeRequest`'s `readActions` (GET). doPost has no case for them.
-- **`getById`**: AppScript has no single-record route, so `getById` filters `getAll()` (active records only).
+- **`getById`**: AppScript has no single-record route, so `getById` filters `getAll(null, true)` (v9.0: inactive included, so a deactivated type can be edited).
+
+### **🔌 PHASE 2/3 ROLES & APPROVALS + API CONTRACT (October 19, 2026 — AppScript v9.0)**
+
+| File | Layer | Imports (new in bold) | Used by |
+|---|---|---|---|
+| `src/components/admin/DateBasedRoleAssignmentManager.js` | Component (new) | `Icons`, `useToast`, **`useUserRoleAssignments`**, `useRoles`, `useCompanies`, `useTicketTypes`, `API` (`Users.assignRole` / `updateRoleAssignment` / `deleteRoleAssignment`) | `AdminUserList` (Roles button) |
+| `src/components/admin/UserGeneralRoleSelector.js` | Component (new) | React only (exports `GeneralRoleBadge`, `filterUsersByGeneralRole`, `GENERAL_ROLES`) | `AdminUserList` |
+| `src/components/admin/AdminUserList.js` | Component | **`DateBasedRoleAssignmentManager`**, **`UserGeneralRoleSelector`**; dropped `useRoles` / `useCompanies` / `useUserProfileTypes` / `useNavigate` (dead dialog, missing `/admin/users/:id/edit` route, non-existent `Icons.Trash`) | `AdminPage` users tab |
+| `src/components/tickets/WorkflowStep.js` | Component | **`useApprovalEligibility`** (replaces `useCanUserApprove`); dropped `useAutoWorkflowRouter` — the backend moves the ticket | `TicketDetail` |
+| `src/hooks/useAPI.js` | Hooks | new **`useApprovalEligibility`**, **`useUserRoleAssignments`**, **`useUserGeneralRole`**; `useUserProfileTypes` / `useRoleTypes(companyId, includeInactive)`; `useAPIData` refetches when its key changes | components above |
+| `src/api/googleSheet.js` | API | `makeRequest` throws on `success: false` and on a payload key `action`; `readActions` + `getCompany`, `getDropdownOptions`, `getUserPreferences`; new `StepApprovals.getApprovalEligibility`, `Users.updateRoleAssignment` / `deleteRoleAssignment` / `getExpiringAssignments` / `getGeneralRole`; `submitApproval` sends `decision`; `normalizeIsActive()` (module-private) | hooks |
+| `src/config/apiConfig.js` | Config | `API_ENDPOINTS` cut to the 3 names used inside the file (it never was a route list) | `apiConfig.js` only |
+
+- **Contract rule (compliance A12)**: every `makeRequest('<action>')` needs a `case` in the newest AppScript file — in `doGet` if the action is in `readActions`, else in `routePostAction`. `npm run check:api-contract` checks it; `scripts/api-contract-known-gaps.txt` lists the 31 actions still to route (v9.1/v9.2) and may only shrink.
+- **Response shape (v9.0 routes)**: `createDataResponse` unwraps the handler's `{status, data}`, so `response.data` is the records. Phase 10.0 routes still use `createHandlerResponse` + `unwrapHandlerResult()`.
+- **User id**: Firebase / dev users carry `uid` (no `id`); components use `user?.uid || user?.id`.
+- **Not used any more by WorkflowStep**: `useAutoWorkflowRouter` / `src/utils/approvalRouter.js` (client-side routing duplicated what `submitStepApproval` now does server-side; kept for other callers).
 
 ### **📊 DEPENDENCY IMPACT ANALYSIS**
 

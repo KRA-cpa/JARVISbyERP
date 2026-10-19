@@ -61,6 +61,9 @@ export const useAPIData = (key, apiCall, options = {}) => {
   const [error, setError] = useState(null);
 
   const { enabled = true } = options;
+  // Refetch when the key changes (e.g. the ticket moved to the next step), not only when enabled flips.
+  // A string, so an inline key array doesn't refetch on every render.
+  const keyString = JSON.stringify(key);
 
   const fetchData = useCallback(async () => {
     if (!enabled) {
@@ -79,9 +82,8 @@ export const useAPIData = (key, apiCall, options = {}) => {
     } finally {
       setLoading(false);
     }
-  // apiCall is usually an inline arrow; listing it would refetch every render
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, keyString]); // apiCall left out on purpose: a new closure every render would loop
 
   useEffect(() => {
     fetchData();
@@ -484,6 +486,43 @@ export const useCanUserApprove = (userId, stepId, ticketId = null) => {
       enabled: !!(userId && stepId),
       staleTime: 2 * 60 * 1000 // 2 minutes
     }
+  );
+};
+
+/**
+ * Hook for the full approval eligibility of a user on a ticket's step:
+ * { can_approve, already_approved, approver_logic, eligible_role_ids, required_role_ids, approved_role_ids }
+ */
+export const useApprovalEligibility = (userId, stepId, ticketId = null) => {
+  return useAPIData(
+    ['approval_eligibility', userId, stepId, ticketId],
+    () => API.StepApprovals.getApprovalEligibility(userId, stepId, ticketId),
+    {
+      enabled: !!(userId && stepId),
+      staleTime: 30 * 1000
+    }
+  );
+};
+
+/**
+ * Hook for a user's role assignments in force today (role names attached)
+ */
+export const useUserRoleAssignments = (userId) => {
+  return useAPI(
+    () => (userId ? API.Users.getRoles(userId) : Promise.resolve([])),
+    [userId],
+    'getUserRoles'
+  );
+};
+
+/**
+ * Hook for a user's general role: { general_role: 'maker' | 'approver' | 'both' | 'viewer', ... }
+ */
+export const useUserGeneralRole = (userId, companyId = null) => {
+  return useAPI(
+    () => (userId ? API.Users.getGeneralRole(userId, companyId) : Promise.resolve(null)),
+    [userId, companyId],
+    'getUserGeneralRole'
   );
 };
 
@@ -932,8 +971,9 @@ export const useSLANotificationMonitor = () => {
 };
 
 // Universal Entity Architecture hooks
-export const useUserProfileTypes = (companyId = null) => {
-  return useAPI(() => API.UserProfileTypes.getAll(companyId), [companyId], 'getUserProfileTypes');
+// includeInactive: admin lists show deactivated types too, so they can be reactivated
+export const useUserProfileTypes = (companyId = null, includeInactive = false) => {
+  return useAPI(() => API.UserProfileTypes.getAll(companyId, includeInactive), [companyId, includeInactive], 'getUserProfileTypes');
 };
 
 export const useUserProfileTypeMutations = () => {
@@ -985,8 +1025,8 @@ export const useUserProfileTypeMutations = () => {
   return { createUserProfileType, updateUserProfileType, deleteUserProfileType, loading, error };
 };
 
-export const useRoleTypes = (companyId = null) => {
-  return useAPI(() => API.RoleTypes.getAll(companyId), [companyId], 'getRoleTypes');
+export const useRoleTypes = (companyId = null, includeInactive = false) => {
+  return useAPI(() => API.RoleTypes.getAll(companyId, includeInactive), [companyId, includeInactive], 'getRoleTypes');
 };
 
 export const useRoleTypeMutations = () => {

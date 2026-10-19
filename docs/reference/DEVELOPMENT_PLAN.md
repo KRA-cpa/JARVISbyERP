@@ -379,6 +379,7 @@ action: recordLogin      - payload: {userId, email, ipAddress}
 **Phase 3**: ✅ COMPLETED - Authentication and user management system
 **Phase 4**: ✅ COMPLETED - API integration layer with Google Sheets backend
 **Backend API**: ✅ **PRODUCTION-READY** - Complete MVP implementation available
+**Oct 19, 2026**: ✅ Phase 2 Role Maintenance + Phase 3 approval eligibility (AppScript v9.0 routes the approval path; `npm run check:api-contract` guards the frontend↔backend contract; 31 actions left for v9.1/v9.2)
 **Current Status**: Phase 11.0 Design Complete - **Ticket Tags & Collaboration System** - All 4 React components coded, 25+ AppScript functions designed, 8 database tables documented, awaiting backend integration and database creation
 
 ## Phase 3 Authentication Documentation
@@ -574,14 +575,14 @@ REACT_APP_USE_MOCK_DATA=false
 
 ## Technical Architecture
 
-### 🏗️ Complete File Structure (49 Files)
+### 🏗️ Complete File Structure (51 Files listed — the admin/ folder holds more files than this tree lists; see `ls src/components/admin`)
 ```
 src/
 ├── api/ (2 files)
 │   ├── googleSheet.js           # API client with caching & error handling
 │   └── models.js                # ✅ Enhanced with comprehensive audit fields
-├── components/ (25 files)
-│   ├── admin/ (8 files)
+├── components/ (27 files)
+│   ├── admin/ (10 files listed)
 │   │   ├── AdminCompanyManager.js     # Company CRUD management
 │   │   ├── AdminCustomFieldManager.js # ✅ Custom field builder with validation
 │   │   ├── AdminDropdownManager.js    # Dropdown list management
@@ -589,6 +590,8 @@ src/
 │   │   ├── AdminTicketTypeManager.js  # ✅ Ticket type CRUD with workflow integration
 │   │   ├── APIConnectionStatus.js     # Real-time API health monitoring
 │   │   ├── ConditionalWorkflowBuilder.js # Visual workflow condition builder
+│   │   ├── DateBasedRoleAssignmentManager.js # ✅ Phase 2 (Oct 19, 2026): per-user role assignments with dates (assign / edit end date / remove), opened from AdminUserList
+│   │   ├── UserGeneralRoleSelector.js # ✅ Phase 2 (Oct 19, 2026): maker / approver / both / viewer filter + GeneralRoleBadge
 │   │   └── RBACSettings.js            # Role-based access control settings
 │   ├── shared/ (11 files)
 │   │   ├── ActionCommentModal.js      # Workflow action comment modals

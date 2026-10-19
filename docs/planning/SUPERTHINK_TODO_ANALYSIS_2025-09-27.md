@@ -856,6 +856,17 @@ Phase 5 (SLA) → Phase 6 (Admin) → Phase 7 (Firebase) + Phase 8 (Testing)
 - [x] ✅ `createCustomFieldValue()` (and update/delete) converted to header-driven rows in v8.3
 - ✅ Priority 2 frontend components already exist (AdminUserProfileTypeList/AdminRoleTypeList + AdminPage tabs); remaining wiring bugs: `/admin/user-profile-types/create` route renders AdminCustomFieldCreatePage, `?tab=` ignored by AdminPage, `/:id/edit` routes missing
 
+### **Priority 1.2: API Contract + Phase 2/3 Roles & Approvals — AppScript v9.0 (October 19, 2026)** 🔄 CODE READY, DEPLOY PENDING
+Plan: `~/.claude/plans/plan-already-the-next-squishy-sutherland.md` (session a4afc9ed). A contract diff found **49 actions the frontend sends had no backend route** (the whole approval path), 3 method mismatches, a payload `action` key that overwrote the approve route, and 3 routes calling functions that never existed (`deactivateRole`, `deactivateDropdownList`, `deactivateTicketType`). Release plan: v9.0 → v9.1 → v9.2.
+- [x] ✅ Guard: `scripts/check-api-contract.js` (`npm run check:api-contract`) + shrink-only `scripts/api-contract-known-gaps.txt` (53 → 31); compliance guide v1.2.0 A12/A13/P5
+- [x] ✅ v9.0 (`appscript_files/APPSCRIPT_v9.0_20261019_0501.txt`): approval-path routes (user roles/profile/general role, step approvers, get/update/approve ticket, canUserApprove, getStepApprovals); date-aware assignments; approver_logic 'all' via ticket_history; createTicket starts the workflow; expiry fixed (deleted_*); is_active writable for profile/role types; roles + role_type_id/is_active (soft delete); loud errors; ping reports API_VERSION. Offline: 21 + 11 PASS
+- [x] ✅ Frontend: `decision` key, loud `makeRequest`, `DateBasedRoleAssignmentManager`, `UserGeneralRoleSelector`, `AdminUserList` rewired, `WorkflowStep` eligibility + 'all' progress, type lists show inactive
+- [ ] **Deploy v9.0** (user): deploy guide v1.4.0 — paste → dry run (expect `roles` repaired) → redeploy → apply → deploy the frontend from the same commit
+- [ ] **Live smoke** (user): give `dev-user-123` / your uid a profile + role assignment → create a ticket on a 2-step workflow → approve → next step + SLA due date; repeat with approver_logic 'all'
+- [ ] **v9.1**: workflow step CRUD/copy/default, ticket links, getTicketType, next ticket number, custom field get/update/delete, company lock (18 actions)
+- [ ] **v9.2**: dropdown company assignments, company SLA rules, configuration export/import/backup, runCompleteAPITest (13 actions; 2 new tables)
+- [ ] `src/tests/integration/UniversalEntityArchitecture.test.js`: 12 tests assert UI text/labels the pages never had — rewrite against the current pages (the suite runs since the Jest mapping fix)
+
 ### **Priority 2: Frontend Components (Est. 2-3 hours)**
 1. Create `AdminUserProfileTypeList.js` component
 2. Create `AdminRoleTypeList.js` component

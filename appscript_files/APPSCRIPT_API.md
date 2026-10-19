@@ -1815,22 +1815,44 @@ After deployment, you can test the API using these functions in the Apps Script 
 
 ## 📊 Available Endpoints
 
-**GET Endpoints:**
-- `ping` - Health check
-- `getCompanies` - Fetch all companies
-- `getRoles` - Fetch all roles
-- `getDropdownLists` - Fetch dropdown lists with options (company-filtered)
-- `getDropdownAssignments` - Fetch company assignments for dropdown lists
-- `getTicketTypes` - Fetch ticket types
+> **Updated October 19, 2026 (AppScript v9.0).** The authoritative list is the `case` labels of `doGet` and
+> `routePostAction` in the newest `appscript_files/APPSCRIPT_v*.txt`; `npm run check:api-contract` compares them with
+> what `src/api/googleSheet.js` sends. This section used to list endpoints that were never routed
+> (`getDropdownAssignments`, `assignDropdownToCompany`, `removeDropdownFromCompany`, `setDropdownGlobal`) - the
+> dropdown company-assignment routes are planned for v9.2.
 
-**POST Endpoints:**
-- All CRUD operations for companies, roles, dropdown lists, and ticket types
-- `createDropdownList` - Create dropdown (Step 1: company-neutral)
-- `assignDropdownToCompany` - Assign dropdown to company(ies) (Step 2)
-- `removeDropdownFromCompany` - Remove company access from dropdown
-- `setDropdownGlobal` - Make dropdown available to all companies
-- `createTicket` - Create new tickets
-- `recordLogin` - Log user logins
+**Response contract (v9.0):** success = `{ success: true, data }`; failure = `{ success: false, status: 'error', error }`
+(unknown action, thrown error, or a handler that returned `{ status: 'error' }`). POST bodies are flat
+(`{ action, ...fields }`); never send a field named `action` (compliance A13).
+
+**GET (doGet):** ping (reports `API_VERSION`), getCompanies, getCompany, getRoles (`include_inactive`), getDropdownLists,
+getDropdownOptions, getTicketTypes, getTickets, getUserPreferences, getSLAPerformanceByCompany, getSLAPerformanceByTicketType,
+getGlobalSLAPerformance, getUserProfileTypes / getRoleTypes (`include_inactive`), getUserProfiles, getCustomFields,
+**getWorkflowSteps**, **getSystemHealth** (v9.0)
+
+**POST - new in v9.0 (approval path):**
+
+| Action | Request fields | Returns (`data`) |
+|---|---|---|
+| canUserApprove | user_id, step_id, ticket_id | can_approve, already_approved, approver_logic, eligible/required/approved_role_ids |
+| submitStepApproval | ticket_id, step_id, user_id, **decision** (approve/reject/return/complete), comment | new_status, next_step, step_due_date, partial (approver_logic 'all') |
+| getStepApprovals | ticket_id, step_id | approval history rows (user_name, action, comment, timestamp) |
+| getStepApprovers / setStepApprovers | step_id (+ role_ids) | approver roles / { added, removed } |
+| getWorkflowStep | step_id | step |
+| getTicket / updateTicket | ticketId / id + title, description, priority | ticket / { changes } |
+| updateTicketStatus | id, status (Cancelled / Reopened), comment, user_id | cancel or reopen result |
+| getUsers | company_id (optional) | profiles + roles[] + general_role |
+| getUserProfile | userId | profile + roles[] + companies[] + general_role (null if unknown) |
+| getUserRoles / getUserGeneralRole | userId | assignments in force / maker, approver, both, viewer |
+| assignUserRole | userId, roleId, companyId + ticket_type_id, assignment_type, effective_start_date, effective_end_date, ... | assignment |
+| removeUserRole / deleteUserRoleAssignment | userId, roleId, companyId / assignment_id | soft delete |
+| updateUserRoleAssignment | assignment_id + dates, type, notes, is_active | { changes } |
+| bulkAssignRole / replaceUserRoles | user_email, company_id, ticket_type_id, role_id, validity_end_date | assignment |
+| getExpiringAssignments | days_ahead | assignments ending in the window |
+
+**POST - existing:** company, role, dropdown list, ticket type CRUD; createTicket (v9.0: starts the workflow); getTickets;
+recordLogin; user preferences; Phase 10.0 type/profile CRUD; createCustomField / setCustomFieldValue; tags & sharing;
+setup routines. Still unrouted (v9.1/v9.2): see `scripts/api-contract-known-gaps.txt`.
 
 **📋 NEW: Two-Step Dropdown Process**
 1. **Create**: `createDropdownList(name, description, options)` - Creates draft dropdown
