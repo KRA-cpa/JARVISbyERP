@@ -176,12 +176,14 @@ const AdminDropdownManager = () => {
     const [isGlobal, setIsGlobal] = useState(false);
     const [loading, setLoading] = useState(true);
 
-    // Load current assignments when modal opens
+    // Load current assignments when modal opens. This component is declared inside
+    // AdminDropdownManager, so it remounts on every parent render and [] runs it each open.
     React.useEffect(() => {
       if (managingList?.id) {
         loadCurrentAssignments();
       }
-    }, [managingList?.id]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const loadCurrentAssignments = async () => {
       try {

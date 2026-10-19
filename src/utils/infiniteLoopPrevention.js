@@ -8,7 +8,6 @@ import { useCallback } from 'react';
 // Global tracking for API calls
 const API_CALL_TRACKER = new Map();
 const COMPONENT_RENDER_TRACKER = new Map();
-const CIRCUIT_BREAKERS = new Map();
 
 // Configuration
 const CONFIG = {
@@ -367,10 +366,12 @@ setInterval(() => {
   }
 }, CONFIG.CLEANUP_INTERVAL_MS);
 
-export default {
+const infiniteLoopPrevention = {
   APILoopDetector,
   RenderLoopDetector,
   createProtectedAPICall,
   useInfiniteLoopMonitor,
   CONFIG
 };
+
+export default infiniteLoopPrevention;

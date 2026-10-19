@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Icons from '../shared/Icons';
 import ErrorBoundary130 from '../shared/ErrorBoundary130';
 import { useToast } from '../shared/Toast';
-import { useUsers, useRoles, useCompanies, useUserProfileTypes } from '../../hooks/useAPI';
+import { useUsers, useRoles, useCompanies } from '../../hooks/useAPI';
 import { API } from '../../api/googleSheet';
 
 /**
@@ -27,7 +27,6 @@ const AdminUserList = () => {
   const { data: users, loading, error, refetch } = useUsers();
   const { data: roles } = useRoles();
   const { data: companies } = useCompanies();
-  const { data: userProfileTypes } = useUserProfileTypes();
 
   // Firebase-dependent features flag
   const FIREBASE_FEATURES_ENABLED = false;

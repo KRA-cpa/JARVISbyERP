@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { API } from '../api/googleSheet';
-import { APILoopDetector, createProtectedAPICall } from '../utils/infiniteLoopPrevention';
+import { APILoopDetector } from '../utils/infiniteLoopPrevention';
 
 // Generic API hook with infinite loop protection
 export const useAPI = (apiCall, dependencies = [], endpointName = 'unknown') => {
@@ -43,7 +43,9 @@ export const useAPI = (apiCall, dependencies = [], endpointName = 'unknown') => 
     } finally {
       setLoading(false);
     }
-  }, [...dependencies]); // Remove apiCall from dependencies to prevent infinite loops
+  // Callers pass the deps; apiCall is usually an inline arrow, so listing it would refetch every render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [...dependencies]);
 
   useEffect(() => {
     fetchData();
@@ -77,7 +79,9 @@ export const useAPIData = (key, apiCall, options = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [enabled]); // Remove apiCall from dependencies to prevent infinite loops
+  // apiCall is usually an inline arrow; listing it would refetch every render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled]);
 
   useEffect(() => {
     fetchData();

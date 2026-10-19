@@ -7,7 +7,8 @@ import Header from '../components/shared/Header';
 import Footer from '../components/shared/Footer';
 import Icons from '../components/shared/Icons';
 import { DetailedClock } from '../components/shared/LiveClock';
-import { SLASummaryWidgets, SLADetailedMetrics } from '../components/shared/SLAWidgets';
+// SLA widgets are HIDDEN below; uncomment this import and handleSLAWidgetClick with them
+// import { SLASummaryWidgets, SLADetailedMetrics } from '../components/shared/SLAWidgets';
 import DEV_CONFIG from '../config/development';
 
 const DashboardPage = () => {
@@ -196,13 +197,14 @@ const DashboardPage = () => {
     );
   };
 
-  const handleSLAWidgetClick = (type) => {
-    showInfo({
-      title: `SLA ${type} Tickets`,
-      message: `This will show a filtered view of ${type.toLowerCase()} tickets. Full SLA management interface will be enhanced in the next update.`,
-      type: 'info'
-    });
-  };
+  // HIDDEN with the SLA widgets below
+  // const handleSLAWidgetClick = (type) => {
+  //   showInfo({
+  //     title: `SLA ${type} Tickets`,
+  //     message: `This will show a filtered view of ${type.toLowerCase()} tickets. Full SLA management interface will be enhanced in the next update.`,
+  //     type: 'info'
+  //   });
+  // };
 
   return (
     <>
