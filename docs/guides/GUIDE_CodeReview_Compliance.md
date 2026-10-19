@@ -2,7 +2,7 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 1.2.0
+Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 1.3.0
 Created: 18 October 2026 UTC+8 (Philippine Standard Time) | Modified: 19 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Coding rules derived from the 17 Oct 2026 code review (CR-01–CR-13 + X-1–X-6), so new AppScript and script changes don't reintroduce them | Status: Active — MANDATORY for AppScript and scripts/ changes
 
@@ -10,6 +10,7 @@ REVISION HISTORY:
 - v1.0.0 | 18 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Initial rules A1–A11, S1–S9, P1–P4 from docs/planning/TODO_CodeReview_20261017.md
 - v1.1.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A11 step 2: header carries a `Deploy description:` line to paste at redeploy
 - v1.2.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A12 contract check (49 frontend actions had no route; 3 routes called functions that never existed), A13 no payload key `action`, A11 ping reports API_VERSION; P1 amended (diff-scoped review + contract check), P5 done = reachable
+- v1.3.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | P6 build like Vercel (`npm run build:ci`): Vercel's CI=true turned 13 ESLint warnings into errors and every deploy from 24934fd failed; frontend checklist added
 ===============================================================================
 -->
 
@@ -238,10 +239,15 @@ git show --name-only HEAD; git diff --cached --name-only     # only the intended
 - **P3 — Deploy order for data migrations.** The lock (A5) only protects writes from a web app that runs the new code. Redeploy the web app **before** applying a rebuild or migration, or make sure nobody is using the app. See `appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md`.
 - **P4 — Promote lessons.** When a finding reveals a new class of bug, add a rule here (new version) and a check in `docs/reference/RESOLUTION_CHECKLIST.md`.
 - **P5 — Done means reachable.** A feature or phase is done when its endpoints are routed, the contract check passes, and a live smoke test exercised them (the deploy guide's verify step). Functions written but not routed count as not started. The v6.2–v6.3 workflow engine was marked "18 functions → v6.2" and was unreachable for a year.
+- **P6 — Build like Vercel.** Vercel builds with `CI=true`, where Create React App fails on any ESLint warning. A plain `npm run build` only prints them, so the warnings piled up locally while every Vercel deploy from 24934fd (19 Oct 2026) failed with "Failed to compile" and the site kept serving 3 Oct 2025. Run `npm run build:ci` before pushing frontend changes; it also clears the ESLint cache, which went stale on the Z: drive. Fix the warning or, when the code is deliberate, add an `eslint-disable-next-line` with the reason. Never set `CI=false` on Vercel.
 
 ---
 
 ## §4 Pre-Commit Checklist
+
+**Frontend change**
+- [ ] `npm run build:ci` passes: zero ESLint warnings (P6)
+- [ ] `npm run check:api-contract` passes if any `makeRequest` call changed (A12)
 
 **AppScript change**
 - [ ] New timestamped file; header block updated, including the `Deploy description:` line (A11)

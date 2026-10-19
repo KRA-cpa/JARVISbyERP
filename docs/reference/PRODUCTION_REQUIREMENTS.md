@@ -132,6 +132,7 @@ node appscript_files/tools/CODE_REVIEW_FIXES_TEST_v8.3.js appscript_files/APPSCR
 ```bash
 npm start      # Development server (localhost:3000)
 npm run build  # Production build (optimized bundle)
+npm run build:ci  # Same build with CI=true, as Vercel runs it: any ESLint warning fails. Run before pushing
 npm test       # Test runner
 npm run eject  # Eject from CRA (not recommended)
 ```

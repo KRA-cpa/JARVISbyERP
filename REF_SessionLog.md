@@ -44,13 +44,14 @@ REVISION HISTORY:
 
 ### Pending — a4afc9ed (19 Oct 2026)
 
-1. ✅ Committed 19 Oct 2026 (user OK): Release 1 in one commit, **not pushed**. Before pushing it: `/code-review` + `npm run check:api-contract` (compliance P1).
+1. ✅ Committed 19 Oct 2026 (user OK): Release 1 in one commit (`b22e593` after the reorder), **not pushed**. Before pushing it: `/code-review` + `npm run check:api-contract` + `npm run build:ci` (compliance P1, P6). Pushing it deploys the new frontend, so deploy AppScript v9.0 first (approve sends `decision`).
 2. **Deploy v9.0** (user): deploy guide v1.4.0 — paste → dry run (expect `REPAIRED: roles`, defaulted `is_active`) → redeploy (description from the file header) → apply → deploy the frontend from the same commit (approve now sends `decision`). `?action=ping` should say `9.0.0`.
 3. **Live smoke** (user): profile + role assignment for your uid → 2-step workflow with approvers → create ticket → approve → next step + SLA; repeat with approver_logic `all`; Admin → Users → Roles (assign with end date, edit, remove); profile/role type Active toggle.
 4. **v9.1** (18 actions) and **v9.2** (13 actions, 2 new tables) — `scripts/api-contract-known-gaps.txt`.
 5. **Stale Jest suites** (they couldn't run at all before the 19 Oct module-mapping fix): full run = 2 suites pass (`useAPI`, `infiniteLoopPrevention`), 6 fail, 108 of 169 tests — `App`, `UniversalEntityArchitecture` (12), `AdminWorkflow` (mocks UserContext without `UserProvider`), `Icons` (expects `data-testid`s Icons never had), `InfiniteLoopMonitor`, `AdminCompanyManager` (labels/text the UI doesn't have). Rewrite against the current UI; none test the files changed this session.
 6. Restart your `run-backend.bat` window (PID 35352 still runs the pre-edit mock server).
 7. ✅ Done 19 Oct 2026 (user OK): pushed `main3` (`b56ad57..24934fd`, 14 commits; checked for the backup password first: 0 matches in the diffs and the tree); deleted local `chore/repo-reorg` (merged) and `backup/main3-pre-rewrite-20261017`; removed the malformed global `safe.directory` entries (`'*'1`, `'*'` ×2, `'Z:'`; `~/.gitconfig` backed up in the session scratchpad). The backup branch's commits stay in the local reflog until it expires (never pushed).
+8. ✅ Vercel fixed 19 Oct 2026: the site served `b56ad57` (3 Oct 2025) because nothing newer was pushed for a year, and the first push (`24934fd`) failed — Vercel builds with `CI=true`, which turns ESLint warnings into errors. `503d97f` fixes them (incl. `Icons.Loading` not spinning: a duplicate key overrode it) and was reordered to sit before Release 1 (now `b22e593`) and pushed alone; Vercel "Deployment has completed". New `npm run build:ci` (clears the stale Z: ESLint cache) + compliance v1.3.0 P6 + frontend checklist. Local branch `backup/pre-reorder` (old order) can go once you're happy.
 
 ### Pending — 504ece01 (18 Oct 2026)
 

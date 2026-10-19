@@ -27,6 +27,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:ci": "node scripts/build-ci.js",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "test:setup": "node scripts/setup-tests.js",

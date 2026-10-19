@@ -117,7 +117,7 @@ Reorg record: `docs/planning/PLAN_RepoReorg_20261017.md` + `docs/planning/REORG_
 - **VERIFY FILE STRUCTURE** against current 45-file inventory in `docs/reference/DEVELOPMENT_PLAN.md`
 - **PREVENT REACT ERROR #130** by following `docs/reference/REACT_ERROR_130_PREVENTION_GUIDE.md`
 - **VERIFY ROUTES** exist in App.js before implementing navigation
-- **TEST COMPILATION** with `npm run build` before committing changes
+- **TEST COMPILATION** with `npm run build:ci` before committing changes: it builds like Vercel (`CI=true`), where any ESLint warning fails the deploy (compliance P6)
 - **🔌 API CONTRACT** - a new frontend API action ships with its AppScript route in the same batch; `npm run check:api-contract` must pass (compliance A12). A phase is done when its endpoints are reachable, not when its functions are written (P5)
 - **🚀 NEW: UNIVERSAL ENTITY RULES** - All entity types (tickets, users, roles) must use unified custom field patterns
 - **🚀 NEW: USER/ROLE INTEGRATION** - Follow `docs/reference/USER_MANAGEMENT_FEATURE_PLAN.md` for all user/role implementations
