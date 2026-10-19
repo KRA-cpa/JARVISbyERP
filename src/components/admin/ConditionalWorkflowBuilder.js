@@ -1,465 +1,312 @@
-import React, { useState } from 'react';
-import {
-  CONDITION_OPERATORS,
-  FIELD_TYPES,
-  LOGICAL_OPERATORS,
-  getAvailableFields,
-  validateConditionalRouting,
-  createSampleConditionalRouting
-} from '../../utils/conditionalWorkflows';
-import { useTicketTypes } from '../../hooks/useAPI';
-import { useToast } from '../shared/Toast';
+import React, { useState, useEffect } from 'react';
+import { CONDITION_OPERATORS } from '../../utils/conditionalWorkflows';
+import { useCustomFields, useStepConditions } from '../../hooks/useAPI';
+import { useUser } from '../../contexts/UserContext';
+import { API } from '../../api/googleSheet';
 import Icons from '../shared/Icons';
 
-const ConditionalWorkflowBuilder = ({
-  workflowStep,
-  workflowSteps = [],
-  onSave,
-  onCancel
-}) => {
-  const { data: ticketTypes } = useTicketTypes();
-  const { success, error: showError } = useToast();
+// Route target that ends the workflow instead of moving to a step (AppScript v9.2 STEP_CONDITION_END)
+const END_OF_WORKFLOW = '__end__';
 
-  const [conditionalRouting, setConditionalRouting] = useState(
-    workflowStep?.conditional_routing || {
-      enabled: false,
-      routes: []
+// Ticket fields a condition can test besides the ticket type's custom fields (AppScript STANDARD_CONDITION_FIELDS)
+const STANDARD_FIELDS = [
+  { id: 'field:priority', label: 'Priority (ticket)' },
+  { id: 'field:title', label: 'Title (ticket)' }
+];
+
+const OPERATOR_LABELS = {
+  [CONDITION_OPERATORS.EQUALS]: 'equals',
+  [CONDITION_OPERATORS.NOT_EQUALS]: 'does not equal',
+  [CONDITION_OPERATORS.GREATER_THAN]: 'is greater than',
+  [CONDITION_OPERATORS.GREATER_THAN_OR_EQUAL]: 'is at least',
+  [CONDITION_OPERATORS.LESS_THAN]: 'is less than',
+  [CONDITION_OPERATORS.LESS_THAN_OR_EQUAL]: 'is at most',
+  [CONDITION_OPERATORS.CONTAINS]: 'contains',
+  [CONDITION_OPERATORS.NOT_CONTAINS]: 'does not contain',
+  [CONDITION_OPERATORS.IN]: 'is one of (comma separated)',
+  [CONDITION_OPERATORS.NOT_IN]: 'is none of (comma separated)',
+  [CONDITION_OPERATORS.IS_EMPTY]: 'is empty',
+  [CONDITION_OPERATORS.IS_NOT_EMPTY]: 'is not empty',
+  [CONDITION_OPERATORS.REGEX_MATCH]: 'matches pattern'
+};
+
+const NO_VALUE_OPERATORS = [CONDITION_OPERATORS.IS_EMPTY, CONDITION_OPERATORS.IS_NOT_EMPTY];
+
+let routeCounter = 0;
+const newKey = () => `route_${Date.now()}_${routeCounter++}`;
+const emptyCondition = () => ({ custom_field_id: '', operator: CONDITION_OPERATORS.EQUALS, value: '' });
+
+/**
+ * Conditional routing for one workflow step (spec 3.3 "stitching"), saved through AppScript v9.2
+ * saveStepConditions. When the step is approved, the first route whose conditions all hold decides the next
+ * step; otherwise the default route, else the next step in order. A route can only target a later step or
+ * end the workflow, so routing never loops (the backend refuses anything else).
+ * @param {Object} props.step - The step being configured
+ * @param {Array} props.workflowSteps - The workflow's steps (same ticket type and company), in order
+ * @param {Function} props.onClose - Called with a success message after a save, or with nothing on cancel
+ */
+const ConditionalWorkflowBuilder = ({ step, workflowSteps = [], onClose }) => {
+  const { user } = useUser();
+  const { data: fields } = useCustomFields(step?.ticket_type_id);
+  const { data: saved, loading } = useStepConditions(step?.id);
+
+  const [enabled, setEnabled] = useState(false);
+  const [routes, setRoutes] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState('');
+
+  // Load the saved routes once they arrive
+  useEffect(() => {
+    if (!saved) return;
+    setEnabled(Boolean(saved.enabled));
+    setRoutes((saved.routes || []).map(route => ({
+      key: newKey(),
+      target_step_id: route.target_step_id || '',
+      is_default: Boolean(route.is_default),
+      conditions: route.is_default ? [] : (route.conditions?.conditions || []).map(c => ({
+        custom_field_id: c.custom_field_id || '',
+        operator: c.operator || CONDITION_OPERATORS.EQUALS,
+        value: c.value ?? ''
+      }))
+    })));
+  }, [saved]);
+
+  const stepIndex = workflowSteps.findIndex(s => String(s.id) === String(step?.id));
+  const laterSteps = workflowSteps.slice(stepIndex + 1);
+  const fieldOptions = [
+    ...(fields || [])
+      .filter(f => f.is_active !== false && String(f.is_active).toUpperCase() !== 'FALSE')
+      .map(f => ({ id: String(f.id), label: f.label || f.name || String(f.id) })),
+    ...STANDARD_FIELDS
+  ];
+  const hasDefault = routes.some(r => r.is_default);
+
+  const updateRoute = (key, changes) => setRoutes(prev => prev.map(r => (r.key === key ? { ...r, ...changes } : r)));
+  const removeRoute = key => setRoutes(prev => prev.filter(r => r.key !== key));
+  const moveRoute = (key, delta) => setRoutes(prev => {
+    const index = prev.findIndex(r => r.key === key);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= prev.length) return prev;
+    const next = prev.slice();
+    [next[index], next[target]] = [next[target], next[index]];
+    return next;
+  });
+  const updateCondition = (key, index, changes) => setRoutes(prev => prev.map(r => (r.key === key
+    ? { ...r, conditions: r.conditions.map((c, i) => (i === index ? { ...c, ...changes } : c)) }
+    : r)));
+
+  const addRoute = () => setRoutes(prev => {
+    // Conditional routes go before the default route, which is always tried last
+    const route = { key: newKey(), target_step_id: '', is_default: false, conditions: [emptyCondition()] };
+    const defaults = prev.filter(r => r.is_default);
+    return [...prev.filter(r => !r.is_default), route, ...defaults];
+  });
+  const addDefaultRoute = () => setRoutes(prev => [...prev, { key: newKey(), target_step_id: '', is_default: true, conditions: [] }]);
+
+  // Same rules as the backend, so most mistakes show before saving
+  const validate = () => {
+    for (let i = 0; i < routes.length; i++) {
+      const route = routes[i];
+      const label = route.is_default ? 'Default route' : `Route ${i + 1}`;
+      if (!route.target_step_id) return `${label}: pick where it goes`;
+      if (route.is_default) continue;
+      if (route.conditions.length === 0) return `${label}: add at least one condition`;
+      for (let j = 0; j < route.conditions.length; j++) {
+        const c = route.conditions[j];
+        if (!c.custom_field_id) return `${label}, condition ${j + 1}: pick a field`;
+        if (!NO_VALUE_OPERATORS.includes(c.operator) && !String(c.value).trim()) return `${label}, condition ${j + 1}: enter a value`;
+        if (c.operator === CONDITION_OPERATORS.REGEX_MATCH) {
+          try {
+            new RegExp(c.value);
+          } catch (e) {
+            return `${label}, condition ${j + 1}: the pattern is not valid`;
+          }
+        }
+      }
     }
+    return '';
+  };
+
+  const handleSave = async () => {
+    const problem = enabled ? validate() : '';
+    setFormError(problem);
+    if (problem) return;
+
+    setSaving(true);
+    try {
+      const payload = routes.map(route => ({
+        target_step_id: route.target_step_id,
+        is_default: route.is_default,
+        conditions: route.is_default ? null : { operator: 'and', conditions: route.conditions }
+      }));
+      await API.WorkflowSteps.saveConditions(step.id, enabled ? payload : [], enabled, user?.uid || user?.id);
+      onClose?.(enabled && routes.length ? 'Routing saved' : 'Conditional routing turned off');
+    } catch (err) {
+      setFormError(err.message || 'Failed to save routing');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const targetSelect = route => (
+    <select
+      value={route.target_step_id}
+      onChange={e => updateRoute(route.key, { target_step_id: e.target.value })}
+      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+    >
+      <option value="">Go to...</option>
+      {laterSteps.map(s => (
+        <option key={s.id} value={s.id}>{s.name} ({s.step_type})</option>
+      ))}
+      <option value={END_OF_WORKFLOW}>Complete the workflow</option>
+    </select>
   );
 
-  const [validationErrors, setValidationErrors] = useState([]);
-  const availableFields = getAvailableFields(ticketTypes);
-
-  const handleEnableToggle = () => {
-    setConditionalRouting(prev => ({
-      ...prev,
-      enabled: !prev.enabled,
-      routes: !prev.enabled ? [] : prev.routes
-    }));
-  };
-
-  const addRoute = () => {
-    const newRoute = {
-      id: `route_${Date.now()}`,
-      name: '',
-      conditions: {
-        operator: LOGICAL_OPERATORS.AND,
-        conditions: [createEmptyCondition()]
-      },
-      target_step_id: '',
-      is_default: false
-    };
-
-    setConditionalRouting(prev => ({
-      ...prev,
-      routes: [...prev.routes, newRoute]
-    }));
-  };
-
-  const addDefaultRoute = () => {
-    const defaultRoute = {
-      id: `default_route_${Date.now()}`,
-      name: 'Default Route',
-      conditions: null,
-      target_step_id: '',
-      is_default: true
-    };
-
-    setConditionalRouting(prev => ({
-      ...prev,
-      routes: [...prev.routes, defaultRoute]
-    }));
-  };
-
-  const removeRoute = (routeId) => {
-    setConditionalRouting(prev => ({
-      ...prev,
-      routes: prev.routes.filter(route => route.id !== routeId)
-    }));
-  };
-
-  const updateRoute = (routeId, updates) => {
-    setConditionalRouting(prev => ({
-      ...prev,
-      routes: prev.routes.map(route =>
-        route.id === routeId ? { ...route, ...updates } : route
-      )
-    }));
-  };
-
-  const createEmptyCondition = () => ({
-    field_name: '',
-    operator: CONDITION_OPERATORS.EQUALS,
-    value: '',
-    field_type: FIELD_TYPES.STRING
-  });
-
-  const addCondition = (routeId) => {
-    setConditionalRouting(prev => ({
-      ...prev,
-      routes: prev.routes.map(route =>
-        route.id === routeId
-          ? {
-              ...route,
-              conditions: {
-                ...route.conditions,
-                conditions: [...route.conditions.conditions, createEmptyCondition()]
-              }
-            }
-          : route
-      )
-    }));
-  };
-
-  const removeCondition = (routeId, conditionIndex) => {
-    setConditionalRouting(prev => ({
-      ...prev,
-      routes: prev.routes.map(route =>
-        route.id === routeId
-          ? {
-              ...route,
-              conditions: {
-                ...route.conditions,
-                conditions: route.conditions.conditions.filter((_, index) => index !== conditionIndex)
-              }
-            }
-          : route
-      )
-    }));
-  };
-
-  const updateCondition = (routeId, conditionIndex, updates) => {
-    setConditionalRouting(prev => ({
-      ...prev,
-      routes: prev.routes.map(route =>
-        route.id === routeId
-          ? {
-              ...route,
-              conditions: {
-                ...route.conditions,
-                conditions: route.conditions.conditions.map((condition, index) =>
-                  index === conditionIndex ? { ...condition, ...updates } : condition
-                )
-              }
-            }
-          : route
-      )
-    }));
-  };
-
-  const loadSampleConfiguration = () => {
-    const sample = createSampleConditionalRouting();
-    setConditionalRouting(sample);
-  };
-
-  const validateConfiguration = () => {
-    const validation = validateConditionalRouting(conditionalRouting, workflowSteps);
-    setValidationErrors(validation.errors);
-    return validation.valid;
-  };
-
-  const handleSave = () => {
-    if (!validateConfiguration()) {
-      showError('Please fix the configuration errors before saving');
-      return;
-    }
-
-    onSave?.(conditionalRouting);
-    success('Conditional workflow configuration saved successfully');
-  };
-
-  const renderCondition = (condition, conditionIndex, routeId) => (
-    <div key={conditionIndex} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-      <div className="flex items-start justify-between mb-3">
-        <h6 className="text-sm font-medium text-gray-700">
-          Condition {conditionIndex + 1}
-        </h6>
-        <button
-          onClick={() => removeCondition(routeId, conditionIndex)}
-          className="text-red-500 hover:text-red-700"
-          title="Remove Condition"
-        >
-          <Icons.Close size={16} />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        {/* Field Selection */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Field
-          </label>
-          <select
-            value={condition.field_name}
-            onChange={(e) => updateCondition(routeId, conditionIndex, { field_name: e.target.value })}
-            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="">Select field...</option>
-            {availableFields.map(field => (
-              <option key={field.name} value={field.name}>
-                {field.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Operator Selection */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Operator
-          </label>
-          <select
-            value={condition.operator}
-            onChange={(e) => updateCondition(routeId, conditionIndex, { operator: e.target.value })}
-            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-          >
-            {Object.entries(CONDITION_OPERATORS).map(([key, value]) => (
-              <option key={value} value={value}>
-                {key.replace(/_/g, ' ')}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Value Input */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Value
-          </label>
-          <input
-            type="text"
-            value={condition.value}
-            onChange={(e) => updateCondition(routeId, conditionIndex, { value: e.target.value })}
-            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-            placeholder="Enter value..."
-          />
-        </div>
-
-        {/* Field Type */}
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Type
-          </label>
-          <select
-            value={condition.field_type}
-            onChange={(e) => updateCondition(routeId, conditionIndex, { field_type: e.target.value })}
-            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
-          >
-            {Object.entries(FIELD_TYPES).map(([key, value]) => (
-              <option key={value} value={value}>
-                {key}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+  const renderCondition = (route, condition, index) => (
+    <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+      <select
+        value={condition.custom_field_id}
+        onChange={e => updateCondition(route.key, index, { custom_field_id: e.target.value })}
+        className="md:col-span-4 px-2 py-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+      >
+        <option value="">Field...</option>
+        {fieldOptions.map(f => <option key={f.id} value={f.id}>{f.label}</option>)}
+      </select>
+      <select
+        value={condition.operator}
+        onChange={e => updateCondition(route.key, index, { operator: e.target.value })}
+        className="md:col-span-3 px-2 py-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+      >
+        {Object.entries(OPERATOR_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select>
+      <input
+        type="text"
+        value={condition.value}
+        disabled={NO_VALUE_OPERATORS.includes(condition.operator)}
+        onChange={e => updateCondition(route.key, index, { value: e.target.value })}
+        placeholder={NO_VALUE_OPERATORS.includes(condition.operator) ? '' : 'Value (dropdown: option label or value)'}
+        className="md:col-span-4 px-2 py-2 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+      />
+      <button
+        type="button"
+        onClick={() => updateRoute(route.key, { conditions: route.conditions.filter((_, i) => i !== index) })}
+        className="md:col-span-1 p-2 text-red-500 hover:text-red-700"
+        title="Remove condition"
+      >
+        <Icons.Close size={16} />
+      </button>
     </div>
   );
 
-  const renderRoute = (route) => (
-    <div key={route.id} className="border border-gray-300 rounded-lg p-4 bg-white">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex-1 mr-4">
-          <input
-            type="text"
-            value={route.name}
-            onChange={(e) => updateRoute(route.id, { name: e.target.value })}
-            placeholder="Route name..."
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div className="flex items-center space-x-2">
-          {route.is_default && (
-            <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-              Default
-            </span>
+  const renderRoute = (route, index) => (
+    <div key={route.key} className={`border rounded-lg p-4 ${route.is_default ? 'border-blue-200 bg-blue-50' : 'border-gray-300 bg-white'}`}>
+      <div className="flex items-center justify-between mb-3">
+        <h5 className="text-sm font-medium text-gray-900">
+          {route.is_default ? 'Default route (when no route above matches)' : `Route ${index + 1}: when ALL of these hold`}
+        </h5>
+        <div className="flex items-center space-x-1">
+          {!route.is_default && (
+            <>
+              <button type="button" onClick={() => moveRoute(route.key, -1)} disabled={index === 0}
+                className="p-1 text-gray-500 hover:text-gray-800 disabled:opacity-30" title="Move up">
+                <Icons.ChevronUp size={16} />
+              </button>
+              <button type="button" onClick={() => moveRoute(route.key, 1)}
+                disabled={index + 1 >= routes.length || routes[index + 1]?.is_default}
+                className="p-1 text-gray-500 hover:text-gray-800 disabled:opacity-30" title="Move down">
+                <Icons.ChevronDown size={16} />
+              </button>
+            </>
           )}
-          <button
-            onClick={() => removeRoute(route.id)}
-            className="text-red-500 hover:text-red-700"
-            title="Remove Route"
-          >
-            <Icons.Close size={20} />
+          <button type="button" onClick={() => removeRoute(route.key)} className="p-1 text-red-500 hover:text-red-700" title="Remove route">
+            <Icons.Delete size={16} />
           </button>
         </div>
       </div>
 
-      {/* Target Step Selection */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Target Step
-        </label>
-        <select
-          value={route.target_step_id}
-          onChange={(e) => updateRoute(route.id, { target_step_id: e.target.value })}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Select target step...</option>
-          {workflowSteps.map(step => (
-            <option key={step.id} value={step.id}>
-              {step.name} ({step.step_type})
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Conditions (not for default route) */}
-      {!route.is_default && route.conditions && (
-        <div className="mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <label className="block text-sm font-medium text-gray-700">
-              Conditions
-            </label>
-            <div className="flex items-center space-x-2">
-              <select
-                value={route.conditions.operator}
-                onChange={(e) => updateRoute(route.id, {
-                  conditions: { ...route.conditions, operator: e.target.value }
-                })}
-                className="px-2 py-1 text-sm border border-gray-300 rounded"
-              >
-                {Object.entries(LOGICAL_OPERATORS).map(([key, value]) => (
-                  <option key={value} value={value}>
-                    {key}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={() => addCondition(route.id)}
-                className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                Add Condition
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {route.conditions.conditions.map((condition, index) =>
-              renderCondition(condition, index, route.id)
-            )}
-          </div>
-
-          {route.conditions.conditions.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No conditions defined. Click "Add Condition" to start.
-            </div>
-          )}
+      {!route.is_default && (
+        <div className="space-y-2 mb-3">
+          {route.conditions.map((condition, i) => renderCondition(route, condition, i))}
+          <button
+            type="button"
+            onClick={() => updateRoute(route.key, { conditions: [...route.conditions, emptyCondition()] })}
+            className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100"
+          >
+            <Icons.Plus size={12} className="mr-1" /> Add condition
+          </button>
         </div>
       )}
+
+      <label className="block text-xs font-medium text-gray-700 mb-1">Then go to</label>
+      {targetSelect(route)}
     </div>
   );
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-medium text-gray-900">
-          Conditional Workflow Configuration
-        </h3>
-        <div className="flex items-center space-x-2">
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              checked={conditionalRouting.enabled}
-              onChange={handleEnableToggle}
-              className="mr-2"
-            />
-            <span className="text-sm font-medium text-gray-700">Enable Conditional Routing</span>
-          </label>
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <h3 className="text-lg font-medium text-gray-900">Routing after "{step?.name}"</h3>
+          <p className="text-sm text-gray-600 mt-1">
+            Routes are checked top to bottom when this step is approved or completed. For "either / or", add a
+            second route to the same step. A route can only go to a later step or complete the workflow.
+          </p>
         </div>
+        <label className="flex items-center ml-4 whitespace-nowrap">
+          <input type="checkbox" checked={enabled} onChange={() => setEnabled(v => !v)} className="mr-2" />
+          <span className="text-sm font-medium text-gray-700">Conditional routing</span>
+        </label>
       </div>
 
-      {conditionalRouting.enabled && (
-        <div className="space-y-6">
-          {/* Routes */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h4 className="text-md font-medium text-gray-900">Routes</h4>
-              <div className="flex space-x-2">
-                <button
-                  onClick={loadSampleConfiguration}
-                  className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700"
-                >
-                  Load Sample
-                </button>
-                <button
-                  onClick={addRoute}
-                  className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-                >
-                  Add Route
-                </button>
-                <button
-                  onClick={addDefaultRoute}
-                  className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
-                  disabled={conditionalRouting.routes.some(route => route.is_default)}
-                >
-                  Add Default Route
-                </button>
-              </div>
-            </div>
+      {loading && <p className="text-sm text-gray-500">Loading routes...</p>}
 
-            <div className="space-y-4">
-              {conditionalRouting.routes.map(renderRoute)}
-
-              {conditionalRouting.routes.length === 0 && (
-                <div className="text-center py-8 bg-gray-50 rounded-lg">
-                  <Icons.Workflow size={48} className="mx-auto text-gray-400 mb-2" />
-                  <p className="text-gray-600 mb-4">No routes configured</p>
-                  <button
-                    onClick={addRoute}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Add First Route
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Validation Errors */}
-          {validationErrors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-center mb-2">
-                <Icons.Warning size={16} className="text-red-600 mr-2" />
-                <h5 className="text-sm font-medium text-red-900">Configuration Errors</h5>
-              </div>
-              <ul className="text-sm text-red-700 space-y-1">
-                {validationErrors.map((error, index) => (
-                  <li key={index}>• {error}</li>
-                ))}
-              </ul>
+      {!loading && enabled && (
+        <div className="space-y-4">
+          {laterSteps.length === 0 && (
+            <div className="text-sm text-yellow-800 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+              This is the last step: a route can only complete the workflow.
             </div>
           )}
-
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-            <button
-              onClick={validateConfiguration}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
-            >
-              Validate
+          {routes.map(renderRoute)}
+          {routes.length === 0 && (
+            <div className="text-center py-6 bg-gray-50 rounded-lg text-gray-600">
+              <Icons.Workflow size={36} className="mx-auto text-gray-400 mb-2" />
+              No routes yet - the ticket goes to the next step in order.
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={addRoute} className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded hover:bg-blue-700">
+              Add route
             </button>
-            <button
-              onClick={onCancel}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
-            >
-              Save Configuration
+            <button type="button" onClick={addDefaultRoute} disabled={hasDefault}
+              className="px-3 py-1.5 text-sm bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50">
+              Add default route
             </button>
           </div>
         </div>
       )}
 
-      {!conditionalRouting.enabled && (
-        <div className="text-center py-8 text-gray-500">
-          <Icons.Workflow size={48} className="mx-auto text-gray-400 mb-2" />
-          <p>Enable conditional routing to configure field-based workflow branching</p>
+      {!loading && !enabled && (
+        <p className="text-sm text-gray-600 py-4">Off: after this step the ticket goes to the next step in order.</p>
+      )}
+
+      {formError && (
+        <div className="mt-4 flex items-start text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+          <Icons.Warning size={16} className="mr-2 mt-0.5 flex-shrink-0" />
+          <span>{formError}</span>
         </div>
       )}
+
+      <div className="flex justify-end space-x-3 pt-4 mt-4 border-t border-gray-200">
+        <button type="button" onClick={() => onClose?.()} disabled={saving}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">
+          Cancel
+        </button>
+        <button type="button" onClick={handleSave} disabled={saving || loading}
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50">
+          {saving ? 'Saving...' : 'Save routing'}
+        </button>
+      </div>
     </div>
   );
 };

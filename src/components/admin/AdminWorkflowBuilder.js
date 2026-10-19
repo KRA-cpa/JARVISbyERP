@@ -4,6 +4,7 @@ import { useToast } from '../shared/Toast';
 import { useTicketTypes, useWorkflowSteps, useRoles, useCompanies } from '../../hooks/useAPI';
 import { API } from '../../api/googleSheet';
 import WorkflowCopyDialog from './WorkflowCopyDialog';
+import ConditionalWorkflowBuilder from './ConditionalWorkflowBuilder';
 
 /**
  * AdminWorkflowBuilder Component
@@ -27,6 +28,8 @@ const AdminWorkflowBuilder = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingStep, setDeletingStep] = useState(null);
   const [showCopyDialog, setShowCopyDialog] = useState(false);
+  // Step whose conditional routing is being edited (AppScript v9.2 saveStepConditions)
+  const [routingStep, setRoutingStep] = useState(null);
 
   // API data - steps load once both a company and a ticket type are chosen
   const { data: companies } = useCompanies();
@@ -59,12 +62,13 @@ const AdminWorkflowBuilder = () => {
   const [showSLATest, setShowSLATest] = useState(false);
   const [slaTestResults, setSlaTestResults] = useState(null);
 
-  // Step type options
+  // Step type options. A task step is done by its assigned roles with "Mark Task Complete" (AppScript v9.2),
+  // optionally in an external app; the old 'external' type is the same thing and opens as a task step
   const stepTypes = [
     { value: 'approval', label: 'Approval Step', icon: Icons.Approval },
-    { value: 'task', label: 'Task Step', icon: Icons.Document },
-    { value: 'external', label: 'External App', icon: Icons.ExternalLink }
+    { value: 'task', label: 'Task Step (manual or external app)', icon: Icons.Document }
   ];
+  const needsRoles = stepType => stepType === 'approval' || stepType === 'task';
 
   // Status options when step is reached
   const statusOptions = [
@@ -108,12 +112,15 @@ const AdminWorkflowBuilder = () => {
       errors.name = 'Step name is required';
     }
 
-    if (stepFormData.step_type === 'approval' && selectedApprovers.length === 0) {
-      errors.approvers = 'At least one approver role is required for approval steps';
+    if (needsRoles(stepFormData.step_type) && selectedApprovers.length === 0) {
+      errors.approvers = stepFormData.step_type === 'task'
+        ? 'At least one role is required: its users complete the task'
+        : 'At least one approver role is required for approval steps';
     }
 
-    if (stepFormData.step_type === 'external' && !stepFormData.external_app_url.trim()) {
-      errors.external_app_url = 'External app URL is required for external steps';
+    const url = (stepFormData.external_app_url || '').trim();
+    if (url && !/^https:\/\//i.test(url)) {
+      errors.external_app_url = 'Use an https:// link';
     }
 
     // Enhanced SLA validation using SLA calculator
@@ -184,10 +191,11 @@ const AdminWorkflowBuilder = () => {
         success('Workflow step created successfully');
       }
 
-      // Approver roles: the exact selected set (removed roles are removed); a non-approval step has none
+      // Roles: the exact selected set (removed roles are removed). Approval steps approve with them, task
+      // steps are completed by them
       const stepId = editingStep?.id || createdStep?.id;
-      if (stepId && (stepFormData.step_type === 'approval' || editingStep)) {
-        await API.WorkflowSteps.setStepApprovers(stepId, stepFormData.step_type === 'approval' ? selectedApprovers : []);
+      if (stepId && (needsRoles(stepFormData.step_type) || editingStep)) {
+        await API.WorkflowSteps.setStepApprovers(stepId, needsRoles(stepFormData.step_type) ? selectedApprovers : []);
       }
 
       resetStepForm();
@@ -222,7 +230,7 @@ const AdminWorkflowBuilder = () => {
     setStepFormData({
       name: step.name,
       status_on_reach: step.status_on_reach,
-      step_type: step.step_type,
+      step_type: step.step_type === 'external' ? 'task' : step.step_type,
       approver_logic: step.approver_logic || 'any',
       sort_order: step.sort_order,
       sla_duration: step.sla_duration || '',
@@ -233,8 +241,8 @@ const AdminWorkflowBuilder = () => {
       completion_action_name: step.completion_action_name || ''
     });
 
-    // Load existing approvers
-    if (step.step_type === 'approval') {
+    // Load existing approver / task roles
+    if (needsRoles(step.step_type === 'external' ? 'task' : step.step_type)) {
       API.WorkflowSteps.getStepApprovers(step.id)
         .then(approvers => {
           setSelectedApprovers(approvers.map(a => a.role_id));
@@ -380,6 +388,20 @@ const AdminWorkflowBuilder = () => {
           refetchSteps();
         }}
       />
+      {routingStep && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center p-4 z-50 overflow-y-auto">
+          <div className="w-full max-w-3xl my-8">
+            <ConditionalWorkflowBuilder
+              step={routingStep}
+              workflowSteps={[...(workflowSteps || [])].sort((a, b) => a.sort_order - b.sort_order)}
+              onClose={(savedMessage) => {
+                setRoutingStep(null);
+                if (savedMessage) success(savedMessage);
+              }}
+            />
+          </div>
+        </div>
+      )}
       <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -497,6 +519,15 @@ const AdminWorkflowBuilder = () => {
                       </div>
 
                       <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => setRoutingStep(step)}
+                          disabled={loading}
+                          className="p-2 text-purple-600 hover:bg-purple-100 rounded-full disabled:opacity-50"
+                          title="Conditional routing after this step"
+                        >
+                          <Icons.Workflow size={16} />
+                        </button>
+
                         <button
                           onClick={() => handleEditStep(step)}
                           disabled={loading}
@@ -711,11 +742,11 @@ const AdminWorkflowBuilder = () => {
                           )}
                         </div>
 
-                        {/* Approver Roles (for approval steps) */}
-                        {stepFormData.step_type === 'approval' && (
+                        {/* Approver Roles (approval steps) / roles that complete the task (task steps) */}
+                        {needsRoles(stepFormData.step_type) && (
                           <div className="sm:col-span-2">
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Approver Roles *
+                              {stepFormData.step_type === 'task' ? 'Roles that complete this task *' : 'Approver Roles *'}
                             </label>
                             <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border border-gray-300 rounded-md p-3">
                               {roles?.map((role) => (
@@ -734,7 +765,7 @@ const AdminWorkflowBuilder = () => {
                               <p className="mt-1 text-sm text-red-600">{stepFormErrors.approvers}</p>
                             )}
 
-                            {selectedApprovers.length > 1 && (
+                            {stepFormData.step_type === 'approval' && selectedApprovers.length > 1 && (
                               <div className="mt-3">
                                 <label className="block text-sm font-medium text-gray-700">
                                   Approval Logic
@@ -753,11 +784,26 @@ const AdminWorkflowBuilder = () => {
                           </div>
                         )}
 
-                        {/* External App URL (for external steps) */}
-                        {stepFormData.step_type === 'external' && (
+                        {/* Task steps: optional external app link ({ticket_id} is replaced) + completion button text */}
+                        {stepFormData.step_type === 'task' && (
                           <div className="sm:col-span-2">
                             <label className="block text-sm font-medium text-gray-700">
-                              External App URL *
+                              Completion button text
+                            </label>
+                            <input
+                              type="text"
+                              name="completion_action_name"
+                              value={stepFormData.completion_action_name}
+                              onChange={handleStepInputChange}
+                              className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Mark Task Complete"
+                            />
+                          </div>
+                        )}
+                        {stepFormData.step_type === 'task' && (
+                          <div className="sm:col-span-2">
+                            <label className="block text-sm font-medium text-gray-700">
+                              External App URL (optional; {'{ticket_id}'} is replaced)
                             </label>
                             <input
                               type="url"
@@ -767,13 +813,36 @@ const AdminWorkflowBuilder = () => {
                               className={`mt-1 block w-full border rounded-md px-3 py-2 ${
                                 stepFormErrors.external_app_url ? 'border-red-300' : 'border-gray-300'
                               } focus:outline-none focus:ring-blue-500 focus:border-blue-500`}
-                              placeholder="https://external-app.com/workflow"
+                              placeholder="https://external-app.com/workflow/{ticket_id}"
                             />
                             {stepFormErrors.external_app_url && (
                               <p className="mt-1 text-sm text-red-600">{stepFormErrors.external_app_url}</p>
                             )}
                           </div>
                         )}
+
+                        {/* Chained workflow (spec 3.3): create a follow-up ticket when this step completes */}
+                        <div className="sm:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            When this step completes, also create a ticket of type
+                          </label>
+                          <select
+                            name="next_ticket_type_id"
+                            value={stepFormData.next_ticket_type_id}
+                            onChange={handleStepInputChange}
+                            className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            <option value="">No follow-up ticket</option>
+                            {ticketTypes?.map((type) => (
+                              <option key={type.id} value={type.id}>
+                                {type.name} ({type.code})
+                              </option>
+                            ))}
+                          </select>
+                          <p className="mt-1 text-xs text-gray-500">
+                            The new ticket is linked under this one (chained) and starts its own workflow in this company.
+                          </p>
+                        </div>
 
                         {/* Sort Order */}
                         <div>

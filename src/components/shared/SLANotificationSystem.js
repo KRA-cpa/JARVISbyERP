@@ -5,7 +5,6 @@ import { useToast } from './Toast';
 import Icons from './Icons';
 import {
   SLAEscalationEngine,
-  SLANotificationManager,
   DEFAULT_ESCALATION_RULES
 } from '../../utils/slaEscalation';
 import { getSLAStatus } from '../../utils/slaCalculator';
@@ -17,9 +16,10 @@ import { getSLAStatus } from '../../utils/slaCalculator';
  * Runs in the background and provides real-time SLA alerts
  */
 const SLANotificationSystem = () => {
-  const { user, hasPermission } = useUser();
-  const { data: tickets, refetch: refetchTickets } = useTickets();
-  const { success, warning, error } = useToast();
+  const { hasPermission } = useUser();
+  const { data: tickets } = useTickets();
+  // Its own toast container: useToast keeps its toasts in this component's state
+  const { ToastContainer, success, warning, error } = useToast();
 
   // Component state
   const [isActive, setIsActive] = useState(true);
@@ -41,9 +41,10 @@ const SLANotificationSystem = () => {
     if (!isActive || !tickets || !shouldReceiveNotifications) return;
 
     try {
+      // Statuses are 'Completed' / 'Rejected' / 'Cancelled' (AppScript TERMINAL_TICKET_STATUSES)
       const activeTickets = tickets.filter(ticket =>
         ticket.step_due_date &&
-        !['completed', 'closed', 'rejected'].includes(ticket.status)
+        !['completed', 'closed', 'rejected', 'cancelled'].includes(String(ticket.status || '').toLowerCase())
       );
 
       let overdueCount = 0;
@@ -96,6 +97,9 @@ const SLANotificationSystem = () => {
     } catch (err) {
       console.error('SLA monitoring error:', err);
     }
+    // processNotifications (and the toast functions it uses) are new each render; listing them would re-run
+    // the check - and its 5-minute interval - on every render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, tickets, shouldReceiveNotifications, escalationEngine]);
 
   // Get escalation rules for a ticket (mock implementation)
@@ -180,6 +184,7 @@ const SLANotificationSystem = () => {
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
+      <ToastContainer />
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
           <div className={`w-3 h-3 rounded-full ${isActive ? 'bg-green-500' : 'bg-gray-400'}`} />

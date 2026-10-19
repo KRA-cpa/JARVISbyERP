@@ -138,12 +138,14 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
         'External task completed'
       );
 
+      // AppScript v9.2: completing a task moves the ticket on like an approval (routing included)
       success('Task marked as complete!');
+      await refetchEligibility();
       onTicketUpdate?.();
 
     } catch (error) {
       console.error('Task completion failed:', error);
-      showError('Failed to mark task as complete. Please try again.');
+      showError(error.message || 'Failed to mark task as complete. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -337,9 +339,9 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
                     <Icons.ExternalLink size={16} className="mr-2" />
                     Open External App
                   </a>
-                ) : currentStep.external_app_url && (
+                ) : /^https?:\/\//i.test(currentStep.external_app_url || '') && (
                   <a
-                    href={currentStep.external_app_url.replace('{ticket_id}', ticket.id)}
+                    href={currentStep.external_app_url.replace('{ticket_id}', encodeURIComponent(ticket.id))}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -349,19 +351,24 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
                   </a>
                 )}
 
-                {/* Task Completion Button */}
-                <button
-                  onClick={handleExternalTaskComplete}
-                  disabled={isSubmitting}
-                  className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                >
-                  {(isSubmitting) && (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  )}
-                  <Icons.Success size={16} className="mr-2" />
-                  {externalAppIntegration?.completion_action_name || currentStep.completion_action_name || 'Mark Task Complete'}
-                </button>
+                {/* Task Completion Button - only the roles assigned to the task (same rule as approving) */}
+                {canApprove && (
+                  <button
+                    onClick={handleExternalTaskComplete}
+                    disabled={isSubmitting}
+                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    {(isSubmitting) && (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    )}
+                    <Icons.Success size={16} className="mr-2" />
+                    {externalAppIntegration?.completion_action_name || currentStep.completion_action_name || 'Mark Task Complete'}
+                  </button>
+                )}
               </div>
+              {!canApprove && eligibility && (
+                <p className="text-sm text-blue-800 mt-3">Only users with a role assigned to this task can mark it complete.</p>
+              )}
             </div>
           )}
 

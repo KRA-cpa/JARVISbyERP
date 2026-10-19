@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useUser } from '../../contexts/UserContext';
 import { useDarkMode } from '../../contexts/DarkModeContext';
 import { API } from '../../api/googleSheet';
@@ -17,8 +17,10 @@ import Icons from './Icons';
  */
 const UserPreferencesPanel = ({ isOpen, onClose }) => {
   const { user } = useUser();
+  // Firebase users carry uid; the dev mock user carries id
+  const userId = user?.uid || user?.id;
   const { isDarkMode, setDarkMode } = useDarkMode();
-  const { success, error: showError } = useToast();
+  const { ToastContainer, success, error: showError } = useToast();
 
   const [preferences, setPreferences] = useState({
     dark_mode: false,
@@ -67,11 +69,6 @@ const UserPreferencesPanel = ({ isOpen, onClose }) => {
     { value: 0, label: 'Disabled' }
   ];
 
-  useEffect(() => {
-    if (isOpen && user?.id) {
-      loadUserPreferences();
-    }
-  }, [isOpen, user?.id]);
 
   useEffect(() => {
     // Sync dark mode state with preferences
@@ -81,10 +78,10 @@ const UserPreferencesPanel = ({ isOpen, onClose }) => {
     }));
   }, [isDarkMode]);
 
-  const loadUserPreferences = async () => {
+  const loadUserPreferences = useCallback(async () => {
     try {
       setIsLoading(true);
-      const userPrefs = await API.Users.getPreferences(user.id);
+      const userPrefs = await API.Users.getPreferences(userId);
       setPreferences(prev => ({
         ...prev,
         ...userPrefs
@@ -95,7 +92,15 @@ const UserPreferencesPanel = ({ isOpen, onClose }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+    // showError is a new function each render; reloading on it would loop
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  useEffect(() => {
+    if (isOpen && userId) {
+      loadUserPreferences();
+    }
+  }, [isOpen, userId, loadUserPreferences]);
 
   const handleSavePreferences = async () => {
     try {
@@ -107,12 +112,12 @@ const UserPreferencesPanel = ({ isOpen, onClose }) => {
       }
 
       // Save all preferences
-      await API.Users.updatePreferences(user.id, preferences);
+      await API.Users.updatePreferences(userId, preferences);
       success('Preferences saved successfully');
       onClose();
     } catch (error) {
       console.error('Failed to save preferences:', error);
-      showError('Failed to save preferences');
+      showError(error.message || 'Failed to save preferences');
     } finally {
       setIsSaving(false);
     }
@@ -129,6 +134,7 @@ const UserPreferencesPanel = ({ isOpen, onClose }) => {
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
+      <ToastContainer />
       <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         {/* Background overlay */}
         <div

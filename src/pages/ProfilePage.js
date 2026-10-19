@@ -5,6 +5,9 @@ import Header from '../components/shared/Header';
 import Footer from '../components/shared/Footer';
 import Icons from '../components/shared/Icons';
 import DarkModeToggle from '../components/shared/DarkModeToggle';
+import UserPreferencesPanel from '../components/shared/UserPreferencesPanel';
+import { useToast } from '../components/shared/Toast';
+import { useUserPreferences } from '../hooks/useAPI';
 
 /**
  * ProfilePage Component
@@ -26,7 +29,11 @@ const ProfilePage = () => {
     }
   }, [location.search]);
 
-  // Mock user preferences - TODO: Implement with real user preferences API
+  // Saved preferences (user_preferences tab, AppScript getUserPreferences / updateUserPreferences)
+  const userId = user?.uid || user?.id;
+  const { data: savedPreferences, loading: preferencesLoading, refetch: refetchPreferences, save: savePreferences } = useUserPreferences(userId);
+  const { ToastContainer, success, error: showError } = useToast();
+  const [showMoreSettings, setShowMoreSettings] = useState(false);
   const [userPreferences, setUserPreferences] = useState({
     dark_mode: false,
     timezone: 'Asia/Manila',
@@ -39,14 +46,21 @@ const ProfilePage = () => {
     refresh_interval: 30000
   });
 
+  // Show what is saved once it loads
+  useEffect(() => {
+    if (savedPreferences) {
+      setUserPreferences(prev => ({ ...prev, ...savedPreferences }));
+    }
+  }, [savedPreferences]);
+
   const handleSavePreferences = async () => {
     setLoading(true);
     try {
-      // TODO: Implement API call to save user preferences
-      console.log('Saving user preferences:', userPreferences);
-      await new Promise(resolve => setTimeout(resolve, 500)); // Mock delay
+      await savePreferences(userPreferences);
+      success('Preferences saved');
     } catch (error) {
       console.error('Failed to save preferences:', error);
+      showError(error.message || 'Failed to save preferences');
     } finally {
       setLoading(false);
     }
@@ -81,6 +95,14 @@ const ProfilePage = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <ToastContainer />
+      <UserPreferencesPanel
+        isOpen={showMoreSettings}
+        onClose={() => {
+          setShowMoreSettings(false);
+          refetchPreferences();
+        }}
+      />
       <Header user={user} userRole={userRoles?.[0]?.name} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -97,7 +119,7 @@ const ProfilePage = () => {
               <DarkModeToggle />
               <button
                 onClick={handleSavePreferences}
-                disabled={loading}
+                disabled={loading || preferencesLoading || !userId}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
@@ -259,6 +281,18 @@ const ProfilePage = () => {
                         />
                         <span className="ml-3 text-sm text-gray-700">Enable auto-refresh</span>
                       </label>
+                    </div>
+
+                    <div>
+                      <button
+                        type="button"
+                        onClick={() => setShowMoreSettings(true)}
+                        disabled={!userId}
+                        className="inline-flex items-center px-3 py-2 text-sm font-medium text-blue-700 bg-blue-50 rounded-md hover:bg-blue-100 disabled:opacity-50"
+                      >
+                        <Icons.Settings size={16} className="mr-2" />
+                        More settings (time zone, language, refresh interval)
+                      </button>
                     </div>
                   </div>
                 </div>

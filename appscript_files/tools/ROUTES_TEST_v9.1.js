@@ -77,10 +77,13 @@ function routes(fnName) {
   return [...SRC.slice(start, start + end).matchAll(/^\s*case '([A-Za-z0-9_]+)':/gm)].map(m => m[1]);
 }
 
-test('version 9.1 and the v9.1 routes: reads in doGet, writes in routePostAction', () => {
-  assert.match(SRC, /^ \* Version: 9\.1 /m);
-  assert.match(SRC, /^const API_VERSION = '9\.1\.0';/m);
-  assert.match(SRC, /Deploy description: v9\.1 \d{8}_\d{4} - /);
+test('version 9.1 or later and the v9.1 routes: reads in doGet, writes in routePostAction', () => {
+  // Later files keep these routes; the version lines must agree with each other (9.1 or later)
+  const header = SRC.match(/^ \* Version: (\d+)\.(\d+) /m);
+  assert.ok(header && (Number(header[1]) > 9 || (Number(header[1]) === 9 && Number(header[2]) >= 1)), 'Version 9.1 or later');
+  const version = `${header[1]}.${header[2]}`;
+  assert.match(SRC, new RegExp(`^const API_VERSION = '${version.replace('.', '\\.')}\\.0';`, 'm'));
+  assert.match(SRC, new RegExp(`Deploy description: v${version.replace('.', '\\.')} \\d{8}_\\d{4} - `));
   const gets = ['getNextTicketNumber', 'getTicketType', 'getCustomField', 'getTicketLinks', 'validateTicketDependencies',
     'checkCompanyLockStatus', 'getCommentRequirements', 'getTicketHistory', 'getTicketsForApproval'];
   const posts = ['generateTicketNumber', 'createWorkflowStep', 'updateWorkflowStep', 'deleteWorkflowStep', 'copyWorkflowSteps',
@@ -90,7 +93,7 @@ test('version 9.1 and the v9.1 routes: reads in doGet, writes in routePostAction
   const doPost = routes('routePostAction');
   same(gets.filter(a => !doGet.includes(a)), []);
   same(posts.filter(a => !doPost.includes(a)), []);
-  assert.strictEqual(seed().rt.get({ action: 'ping' }).version, '9.1.0');
+  assert.strictEqual(seed().rt.get({ action: 'ping' }).version, `${version}.0`);
 });
 
 test('updateCompany writes by header: lock columns survive an edit; a locked code cannot change', () => {

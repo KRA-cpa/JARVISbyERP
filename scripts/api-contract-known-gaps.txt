@@ -1,9 +1,7 @@
 # Known frontend->backend contract gaps - checked by scripts/check-api-contract.js
 # Format: <kind> <action>. This list may only shrink: fix a gap, then remove its line
 # (node scripts/check-api-contract.js --update). Never add a line to silence a new gap.
-# Last updated against APPSCRIPT_v9.1_20261019_1400.txt
-# 19 Oct 2026: unmounted-component and missing-icon are new check kinds; their entries below are the
-# baseline found when the check was added (gaps that already existed), not new gaps.
+# Last updated against APPSCRIPT_v9.2_20261019_1946.txt
 
 missing assignDropdownGlobally
 missing assignDropdownToCompany
@@ -15,7 +13,6 @@ missing getCompanySLARules
 missing getDropdownCompanyAssignments
 missing importConfiguration
 missing removeDropdownCompanyAssignment
-missing runCompleteAPITest
 missing updateCompanySLARule
 missing updateDropdownCompanyAssignments
 missing-icon Icons.Alert
@@ -38,16 +35,12 @@ unmounted-component src/components/admin/BulkOperationsManager.js
 unmounted-component src/components/admin/BulkRoleAssignmentDialog.js
 unmounted-component src/components/admin/BulkWorkflowDialog.js
 unmounted-component src/components/admin/CompanySLAManager.js
-unmounted-component src/components/admin/ConditionalWorkflowBuilder.js
 unmounted-component src/components/admin/ConfigurationExportImportDialog.js
 unmounted-component src/components/admin/RBACSettings.js
 unmounted-component src/components/shared/APITestPanel.js
 unmounted-component src/components/shared/ActionCommentModal.js
 unmounted-component src/components/shared/InfiniteLoopMonitor.js
-unmounted-component src/components/shared/SLANotificationSystem.js
-unmounted-component src/components/shared/SLAWidgets.js
 unmounted-component src/components/shared/TagInput.js
 unmounted-component src/components/shared/TagSearchFilter.js
-unmounted-component src/components/shared/UserPreferencesPanel.js
 unmounted-component src/components/tickets/TicketCollaborationManager.js
 unmounted-component src/components/tickets/TicketTagManager.js

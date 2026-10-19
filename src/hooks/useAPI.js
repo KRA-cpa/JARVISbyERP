@@ -415,6 +415,48 @@ export const useCommentRequirements = (ticketTypeId, companyId = null) => {
   );
 };
 
+// A user's saved preferences (user_preferences; defaults when none saved) + save(preferences)
+export const useUserPreferences = (userId) => {
+  const query = useAPIData(
+    ['user_preferences', userId],
+    () => API.Users.getPreferences(userId),
+    { enabled: !!userId }
+  );
+  const save = async (preferences) => {
+    const result = await API.Users.updatePreferences(userId, preferences);
+    await query.refetch();
+    return result;
+  };
+  return { ...query, save };
+};
+
+// A workflow step's conditional routes (AppScript v9.2)
+export const useStepConditions = (stepId) => {
+  return useAPIData(
+    ['step_conditions', stepId],
+    () => API.WorkflowSteps.getConditions(stepId),
+    { enabled: !!stepId }
+  );
+};
+
+// A ticket type's report columns for a company - company config, else global, else defaults (AppScript v9.2)
+export const useReportConfig = (ticketTypeId, companyId = null) => {
+  return useAPIData(
+    ['report_config', ticketTypeId, companyId],
+    () => API.Reports.getConfig(ticketTypeId, companyId),
+    { enabled: !!ticketTypeId }
+  );
+};
+
+// A ticket's system log (ticket_action_logs) - admins only, so only fetched when enabled (AppScript v9.2)
+export const useTicketActionLogs = (ticketId, userId, enabled = true) => {
+  return useAPIData(
+    ['ticket_action_logs', ticketId, userId],
+    () => API.AuditLogs.getTicketLogs(ticketId, userId),
+    { enabled: enabled && !!ticketId && !!userId }
+  );
+};
+
 // User hooks
 export const useUsers = () => {
   return useAPI(() => API.Users.getAll(), [], 'getUsers');
@@ -675,6 +717,10 @@ export const useWorkflowStepSLA = (stepId) => {
   );
 };
 
+// A ticket that can still miss its SLA: has a step due date and is not completed / rejected / cancelled
+const isOpenWithSLA = ticket => Boolean(ticket.step_due_date) &&
+  !['completed', 'rejected', 'cancelled'].includes(String(ticket.status || '').toLowerCase());
+
 /**
  * Hook for getting all overdue tickets across the system
  */
@@ -690,6 +736,7 @@ export const useSLAOverdueTickets = () => {
       const { getSLAStatus } = await import('../utils/slaCalculator');
 
       const overdueTickets = tickets
+        .filter(isOpenWithSLA)
         .map(ticket => ({
           ...ticket,
           sla_status: getSLAStatus(ticket.step_due_date)
@@ -720,6 +767,7 @@ export const useSLADueTodayTickets = () => {
       const { getSLAStatus } = await import('../utils/slaCalculator');
 
       const dueTodayTickets = tickets
+        .filter(isOpenWithSLA)
         .map(ticket => ({
           ...ticket,
           sla_status: getSLAStatus(ticket.step_due_date)
@@ -1095,6 +1143,10 @@ const useAPIModule = {
   useTicketHistory,
   useTicketsForApproval,
   useCommentRequirements,
+  useUserPreferences,
+  useStepConditions,
+  useReportConfig,
+  useTicketActionLogs,
   useSystemHealth,
   useAPITest,
   useAPIConnection,

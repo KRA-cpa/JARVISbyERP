@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useUser } from '../../contexts/UserContext';
-import { useCompanies, useTicketTypes, useUsers, useTicketHistory, useTicketMutations, useCommentRequirements } from '../../hooks/useAPI';
+import { useCompanies, useTicketTypes, useUsers, useTicketHistory, useTicketMutations, useCommentRequirements, useTicketActionLogs } from '../../hooks/useAPI';
 import { getSLAStatus } from '../../utils/slaCalculator';
 import { useToast } from '../shared/Toast';
 import WorkflowStep from './WorkflowStep';
@@ -44,6 +44,9 @@ const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
 
   const [activeTab, setActiveTab] = useState('details');
   const [actionComment, setActionComment] = useState('');
+  // Admins can switch the History tab to the system log (ticket_action_logs, AppScript v9.2)
+  const [showSystemLog, setShowSystemLog] = useState(false);
+  const { data: systemLog, loading: systemLogLoading } = useTicketActionLogs(ticket?.id, currentUserId, Boolean(isAdmin && showSystemLog));
 
   if (!ticket) return null;
 
@@ -197,8 +200,43 @@ const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
     </div>
   );
 
+  const renderSystemLog = () => (
+    <div className="space-y-3">
+      {systemLogLoading && <p className="text-sm text-gray-500">Loading system log...</p>}
+      {(systemLog || []).map((log, index) => (
+        <div key={log.id || index} className="border border-gray-200 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium text-gray-900">
+              {log.action_type}
+              <span className="font-normal text-gray-500"> by {nameOf(log.user_id)}</span>
+            </p>
+            <span className="text-sm text-gray-500">{formatDate(log.timestamp)}</span>
+          </div>
+          {log.details && (
+            <pre className="mt-2 text-xs text-gray-600 whitespace-pre-wrap break-all">
+              {typeof log.details === 'object' ? JSON.stringify(log.details, null, 2) : String(log.details)}
+            </pre>
+          )}
+        </div>
+      ))}
+      {!systemLogLoading && (systemLog || []).length === 0 && (
+        <p className="text-center py-8 text-gray-500">No system log entries</p>
+      )}
+    </div>
+  );
+
   const renderHistoryTab = () => (
     <div className="space-y-4">
+      {isAdmin && (
+        <div className="flex justify-end">
+          <label className="inline-flex items-center text-sm text-gray-700">
+            <input type="checkbox" checked={showSystemLog} onChange={() => setShowSystemLog(v => !v)} className="mr-2" />
+            System log (admin)
+          </label>
+        </div>
+      )}
+      {isAdmin && showSystemLog ? renderSystemLog() : (
+      <>
       {historyLoading && <p className="text-sm text-gray-500">Loading history...</p>}
 
       {(history || []).map((item, index) => (
@@ -227,6 +265,8 @@ const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
           <Icons.History size={32} className="mx-auto text-gray-400 mb-4" />
           <p className="text-gray-500">No history available</p>
         </div>
+      )}
+      </>
       )}
     </div>
   );

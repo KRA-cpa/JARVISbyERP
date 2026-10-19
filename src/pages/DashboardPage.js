@@ -8,8 +8,9 @@ import Header from '../components/shared/Header';
 import Footer from '../components/shared/Footer';
 import Icons from '../components/shared/Icons';
 import { DetailedClock } from '../components/shared/LiveClock';
-// SLA widgets are HIDDEN below; uncomment this import and handleSLAWidgetClick with them
-// import { SLASummaryWidgets, SLADetailedMetrics } from '../components/shared/SLAWidgets';
+// SLA widgets (spec 3.4: SLA status clearly visible) - a click opens /tickets filtered to that SLA status
+import { SLASummaryWidgets } from '../components/shared/SLAWidgets';
+import SLANotificationSystem from '../components/shared/SLANotificationSystem';
 import DEV_CONFIG from '../config/development';
 
 const DashboardPage = () => {
@@ -180,15 +181,6 @@ const DashboardPage = () => {
     );
   };
 
-  // HIDDEN with the SLA widgets below
-  // const handleSLAWidgetClick = (type) => {
-  //   showInfo({
-  //     title: `SLA ${type} Tickets`,
-  //     message: `This will show a filtered view of ${type.toLowerCase()} tickets. Full SLA management interface will be enhanced in the next update.`,
-  //     type: 'info'
-  //   });
-  // };
-
   return (
     <>
       <ToastContainer />
@@ -231,20 +223,18 @@ const DashboardPage = () => {
               </div>
             </div>
 
-            {/* SLA Summary Widgets - HIDDEN */}
-            {/* <div className="mb-8">
+            {/* SLA Overview - open tickets only */}
+            <div className="mb-8">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">SLA Overview</h3>
               <SLASummaryWidgets
-                onOverdueClick={() => handleSLAWidgetClick('Overdue')}
-                onDueTodayClick={() => handleSLAWidgetClick('Due Today')}
-                onPerformanceClick={() => handleSLAWidgetClick('Performance')}
+                onOverdueClick={() => navigate('/tickets?sla=overdue')}
+                onDueTodayClick={() => navigate('/tickets?sla=due_today')}
+                onPerformanceClick={() => navigate('/tickets')}
               />
-            </div> */}
-
-            {/* SLA Detailed Metrics - HIDDEN */}
-            {/* <div className="mb-8">
-              <SLADetailedMetrics />
-            </div> */}
+              <div className="mt-4">
+                <SLANotificationSystem />
+              </div>
+            </div>
 
             {/* Dashboard Stats */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5 mb-8">

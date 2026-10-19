@@ -116,8 +116,30 @@ let mockData = {
   ticketHistory: [],
   ticketLinks: [],
   commentRequirements: [],
-  counters: {}
+  counters: {},
+  // v9.2 (in memory): routes per step (saved, not evaluated - the mock always takes the next step), report
+  // columns per ticket type + company, admin log entries written by the v9.2 saves
+  stepConditions: {},
+  reportConfigs: [],
+  adminLogs: []
 };
+
+const STANDARD_REPORT_COLUMNS = [
+  { field_name: 'ticket_number', display_name: 'Ticket #', field_type: 'standard' },
+  { field_name: 'title', display_name: 'Title', field_type: 'standard' },
+  { field_name: 'status', display_name: 'Status', field_type: 'standard' },
+  { field_name: 'current_step_name', display_name: 'Current Step', field_type: 'standard' },
+  { field_name: 'sla_status', display_name: 'SLA Status', field_type: 'standard' },
+  { field_name: 'created_at', display_name: 'Created', field_type: 'standard' }
+];
+const reportConfigFor = (ticketTypeId, companyId) => {
+  const rows = mockData.reportConfigs.filter(r => r.ticket_type_id === ticketTypeId);
+  const chosen = rows.find(r => companyId && r.company_id === companyId) || rows.find(r => !r.company_id);
+  return { ticket_type_id: ticketTypeId, company_id: companyId || '', source: chosen ? (chosen.company_id ? 'company' : 'global') : 'default',
+    columns: chosen ? chosen.columns : STANDARD_REPORT_COLUMNS, available: STANDARD_REPORT_COLUMNS };
+};
+const adminLog = (userId, actionType, entity, targetId, details) => mockData.adminLogs.unshift({ id: generateId('al'),
+  admin_user_id: userId || 'dev', action_type: actionType, target_entity: entity, target_id: targetId, details, timestamp: new Date().toISOString() });
 
 // --- v9.1 mock ticket flow: one approver (the dev user) can act on every open ticket ------------------
 const TERMINAL = ['Completed', 'Rejected', 'Cancelled'];
@@ -284,6 +306,46 @@ app.get('/exec', (req, res) => {
           .map(t => ({ ...t, current_step_name: (mockData.workflowSteps.find(s => s.id === t.current_step_id) || {}).name, approver_logic: 'any', eligible_role_ids: ['role_2'] }))));
         break;
 
+      // v9.2 reads
+      case 'getStepConditions':
+        res.json(createResponse(true, mockData.stepConditions[req.query.step_id] || { step_id: req.query.step_id, enabled: false, routes: [] }));
+        break;
+
+      case 'getReportConfig':
+        res.json(createResponse(true, reportConfigFor(req.query.ticket_type_id, req.query.company_id)));
+        break;
+
+      case 'getReportData': {
+        const config = reportConfigFor(req.query.ticket_type_id, req.query.company_id);
+        const rows = mockData.tickets
+          .filter(t => t.ticket_type_id === req.query.ticket_type_id && (!req.query.company_id || t.company_id === req.query.company_id))
+          .map(t => {
+            const row = { ticket_id: String(t.id) };
+            config.columns.forEach(c => {
+              row[c.field_name] = c.field_name === 'current_step_name' ? ((mockData.workflowSteps.find(st => st.id === t.current_step_id) || {}).name || '')
+                : c.field_name === 'sla_status' ? (TERMINAL.includes(t.status) ? 'Closed' : (t.step_due_date ? 'On Track' : 'No SLA'))
+                : String(t[c.field_name] ?? '');
+            });
+            return row;
+          });
+        res.json(createResponse(true, { columns: config.columns, rows, total: rows.length, scope: 'all', config_source: config.source }));
+        break;
+      }
+
+      case 'getAdminActionLogs': {
+        const limit = Number(req.query.limit) || 50;
+        const offset = Number(req.query.offset) || 0;
+        const logs = mockData.adminLogs.filter(l => !req.query.action_type || l.action_type === req.query.action_type);
+        res.json(createResponse(true, { logs: logs.slice(offset, offset + limit), total: logs.length, limit, offset,
+          action_types: [...new Set(mockData.adminLogs.map(l => l.action_type))],
+          target_entities: [...new Set(mockData.adminLogs.map(l => l.target_entity))] }));
+        break;
+      }
+
+      case 'getTicketActionLogs':
+        res.json(createResponse(true, []));
+        break;
+
       default:
         res.json(createResponse(false, null, `Unknown action: ${action}`));
     }
@@ -392,6 +454,15 @@ app.post('/exec', (req, res) => {
           ticket.status = next ? (next.status_on_reach || 'Pending') : 'Completed';
           moveTicket(ticket, next);
           addHistory(ticket, payload.user_id, 'APPROVED', payload.comment, fromStep, next ? next.id : '', fromStatus);
+        } else if (decision === 'complete') {
+          // v9.2: a task step moves on like an approval
+          if ((steps[index] || {}).step_type !== 'task') {
+            return res.json(createResponse(false, null, 'Only a task step can be marked complete - approve this step instead'));
+          }
+          const next = steps[index + 1];
+          ticket.status = next ? (next.status_on_reach || 'Pending') : 'Completed';
+          moveTicket(ticket, next);
+          addHistory(ticket, payload.user_id, 'COMPLETED', payload.comment, fromStep, next ? next.id : '', fromStatus);
         } else if (decision === 'reject') {
           ticket.status = 'Rejected';
           addHistory(ticket, payload.user_id, 'REJECTED', payload.comment, fromStep, '', fromStatus);
@@ -459,6 +530,27 @@ app.post('/exec', (req, res) => {
         mockData.stepApprovers = mockData.stepApprovers.filter(a => a.step_id !== payload.step_id)
           .concat((payload.role_ids || []).map(role_id => ({ step_id: payload.step_id, role_id })));
         res.json(createResponse(true, { step_id: payload.step_id, role_ids: payload.role_ids || [] }));
+        break;
+
+      // v9.2 writes
+      case 'saveStepConditions': {
+        const enabled = payload.enabled !== false && Array.isArray(payload.routes) && payload.routes.length > 0;
+        mockData.stepConditions[payload.step_id] = { step_id: payload.step_id, enabled, routes: enabled ? payload.routes : [] };
+        adminLog(payload.user_id, 'SAVE_STEP_CONDITIONS', 'workflow_step', payload.step_id, { routes: enabled ? payload.routes.length : 0 });
+        res.json(createResponse(true, mockData.stepConditions[payload.step_id]));
+        break;
+      }
+
+      case 'saveReportConfig':
+        if (!Array.isArray(payload.columns) || payload.columns.length === 0) {
+          return res.json(createResponse(false, null, 'Pick at least one column'));
+        }
+        mockData.reportConfigs = mockData.reportConfigs
+          .filter(r => !(r.ticket_type_id === payload.ticket_type_id && (r.company_id || '') === (payload.company_id || '')))
+          .concat([{ ticket_type_id: payload.ticket_type_id, company_id: payload.company_id || '',
+            columns: payload.columns.map(c => ({ ...(STANDARD_REPORT_COLUMNS.find(st => st.field_name === c.field_name) || { field_type: 'custom' }), ...c })) }]);
+        adminLog(payload.user_id, 'SAVE_REPORT_CONFIG', 'ticket_type', payload.ticket_type_id, { company_id: payload.company_id || '' });
+        res.json(createResponse(true, reportConfigFor(payload.ticket_type_id, payload.company_id)));
         break;
 
       case 'saveCommentRequirements':

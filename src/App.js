@@ -20,6 +20,7 @@ import AdminRoleTypeCreatePage from './pages/AdminRoleTypeCreatePage';
 import AdminUserProfileTypeCreatePage from './pages/AdminUserProfileTypeCreatePage';
 import ProfilePage from './pages/ProfilePage';
 import TicketsPage from './pages/TicketsPage';
+import ReportsPage from './pages/ReportsPage';
 
 // Shared Components
 import LoadingScreen from './components/shared/LoadingScreen';
@@ -129,6 +130,15 @@ const AppRoutes = () => {
             element={
               <ProtectedRoute>
                 <TicketsPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute>
+                <ReportsPage />
               </ProtectedRoute>
             }
           />

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
 import { useTickets, useCompanies, useTicketTypes, useTicketsForApproval } from '../../hooks/useAPI';
 import { API } from '../../api/googleSheet';
@@ -19,6 +20,8 @@ const TERMINAL_STATUSES = ['completed', 'rejected', 'cancelled'];
  * - Create opens TicketForm; a row opens TicketDetail (WorkflowStep approves / rejects / returns there)
  * - Bulk approve / reject applies to tickets in the approval inbox, one submitStepApproval per ticket, and
  *   reports the tickets that failed (e.g. a required comment, or the ticket moved on meanwhile)
+ * - Chained view (spec 3.4): a ticket created by a workflow step (AppScript v9.2 chained_children /
+ *   chained_parent) is listed under its parent, which expands to show it
  */
 const TicketDashboard = () => {
   const { user } = useUser();
@@ -32,15 +35,18 @@ const TicketDashboard = () => {
   // Modal hooks
   const { confirm, ConfirmationModal } = useConfirmation();
 
-  const [filters, setFilters] = useState({
+  // ?sla=overdue | due_today | on_time | no_sla (the dashboard's SLA widgets link here) and ?show=approval
+  const [searchParams] = useSearchParams();
+  const SLA_FILTERS = ['overdue', 'due_today', 'on_time', 'no_sla'];
+  const [filters, setFilters] = useState(() => ({
     search: '',
     company: '',
     status: '',
     priority: '',
-    show: 'all', // all | mine | approval
+    show: ['mine', 'approval'].includes(searchParams.get('show')) ? searchParams.get('show') : 'all', // all | mine | approval
     dateRange: 'all',
-    slaStatus: 'all'
-  });
+    slaStatus: SLA_FILTERS.includes(searchParams.get('sla')) ? searchParams.get('sla') : 'all'
+  }));
 
   const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState('desc');
@@ -51,8 +57,18 @@ const TicketDashboard = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [showCreate, setShowCreate] = useState(false);
   const [openTicketId, setOpenTicketId] = useState(null);
+  const [expandedIds, setExpandedIds] = useState(() => new Set());
 
   const approvalIds = new Set((approvalInbox || []).map(t => String(t.id)));
+  const ticketById = new Map((tickets || []).map(t => [String(t.id), t]));
+
+  const toggleExpanded = (ticketId) => setExpandedIds(prev => {
+    const next = new Set(prev);
+    const key = String(ticketId);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    return next;
+  });
   const openTicket = openTicketId ? (tickets || []).find(t => String(t.id) === String(openTicketId)) : null;
 
   const refreshAll = () => {
@@ -93,7 +109,9 @@ const TicketDashboard = () => {
     // SLA Status filtering
     const slaMatch = (() => {
       if (filters.slaStatus === 'all') return true;
-      if (!ticket.step_due_date) return filters.slaStatus === 'no_sla';
+      // A closed ticket has no SLA running, even if a cancelled one kept its due date
+      const isClosed = TERMINAL_STATUSES.includes(String(ticket.status || '').toLowerCase());
+      if (!ticket.step_due_date || isClosed) return filters.slaStatus === 'no_sla';
 
       const now = new Date();
       const dueDate = new Date(ticket.step_due_date);
@@ -112,8 +130,12 @@ const TicketDashboard = () => {
     return searchMatch && companyMatch && statusMatch && priorityMatch && showMatch && dateMatch && slaMatch;
   }) || [];
 
+  // A chained child whose parent is also in the list is shown under the parent, not at the top level
+  const filteredIds = new Set(filteredTickets.map(t => String(t.id)));
+  const topLevelTickets = filteredTickets.filter(t => !(t.chained_parent && filteredIds.has(String(t.chained_parent))));
+
   // Sort tickets
-  const sortedTickets = [...filteredTickets].sort((a, b) => {
+  const sortedTickets = [...topLevelTickets].sort((a, b) => {
     let aValue = a[sortBy];
     let bValue = b[sortBy];
 
@@ -288,16 +310,20 @@ const TicketDashboard = () => {
     );
   };
 
-  const renderTicketRow = (ticket) => {
+  const renderTicketRow = (ticket, depth = 0) => {
     const company = companies?.find(c => String(c.id) === String(ticket.company_id));
     const ticketType = ticketTypes?.find(t => String(t.id) === String(ticket.ticket_type_id));
     const inInbox = approvalIds.has(String(ticket.id));
     const isSelected = selectedTickets.includes(ticket.id);
     const isMine = String(ticket.requester_id) === String(currentUserId);
     const closed = TERMINAL_STATUSES.includes(String(ticket.status || '').toLowerCase());
+    const chainedChildren = (ticket.chained_children || []).map(id => ticketById.get(String(id))).filter(Boolean);
+    const expanded = expandedIds.has(String(ticket.id));
+    const chainedParent = ticket.chained_parent ? ticketById.get(String(ticket.chained_parent)) : null;
 
     return (
-      <div key={ticket.id} className={`border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 ${isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-white'}`}>
+      <div key={ticket.id}>
+      <div className={`border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 ${isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-white'}`}>
         <div className="flex items-start space-x-3">
           {inInbox ? (
             <input
@@ -352,6 +378,25 @@ const TicketDashboard = () => {
                       <span className="font-medium text-blue-700">Waiting for your approval</span>
                     </>
                   )}
+                  {depth === 0 && chainedParent && (
+                    <>
+                      <span className="text-gray-300">•</span>
+                      <span>Chained from {chainedParent.ticket_number || `#${chainedParent.id}`}</span>
+                    </>
+                  )}
+                  {chainedChildren.length > 0 && (
+                    <>
+                      <span className="text-gray-300">•</span>
+                      <button
+                        onClick={() => toggleExpanded(ticket.id)}
+                        className="inline-flex items-center font-medium text-purple-700 hover:underline"
+                        aria-expanded={expanded}
+                      >
+                        {expanded ? <Icons.ChevronDown size={12} className="mr-1" /> : <Icons.ChevronRight size={12} className="mr-1" />}
+                        {chainedChildren.length} chained ticket{chainedChildren.length !== 1 ? 's' : ''}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -375,6 +420,13 @@ const TicketDashboard = () => {
             </div>
           </div>
         </div>
+      </div>
+      {/* Chained children (a few levels deep at most - chains are created step by step) */}
+      {expanded && depth < 4 && chainedChildren.length > 0 && (
+        <div className="ml-6 mt-2 pl-3 space-y-2 border-l-2 border-purple-100">
+          {chainedChildren.map(child => renderTicketRow(child, depth + 1))}
+        </div>
+      )}
       </div>
     );
   };
@@ -665,7 +717,7 @@ const TicketDashboard = () => {
             </div>
           ) : paginatedTickets.length > 0 ? (
             <div className="p-4 space-y-4">
-              {paginatedTickets.map(renderTicketRow)}
+              {paginatedTickets.map(ticket => renderTicketRow(ticket))}
             </div>
           ) : (
             <div className="p-6 text-center">

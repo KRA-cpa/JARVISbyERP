@@ -265,7 +265,9 @@ class BaseAPI {
         'getCompany', 'getDropdownOptions', 'getUserPreferences', // doGet only
         // AppScript v9.1 reads
         'getNextTicketNumber', 'getTicketType', 'getCustomField', 'getTicketLinks', 'validateTicketDependencies',
-        'checkCompanyLockStatus', 'getCommentRequirements', 'getTicketHistory', 'getTicketsForApproval'
+        'checkCompanyLockStatus', 'getCommentRequirements', 'getTicketHistory', 'getTicketsForApproval',
+        // AppScript v9.2 reads
+        'getStepConditions', 'getReportConfig', 'getReportData', 'getAdminActionLogs', 'getTicketActionLogs'
       ];
 
       const isGetRequest = readActions.includes(action);
@@ -1178,9 +1180,20 @@ class SystemAPI extends BaseAPI {
     return response.data;
   }
 
+  // Health check of every table against TABLE_SCHEMAS (read-only getSystemHealth). AppScript's
+  // runCompleteAPITest creates and deletes real rows, so it stays an editor-only function (compliance A4).
   async runTest() {
-    const response = await this.makeRequest('runCompleteAPITest');
-    return response.data;
+    const health = await this.getSystemHealth();
+    const tables = health?.tables || {};
+    const total = (tables.ok || 0) + (tables.missing || 0) + (tables.schema_differs || 0) + (tables.errors || 0);
+    return {
+      passed: tables.ok || 0,
+      failed: total - (tables.ok || 0),
+      total,
+      details: (health?.issues || []).length
+        ? health.issues.join('; ')
+        : `All tables match the schema (API ${health?.api_version || 'unknown'})`
+    };
   }
 
   async exportConfiguration(params) {
@@ -1242,16 +1255,6 @@ class SystemAPI extends BaseAPI {
             status: 'healthy',
             uptime: '99.9%',
             lastCheck: new Date().toISOString()
-          }
-        };
-      case 'runCompleteAPITest':
-        return {
-          status: 'success',
-          data: {
-            passed: 15,
-            failed: 0,
-            total: 15,
-            details: 'All API endpoints working correctly'
           }
         };
       case 'exportConfiguration':
@@ -1339,6 +1342,24 @@ class WorkflowStepsAPI extends BaseAPI {
     const response = await this.makeRequest('getWorkflowStep', {
       step_id: stepId
     });
+    return response.data;
+  }
+
+  // Conditional routing (AppScript v9.2): { step_id, enabled, routes: [{ conditions, target_step_id, is_default }] }
+  async getConditions(stepId) {
+    const response = await this.makeRequest('getStepConditions', { step_id: stepId });
+    return response.data || { step_id: stepId, enabled: false, routes: [] };
+  }
+
+  // Replaces the step's routes; enabled false clears them. target_step_id '__end__' ends the workflow.
+  async saveConditions(stepId, routes, enabled = true, userId = null) {
+    const response = await this.makeRequest('saveStepConditions', {
+      step_id: stepId,
+      enabled,
+      routes,
+      user_id: userId
+    });
+    cache.invalidate('workflow_steps');
     return response.data;
   }
 
@@ -2540,6 +2561,82 @@ class TicketLinksAPI extends BaseAPI {
   }
 }
 
+/**
+ * Reports (AppScript v9.2, spec 3.3 / 3.4): the report columns of a ticket type (company config wins over the
+ * global one) and the report rows. Non-admins only get the tickets they requested, acted on or can approve.
+ */
+class ReportsAPI extends BaseAPI {
+  constructor() {
+    super('reports');
+  }
+
+  // { ticket_type_id, company_id, source: 'company' | 'global' | 'default', columns, available }
+  async getConfig(ticketTypeId, companyId = null) {
+    const response = await this.makeRequest('getReportConfig', {
+      ticket_type_id: ticketTypeId,
+      company_id: companyId
+    });
+    return response.data;
+  }
+
+  // columns: [{ field_name, display_name }] in display order; companyId '' = the global configuration
+  async saveConfig(ticketTypeId, companyId, columns, userId = null) {
+    const response = await this.makeRequest('saveReportConfig', {
+      ticket_type_id: ticketTypeId,
+      company_id: companyId || '',
+      columns,
+      user_id: userId
+    });
+    cache.invalidate('reports');
+    return response.data;
+  }
+
+  // { columns, rows: [{ ticket_id, <field_name>: text }], total, scope }; status: 'open' | 'closed' | a status
+  async getData({ userId, ticketTypeId, companyId, status, dateFrom, dateTo }) {
+    const response = await this.makeRequest('getReportData', {
+      user_id: userId,
+      ticket_type_id: ticketTypeId,
+      company_id: companyId || undefined,
+      status: status || undefined,
+      date_from: dateFrom || undefined,
+      date_to: dateTo || undefined
+    });
+    return response.data || { columns: [], rows: [], total: 0 };
+  }
+}
+
+/**
+ * Audit log reads (AppScript v9.2, spec 3.5) - admins only; the backend checks user_id's roles.
+ */
+class AuditLogAPI extends BaseAPI {
+  constructor() {
+    super('audit_logs');
+  }
+
+  // { logs, total, limit, offset, action_types, target_entities }
+  async getAdminLogs({ userId, actionType, targetEntity, targetId, dateFrom, dateTo, limit = 50, offset = 0 }) {
+    const response = await this.makeRequest('getAdminActionLogs', {
+      user_id: userId,
+      action_type: actionType || undefined,
+      target_entity: targetEntity || undefined,
+      target_id: targetId || undefined,
+      date_from: dateFrom || undefined,
+      date_to: dateTo || undefined,
+      limit,
+      offset
+    });
+    return response.data || { logs: [], total: 0, limit, offset, action_types: [], target_entities: [] };
+  }
+
+  async getTicketLogs(ticketId, userId) {
+    const response = await this.makeRequest('getTicketActionLogs', {
+      ticket_id: ticketId,
+      user_id: userId
+    });
+    return response.data || [];
+  }
+}
+
 export const API = {
   Companies: new CompanyAPI(),
   Roles: new RoleAPI(),
@@ -2553,6 +2650,8 @@ export const API = {
   StepApprovals: new StepApprovalsAPI(),
   SLA: new SLAAPI(),
   TicketLinks: new TicketLinksAPI(),
+  Reports: new ReportsAPI(),
+  AuditLogs: new AuditLogAPI(),
   // Universal Entity Architecture APIs
   UserProfileTypes: new UserProfileTypesAPI(),
   RoleTypes: new RoleTypesAPI()
@@ -2571,6 +2670,8 @@ export const workflowStepsAPI = API.WorkflowSteps;
 export const stepApprovalsAPI = API.StepApprovals;
 export const slaAPI = API.SLA;
 export const ticketLinksAPI = API.TicketLinks;
+export const reportsAPI = API.Reports;
+export const auditLogAPI = API.AuditLogs;
 export const userProfileTypesAPI = API.UserProfileTypes;
 export const roleTypesAPI = API.RoleTypes;
 

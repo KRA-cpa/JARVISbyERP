@@ -16,6 +16,8 @@ import AdminRoleTypeList from '../components/admin/AdminRoleTypeList';
 import AdminUserList from '../components/admin/AdminUserList';
 import AdminWorkflowBuilder from '../components/admin/AdminWorkflowBuilder';
 import CrossCompanyTicketLinker from '../components/admin/CrossCompanyTicketLinker';
+import AdminReportConfigManager from '../components/admin/AdminReportConfigManager';
+import AdminAuditLogViewer from '../components/admin/AdminAuditLogViewer';
 import APIConnectionStatus from '../components/admin/APIConnectionStatus';
 import Footer from '../components/shared/Footer';
 
@@ -193,6 +195,20 @@ const AdminPage = () => {
       component: CrossCompanyTicketLinker
     },
     {
+      id: 'reports',
+      name: 'Reports',
+      icon: Icons.Documents,
+      description: 'Report columns per ticket type (global or per company)',
+      component: AdminReportConfigManager
+    },
+    {
+      id: 'audit-log',
+      name: 'Audit Log',
+      icon: Icons.History,
+      description: 'Admin changes and logins (admin_action_logs)',
+      component: AdminAuditLogViewer
+    },
+    {
       id: 'dropdowns',
       name: 'Dropdown Lists',
       icon: Icons.ChevronDown,
@@ -288,6 +304,10 @@ const AdminPage = () => {
         return 'Per company';
       case 'ticket-links':
         return 'Dependencies';
+      case 'reports':
+        return 'Columns per type';
+      case 'audit-log':
+        return 'Who changed what';
       case 'dropdowns':
         if (dropdownsLoading) return 'Loading...';
         return `${dropdownLists?.length || 0} lists`;

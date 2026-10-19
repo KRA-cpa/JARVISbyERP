@@ -112,13 +112,13 @@ const APITestPanel = () => {
               {/* API Test */}
               <div className="bg-white rounded-lg p-4 border border-blue-100">
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-sm font-medium text-gray-900">API Test Suite</h4>
+                  <h4 className="text-sm font-medium text-gray-900">Schema Health Check (read-only)</h4>
                   <button
                     onClick={handleRunTest}
                     disabled={testLoading}
                     className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
                   >
-                    {testLoading ? 'Running...' : 'Run Tests'}
+                    {testLoading ? 'Checking...' : 'Run Check'}
                   </button>
                 </div>
 
@@ -133,7 +133,7 @@ const APITestPanel = () => {
                     <div className="flex items-center space-x-2">
                       <span className="text-sm font-medium">Results:</span>
                       <span className={`text-sm ${result.failed === 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {result.passed}/{result.total} tests passed
+                        {result.passed}/{result.total} tables match the schema
                       </span>
                     </div>
                     {result.details && (
