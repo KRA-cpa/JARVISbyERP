@@ -113,6 +113,9 @@ const TagInput = ({
           handleCreateTag(inputValue.trim());
         }
         break;
+
+      default:
+        break;
     }
   };
 

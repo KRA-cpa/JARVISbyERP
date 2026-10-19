@@ -267,7 +267,10 @@ class BaseAPI {
         'getNextTicketNumber', 'getTicketType', 'getCustomField', 'getTicketLinks', 'validateTicketDependencies',
         'checkCompanyLockStatus', 'getCommentRequirements', 'getTicketHistory', 'getTicketsForApproval',
         // AppScript v9.2 reads
-        'getStepConditions', 'getReportConfig', 'getReportData', 'getAdminActionLogs', 'getTicketActionLogs'
+        'getStepConditions', 'getReportConfig', 'getReportData', 'getAdminActionLogs', 'getTicketActionLogs',
+        // AppScript v9.3 reads
+        'getDropdownCompanyAssignments', 'getCompanySLARules', 'getTags', 'getTicketTags', 'searchTicketsByTags',
+        'getTicketShares', 'getSharedTickets'
       ];
 
       const isGetRequest = readActions.includes(action);
@@ -1196,8 +1199,10 @@ class SystemAPI extends BaseAPI {
     };
   }
 
+  // Admins only (AppScript v9.3 checks user_id). Read-only; sent by POST because ticket_type_ids is a list.
   async exportConfiguration(params) {
     const response = await this.makeRequest('exportConfiguration', {
+      user_id: params.user_id,
       company_id: params.company_id,
       ticket_type_ids: params.ticket_type_ids,
       include_workflows: params.include_workflows,
@@ -1209,8 +1214,12 @@ class SystemAPI extends BaseAPI {
     return response;
   }
 
+  // Company-to-company copy; dry_run (default true) only reports the planned actions
+  // -> { dry_run, actions: [{ area, ticket_type_id, action, detail }], counts }
   async importConfiguration(params) {
     const response = await this.makeRequest('importConfiguration', {
+      user_id: params.user_id,
+      dry_run: params.dry_run !== false,
       source_company_id: params.source_company_id,
       target_company_id: params.target_company_id,
       ticket_type_ids: params.ticket_type_ids,
@@ -1228,8 +1237,10 @@ class SystemAPI extends BaseAPI {
     return response;
   }
 
+  // Saves the company's export as a JSON file in the script owner's Drive -> { file_id, url, name, size }
   async createConfigurationBackup(params) {
     const response = await this.makeRequest('createConfigurationBackup', {
+      user_id: params.user_id,
       company_id: params.company_id,
       backup_name: params.backup_name
     });
@@ -2152,6 +2163,20 @@ class TicketTypesAPI extends BaseAPI {
     return response.data;
   }
 
+  // Tags / sharing switches (AppScript v9.3): off by default; turning one off is refused once it is in use.
+  // features: { enable_tags, enable_sharing } (only the keys sent change)
+  // -> { ticket_type_id, enable_tags, enable_sharing, tags_locked, sharing_locked }
+  async setFeatures(ticketTypeId, features = {}, userId = null) {
+    const response = await this.makeRequest('setTicketTypeFeatures', {
+      ticket_type_id: ticketTypeId,
+      ...(features.enable_tags !== undefined ? { enable_tags: Boolean(features.enable_tags) } : {}),
+      ...(features.enable_sharing !== undefined ? { enable_sharing: Boolean(features.enable_sharing) } : {}),
+      user_id: userId
+    });
+    cache.invalidate('ticket_types');
+    return response.data;
+  }
+
   // Validate ticket type name uniqueness (case-insensitive)
   async validateNameUniqueness(name, excludeId = null) {
     if (!name?.trim()) return;
@@ -2562,6 +2587,119 @@ class TicketLinksAPI extends BaseAPI {
 }
 
 /**
+ * Ticket tags (AppScript v9.3). A ticket type must have tags turned on (TicketTypes.setFeatures) before its
+ * tickets can be tagged; tags are global or belong to one company.
+ */
+class TagsAPI extends BaseAPI {
+  constructor() {
+    super('tags');
+  }
+
+  // Live tags; with companyId only the ones that company can use (its own + global)
+  async getAll(companyId = null) {
+    const response = await this.makeRequest('getTags', { company_id: companyId || undefined });
+    return response.data || [];
+  }
+
+  // { name, color (#RRGGBB), description, tag_category, company_id ('' = global) }
+  async create(tag, userId = null) {
+    const response = await this.makeRequest('createTag', {
+      name: tag.name,
+      color: tag.color,
+      description: tag.description,
+      tag_category: tag.tag_category,
+      company_id: tag.company_id || '',
+      user_id: userId
+    });
+    cache.invalidate('tags');
+    return response.data;
+  }
+
+  async update(tagId, changes, userId = null) {
+    const response = await this.makeRequest('updateTag', { tag_id: tagId, ...changes, user_id: userId });
+    cache.invalidate('tags');
+    return response.data;
+  }
+
+  async delete(tagId, userId = null, reason = '') {
+    const response = await this.makeRequest('deleteTag', { tag_id: tagId, user_id: userId, reason });
+    cache.invalidate('tags');
+    return response.data;
+  }
+
+  async getForTicket(ticketId) {
+    const response = await this.makeRequest('getTicketTags', { ticket_id: ticketId });
+    return response.data || [];
+  }
+
+  // Both return the ticket's tags after the change
+  async assign(ticketId, tagIds, userId, notes = '') {
+    const response = await this.makeRequest('assignTags', { ticket_id: ticketId, tag_ids: tagIds, user_id: userId, notes });
+    cache.invalidate('tags');
+    return response.data || [];
+  }
+
+  async remove(ticketId, tagIds, userId, reason = '') {
+    const response = await this.makeRequest('removeTags', { ticket_id: ticketId, tag_ids: tagIds, user_id: userId, reason });
+    cache.invalidate('tags');
+    return response.data || [];
+  }
+
+  // Ticket ids with ANY (OR) / ALL (AND) of tagIds and none of excludeTagIds
+  async search({ tagIds = [], excludeTagIds = [], operator = 'OR', companyId = null }) {
+    const response = await this.makeRequest('searchTicketsByTags', {
+      tag_ids: tagIds.join(','),
+      exclude_tag_ids: excludeTagIds.join(','),
+      operator,
+      company_id: companyId || undefined
+    });
+    return response.data?.ticket_ids || [];
+  }
+}
+
+/**
+ * Ticket sharing (AppScript v9.3): the requester or an admin gives one user or one company view (or view +
+ * comment) access, optionally until a date. The ticket type must have sharing turned on.
+ */
+class SharingAPI extends BaseAPI {
+  constructor() {
+    super('sharing');
+  }
+
+  // { shared_with_user_id | shared_with_company_id, permission_level: 'view' | 'comment', expiration_date, share_reason }
+  async share(ticketId, share, userId) {
+    const response = await this.makeRequest('shareTicket', {
+      ticket_id: ticketId,
+      shared_with_user_id: share.shared_with_user_id || '',
+      shared_with_company_id: share.shared_with_company_id || '',
+      permission_level: share.permission_level || 'view',
+      expiration_date: share.expiration_date || '',
+      share_reason: share.share_reason || '',
+      user_id: userId
+    });
+    cache.invalidate('sharing');
+    return response.data;
+  }
+
+  async getForTicket(ticketId) {
+    const response = await this.makeRequest('getTicketShares', { ticket_id: ticketId });
+    return response.data || [];
+  }
+
+  async revoke(shareId, userId, reason = '') {
+    const response = await this.makeRequest('revokeTicketShare', { collaboration_id: shareId, user_id: userId, reason });
+    cache.invalidate('sharing');
+    return response.data;
+  }
+
+  // Tickets shared with the user (directly or through a company they have a role in), each with .share
+  async getSharedWithMe(userId) {
+    const response = await this.makeRequest('getSharedTickets', { user_id: userId });
+    return response.data || [];
+  }
+}
+
+/**
  * Reports (AppScript v9.2, spec 3.3 / 3.4): the report columns of a ticket type (company config wins over the
  * global one) and the report rows. Non-admins only get the tickets they requested, acted on or can approve.
  */
@@ -2652,6 +2790,8 @@ export const API = {
   TicketLinks: new TicketLinksAPI(),
   Reports: new ReportsAPI(),
   AuditLogs: new AuditLogAPI(),
+  Tags: new TagsAPI(),
+  Sharing: new SharingAPI(),
   // Universal Entity Architecture APIs
   UserProfileTypes: new UserProfileTypesAPI(),
   RoleTypes: new RoleTypesAPI()
@@ -2672,6 +2812,8 @@ export const slaAPI = API.SLA;
 export const ticketLinksAPI = API.TicketLinks;
 export const reportsAPI = API.Reports;
 export const auditLogAPI = API.AuditLogs;
+export const tagsAPI = API.Tags;
+export const sharingAPI = API.Sharing;
 export const userProfileTypesAPI = API.UserProfileTypes;
 export const roleTypesAPI = API.RoleTypes;
 

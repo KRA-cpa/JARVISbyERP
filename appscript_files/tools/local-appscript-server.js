@@ -121,8 +121,24 @@ let mockData = {
   // columns per ticket type + company, admin log entries written by the v9.2 saves
   stepConditions: {},
   reportConfigs: [],
-  adminLogs: []
+  adminLogs: [],
+  // v9.3 (in memory): dropdown access, company SLA rules, ticket type switches, tags, tag assignments, shares
+  dropdownAccess: {},
+  slaRules: [],
+  typeFeatures: {},
+  tags: [],
+  tagAssignments: [],
+  shares: []
 };
+
+const isOn = v => v === true || String(v).toUpperCase() === 'TRUE';
+const ticketTypeOf = ticketId => {
+  const ticket = mockData.tickets.find(t => String(t.id) === String(ticketId));
+  return ticket ? { ticket, features: mockData.typeFeatures[ticket.ticket_type_id] || {} } : null;
+};
+const ticketTagsOf = ticketId => mockData.tagAssignments
+  .filter(a => String(a.ticket_id) === String(ticketId))
+  .map(a => ({ ...(mockData.tags.find(t => t.id === a.tag_id) || {}), assignment_id: a.id, assigned_at: a.created_at }));
 
 const STANDARD_REPORT_COLUMNS = [
   { field_name: 'ticket_number', display_name: 'Ticket #', field_type: 'standard' },
@@ -346,6 +362,48 @@ app.get('/exec', (req, res) => {
         res.json(createResponse(true, []));
         break;
 
+      // v9.3 reads
+      case 'getDropdownCompanyAssignments':
+        res.json(createResponse(true, mockData.dropdownAccess[req.query.dropdown_list_id] || []));
+        break;
+
+      case 'getCompanySLARules':
+        res.json(createResponse(true, mockData.slaRules.filter(r => r.company_id === req.query.company_id &&
+          (!req.query.ticket_type_id || r.ticket_type_id === req.query.ticket_type_id))));
+        break;
+
+      case 'getTags':
+        res.json(createResponse(true, mockData.tags.filter(t => !req.query.company_id || !t.company_id || t.company_id === req.query.company_id)));
+        break;
+
+      case 'getTicketTags':
+        res.json(createResponse(true, ticketTagsOf(req.query.ticket_id)));
+        break;
+
+      case 'searchTicketsByTags': {
+        const wanted = String(req.query.tag_ids || '').split(',').filter(Boolean);
+        const excluded = String(req.query.exclude_tag_ids || '').split(',').filter(Boolean);
+        const all = String(req.query.operator || 'OR').toUpperCase() === 'AND';
+        const ids = mockData.tickets.map(t => String(t.id)).filter(id => {
+          const tags = mockData.tagAssignments.filter(a => String(a.ticket_id) === id).map(a => a.tag_id);
+          if (excluded.some(tag => tags.includes(tag))) return false;
+          if (wanted.length === 0) return excluded.length > 0;
+          return all ? wanted.every(tag => tags.includes(tag)) : wanted.some(tag => tags.includes(tag));
+        });
+        res.json(createResponse(true, { ticket_ids: ids, operator: all ? 'AND' : 'OR' }));
+        break;
+      }
+
+      case 'getTicketShares':
+        res.json(createResponse(true, mockData.shares.filter(sh => String(sh.ticket_id) === String(req.query.ticket_id))));
+        break;
+
+      case 'getSharedTickets':
+        res.json(createResponse(true, mockData.shares
+          .filter(sh => sh.shared_with_user_id === req.query.user_id)
+          .map(sh => ({ ...(mockData.tickets.find(t => String(t.id) === String(sh.ticket_id)) || {}), share: { id: sh.id, permission_level: sh.permission_level, via: 'user' } }))));
+        break;
+
       default:
         res.json(createResponse(false, null, `Unknown action: ${action}`));
     }
@@ -551,6 +609,116 @@ app.post('/exec', (req, res) => {
             columns: payload.columns.map(c => ({ ...(STANDARD_REPORT_COLUMNS.find(st => st.field_name === c.field_name) || { field_type: 'custom' }), ...c })) }]);
         adminLog(payload.user_id, 'SAVE_REPORT_CONFIG', 'ticket_type', payload.ticket_type_id, { company_id: payload.company_id || '' });
         res.json(createResponse(true, reportConfigFor(payload.ticket_type_id, payload.company_id)));
+        break;
+
+      // v9.3 writes
+      case 'updateDropdownCompanyAssignments': {
+        const global = (payload.assignments || []).some(a => a.is_global);
+        mockData.dropdownAccess[payload.dropdown_list_id] = global
+          ? [{ id: generateId('dca'), dropdown_list_id: payload.dropdown_list_id, company_id: '', is_global: true, is_active: true }]
+          : (payload.assignments || []).map(a => ({ id: generateId('dca'), dropdown_list_id: payload.dropdown_list_id, company_id: a.company_id, is_global: false, is_active: true }));
+        res.json(createResponse(true, mockData.dropdownAccess[payload.dropdown_list_id]));
+        break;
+      }
+
+      case 'assignDropdownToCompany':
+      case 'assignDropdownGlobally':
+      case 'removeDropdownCompanyAssignment':
+        res.json(createResponse(true, mockData.dropdownAccess[payload.dropdown_list_id] || []));
+        break;
+
+      case 'createCompanySLARule': {
+        const rule = { ...payload, id: generateId('csla'), is_active: true, created_at: new Date().toISOString() };
+        mockData.slaRules.push(rule);
+        res.json(createResponse(true, rule));
+        break;
+      }
+
+      case 'updateCompanySLARule': {
+        const rule = mockData.slaRules.find(r => r.id === payload.rule_id);
+        if (!rule) return res.json(createResponse(false, null, 'SLA rule not found'));
+        Object.assign(rule, payload);
+        res.json(createResponse(true, rule));
+        break;
+      }
+
+      case 'deleteCompanySLARule':
+        mockData.slaRules = mockData.slaRules.filter(r => r.id !== payload.rule_id);
+        res.json(createResponse(true, { id: payload.rule_id, deleted: true }));
+        break;
+
+      case 'exportConfiguration':
+        res.json(createResponse(true, { format: 'jarvis-config', api_version: 'mock', company: { id: payload.company_id },
+          workflow_steps: mockData.workflowSteps.filter(st => st.company_id === payload.company_id), counts: {} }));
+        break;
+
+      case 'createConfigurationBackup':
+        res.json(createResponse(true, { file_id: 'mock_file', url: 'https://drive.google.com/', name: 'mock-backup.json', size: 0 }));
+        break;
+
+      case 'importConfiguration':
+        res.json(createResponse(true, { dry_run: payload.dry_run !== false, actions: [{ area: 'workflows', action: 'skip', detail: 'Mock server: import is not simulated' }], counts: { skip: 1 } }));
+        break;
+
+      case 'setTicketTypeFeatures': {
+        const current = mockData.typeFeatures[payload.ticket_type_id] || {};
+        ['enable_tags', 'enable_sharing'].forEach(key => { if (payload[key] !== undefined) current[key] = isOn(payload[key]); });
+        mockData.typeFeatures[payload.ticket_type_id] = current;
+        const type = mockData.ticketTypes.find(t => t.id === payload.ticket_type_id);
+        if (type) Object.assign(type, current);
+        res.json(createResponse(true, { ticket_type_id: payload.ticket_type_id, ...current, tags_locked: false, sharing_locked: false }));
+        break;
+      }
+
+      case 'createTag': {
+        const tag = { id: generateId('tag'), name: payload.name, color: payload.color || '#3B82F6', company_id: payload.company_id || '', usage_count: 0, is_global: !payload.company_id };
+        mockData.tags.push(tag);
+        res.json(createResponse(true, tag));
+        break;
+      }
+
+      case 'updateTag': {
+        const tag = mockData.tags.find(t => t.id === payload.tag_id);
+        if (tag) Object.assign(tag, payload);
+        res.json(createResponse(!!tag, tag || null, tag ? null : 'Tag not found'));
+        break;
+      }
+
+      case 'deleteTag':
+        mockData.tags = mockData.tags.filter(t => t.id !== payload.tag_id);
+        res.json(createResponse(true, { id: payload.tag_id, deleted: true }));
+        break;
+
+      case 'assignTags': {
+        const found = ticketTypeOf(payload.ticket_id);
+        if (!found || !found.features.enable_tags) return res.json(createResponse(false, null, 'Tags are turned off for this ticket type'));
+        [].concat(payload.tag_ids || []).forEach(tagId => {
+          if (!mockData.tagAssignments.some(a => String(a.ticket_id) === String(payload.ticket_id) && a.tag_id === tagId)) {
+            mockData.tagAssignments.push({ id: generateId('tta'), ticket_id: payload.ticket_id, tag_id: tagId, created_at: new Date().toISOString() });
+          }
+        });
+        res.json(createResponse(true, ticketTagsOf(payload.ticket_id)));
+        break;
+      }
+
+      case 'removeTags':
+        mockData.tagAssignments = mockData.tagAssignments.filter(a => !(String(a.ticket_id) === String(payload.ticket_id) && [].concat(payload.tag_ids || []).includes(a.tag_id)));
+        res.json(createResponse(true, ticketTagsOf(payload.ticket_id)));
+        break;
+
+      case 'shareTicket': {
+        const found = ticketTypeOf(payload.ticket_id);
+        if (!found || !found.features.enable_sharing) return res.json(createResponse(false, null, 'Sharing is turned off for this ticket type'));
+        const share = { ...payload, id: generateId('share'), shared_by_user_id: payload.user_id, shared_at: new Date().toISOString(),
+          shared_with_user_name: payload.shared_with_user_id, shared_with_company_name: payload.shared_with_company_id, shared_by_user_name: payload.user_id };
+        mockData.shares.push(share);
+        res.json(createResponse(true, share));
+        break;
+      }
+
+      case 'revokeTicketShare':
+        mockData.shares = mockData.shares.filter(sh => sh.id !== payload.collaboration_id);
+        res.json(createResponse(true, { id: payload.collaboration_id, revoked: true }));
         break;
 
       case 'saveCommentRequirements':

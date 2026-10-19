@@ -22,12 +22,20 @@ const AdminDropdownManager = () => {
       return dropdownLists;
     }
 
+    // AppScript v9.3: availability comes from the company assignments; a list that never had one keeps its
+    // own company_id (blank = every company)
+    const isGlobal = list => (list.availability
+      ? list.availability.mode === 'global' || (list.availability.mode === 'legacy' && list.availability.global)
+      : !list.company_id);
+
     if (selectedCompany === 'global') {
-      return dropdownLists.filter(list => !list.company_id);
+      return dropdownLists.filter(isGlobal);
     }
 
-    // Filter by specific company
-    return dropdownLists.filter(list => list.company_id === selectedCompany);
+    // Lists the selected company can use (its own + global)
+    return dropdownLists.filter(list => isGlobal(list) || (list.availability
+      ? (list.availability.company_ids || []).map(String).includes(String(selectedCompany))
+      : String(list.company_id) === String(selectedCompany)));
   }, [dropdownLists, selectedCompany]);
 
   const handleManageCompanies = (list) => {
@@ -38,11 +46,18 @@ const AdminDropdownManager = () => {
   const handleUpdateCompanyAssignments = async (listId, companyAssignments) => {
     setIsSubmitting(true);
     try {
-      // Company assignment management is not yet implemented in AppScript v6.0
-      showError('Company assignment management is not yet implemented in the backend. This feature will be available in AppScript v6.1+');
+      // AppScript v9.3: the list's access becomes exactly this set (global, some companies, or none = draft)
+      await dropdownAPI.updateCompanyAssignments(listId, companyAssignments);
+      const isGlobal = companyAssignments.some(a => a.is_global);
+      success(isGlobal
+        ? 'Available to all companies'
+        : companyAssignments.length
+          ? `Available to ${companyAssignments.length} compan${companyAssignments.length === 1 ? 'y' : 'ies'}`
+          : 'Draft: no company can use this list');
 
       setShowCompanyAssignments(false);
       setManagingList(null);
+      refetch();
     } catch (error) {
       console.error('Update company assignments failed:', error);
       const errorMessage = error.message || 'Failed to update company assignments.';
@@ -111,6 +126,15 @@ const AdminDropdownManager = () => {
   };
 
   const getAssignedCompanies = (list) => {
+    // AppScript v9.3 availability: global | companies | draft | legacy (never assigned - its own company_id)
+    if (list.availability) {
+      const { mode, company_ids: companyIds = [], global } = list.availability;
+      if (mode === 'global' || (mode === 'legacy' && global)) return 'Global (All Companies)';
+      if (mode === 'draft') return 'Draft (No Company Access)';
+      if (companyIds.length === 1) return getCompanyName(companyIds[0]);
+      return `${companyIds.length} Companies`;
+    }
+
     // Check if assignments are available in the list object
     if (list.assignments) {
       const globalAssignment = list.assignments.find(a => a.is_global && a.is_active);

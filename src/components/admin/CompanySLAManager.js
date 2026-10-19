@@ -16,7 +16,7 @@ import Icons from '../shared/Icons';
 const CompanySLAManager = () => {
   const { data: companies, loading: companiesLoading } = useCompanies();
   const { data: ticketTypes, loading: ticketTypesLoading } = useTicketTypes();
-  const { success, error: showError } = useToast();
+  const { ToastContainer, success, error: showError } = useToast();
 
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [selectedTicketTypeId, setSelectedTicketTypeId] = useState('');
@@ -76,7 +76,7 @@ const CompanySLAManager = () => {
       setSlaRules(rules || []);
     } catch (error) {
       console.error('Failed to load SLA rules:', error);
-      showError('Failed to load SLA rules');
+      showError(error.message || 'Failed to load SLA rules');
     } finally {
       setIsLoading(false);
     }
@@ -119,7 +119,7 @@ const CompanySLAManager = () => {
       resetForm();
     } catch (error) {
       console.error('Failed to save SLA rule:', error);
-      showError('Failed to save SLA rule');
+      showError(error.message || 'Failed to save SLA rule');
     }
   };
 
@@ -132,7 +132,7 @@ const CompanySLAManager = () => {
       loadSLARules();
     } catch (error) {
       console.error('Failed to delete SLA rule:', error);
-      showError('Failed to delete SLA rule');
+      showError(error.message || 'Failed to delete SLA rule');
     }
   };
 
@@ -201,6 +201,8 @@ const CompanySLAManager = () => {
     if (selectedCompanyId && selectedTicketTypeId) {
       loadSLARules();
     }
+    // loadSLARules is rebuilt each render; the selection is what should reload the rules
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCompanyId, selectedTicketTypeId]);
 
   if (companiesLoading || ticketTypesLoading) {
@@ -214,12 +216,17 @@ const CompanySLAManager = () => {
 
   return (
     <div className="space-y-6">
+      <ToastContainer />
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Company-Specific SLA Manager</h2>
           <p className="text-gray-600 mt-1">
             Configure SLA rules and escalations for specific companies and ticket types
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            These are the company's SLA targets, escalation contacts and business hours (saved with AppScript v9.3).
+            A ticket's due date still comes from the SLA set on each workflow step (Admin - Workflows).
           </p>
         </div>
       </div>

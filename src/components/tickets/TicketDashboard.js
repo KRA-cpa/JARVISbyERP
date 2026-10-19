@@ -1,13 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useUser } from '../../contexts/UserContext';
-import { useTickets, useCompanies, useTicketTypes, useTicketsForApproval } from '../../hooks/useAPI';
+import { useTickets, useCompanies, useTicketTypes, useTicketsForApproval, useTags, useSharedTickets } from '../../hooks/useAPI';
 import { API } from '../../api/googleSheet';
 import { useToast } from '../shared/Toast';
 import { useConfirmation } from '../shared/ConfirmationModal';
 import Icons from '../shared/Icons';
 import TicketForm from './TicketForm';
 import TicketDetail from './TicketDetail';
+import TagSearchFilter from '../shared/TagSearchFilter';
 
 // Ticket statuses that end the workflow (AppScript TERMINAL_TICKET_STATUSES)
 const TERMINAL_STATUSES = ['completed', 'rejected', 'cancelled'];
@@ -20,6 +21,7 @@ const TERMINAL_STATUSES = ['completed', 'rejected', 'cancelled'];
  * - Create opens TicketForm; a row opens TicketDetail (WorkflowStep approves / rejects / returns there)
  * - Bulk approve / reject applies to tickets in the approval inbox, one submitStepApproval per ticket, and
  *   reports the tickets that failed (e.g. a required comment, or the ticket moved on meanwhile)
+ * - Tag filter (when a ticket type has tags on) and "Shared with me" (AppScript v9.3)
  * - Chained view (spec 3.4): a ticket created by a workflow step (AppScript v9.2 chained_children /
  *   chained_parent) is listed under its parent, which expands to show it
  */
@@ -30,6 +32,13 @@ const TicketDashboard = () => {
   const { data: companies } = useCompanies();
   const { data: ticketTypes } = useTicketTypes();
   const { data: approvalInbox, refetch: refetchInbox } = useTicketsForApproval(currentUserId);
+  const { data: sharedWithMe, refetch: refetchShared } = useSharedTickets(currentUserId);
+  // Tag filter only when some ticket type has tags turned on
+  const tagsInUse = (ticketTypes || []).some(t => t.enable_tags === true || String(t.enable_tags).toUpperCase() === 'TRUE');
+  const { data: allTags } = useTags(null, tagsInUse);
+  const [tagFilter, setTagFilter] = useState(null);
+  const [tagMatchIds, setTagMatchIds] = useState(null);
+  const handleTagFilterChange = useCallback(filters => setTagFilter(filters), []);
   const { ToastContainer, success, error: showError, warning } = useToast();
 
   // Modal hooks
@@ -43,7 +52,7 @@ const TicketDashboard = () => {
     company: '',
     status: '',
     priority: '',
-    show: ['mine', 'approval'].includes(searchParams.get('show')) ? searchParams.get('show') : 'all', // all | mine | approval
+    show: ['mine', 'approval', 'shared'].includes(searchParams.get('show')) ? searchParams.get('show') : 'all', // all | mine | approval | shared
     dateRange: 'all',
     slaStatus: SLA_FILTERS.includes(searchParams.get('sla')) ? searchParams.get('sla') : 'all'
   }));
@@ -60,6 +69,7 @@ const TicketDashboard = () => {
   const [expandedIds, setExpandedIds] = useState(() => new Set());
 
   const approvalIds = new Set((approvalInbox || []).map(t => String(t.id)));
+  const sharedIds = new Set((sharedWithMe || []).map(t => String(t.id)));
   const ticketById = new Map((tickets || []).map(t => [String(t.id), t]));
 
   const toggleExpanded = (ticketId) => setExpandedIds(prev => {
@@ -74,7 +84,30 @@ const TicketDashboard = () => {
   const refreshAll = () => {
     refetch();
     refetchInbox();
+    refetchShared();
   };
+
+  // Ask the backend which tickets match the tag filter (AND / OR / excluded tags)
+  const tagFilterKey = tagFilter?.hasFilters
+    ? JSON.stringify([tagFilter.selectedTags.map(t => t.id), tagFilter.excludedTags.map(t => t.id), tagFilter.operator])
+    : '';
+  useEffect(() => {
+    if (!tagFilterKey) {
+      setTagMatchIds(null);
+      return;
+    }
+    let cancelled = false;
+    API.Tags.search({
+      tagIds: tagFilter.selectedTags.map(t => t.id),
+      excludeTagIds: tagFilter.excludedTags.map(t => t.id),
+      operator: tagFilter.operator
+    })
+      .then(ids => { if (!cancelled) setTagMatchIds(new Set(ids.map(String))); })
+      .catch(err => { if (!cancelled) showError(err.message || 'Tag search failed'); });
+    return () => { cancelled = true; };
+    // tagFilter is summed up by tagFilterKey; showError is new each render
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tagFilterKey]);
 
   // Filter and sort tickets
   const filteredTickets = tickets?.filter(ticket => {
@@ -89,7 +122,9 @@ const TicketDashboard = () => {
     const priorityMatch = !filters.priority || ticket.priority === filters.priority;
     const showMatch = filters.show === 'all' ||
       (filters.show === 'mine' && String(ticket.requester_id) === String(currentUserId)) ||
-      (filters.show === 'approval' && approvalIds.has(String(ticket.id)));
+      (filters.show === 'approval' && approvalIds.has(String(ticket.id))) ||
+      (filters.show === 'shared' && sharedIds.has(String(ticket.id)));
+    const tagMatch = !tagMatchIds || tagMatchIds.has(String(ticket.id));
 
     const dateMatch = (() => {
       if (filters.dateRange === 'all') return true;
@@ -127,7 +162,7 @@ const TicketDashboard = () => {
       }
     })();
 
-    return searchMatch && companyMatch && statusMatch && priorityMatch && showMatch && dateMatch && slaMatch;
+    return searchMatch && companyMatch && statusMatch && priorityMatch && showMatch && tagMatch && dateMatch && slaMatch;
   }) || [];
 
   // A chained child whose parent is also in the list is shown under the parent, not at the top level
@@ -491,7 +526,8 @@ const TicketDashboard = () => {
           {[
             { id: 'all', label: 'All tickets' },
             { id: 'mine', label: 'My tickets' },
-            { id: 'approval', label: `Waiting for my approval (${approvalInbox?.length || 0})` }
+            { id: 'approval', label: `Waiting for my approval (${approvalInbox?.length || 0})` },
+            ...(sharedWithMe?.length ? [{ id: 'shared', label: `Shared with me (${sharedWithMe.length})` }] : [])
           ].map(option => (
             <button
               key={option.id}
@@ -504,6 +540,11 @@ const TicketDashboard = () => {
             </button>
           ))}
         </div>
+
+        {/* Tag filter - only when a ticket type has tags turned on */}
+        {tagsInUse && (
+          <TagSearchFilter availableTags={allTags || []} onFilterChange={handleTagFilterChange} />
+        )}
 
         {/* Search and Filters */}
         <div className="bg-white border border-gray-200 rounded-lg p-4">

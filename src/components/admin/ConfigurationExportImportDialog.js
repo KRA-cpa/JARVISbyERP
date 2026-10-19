@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useCompanies, useTicketTypes } from '../../hooks/useAPI';
+import { useUser } from '../../contexts/UserContext';
 import { API } from '../../api/googleSheet';
 import { useToast } from '../shared/Toast';
 import Icons from '../shared/Icons';
@@ -12,10 +13,12 @@ import Icons from '../shared/Icons';
  * - Import configurations to target companies
  * - Preview and selective import capabilities
  */
-const ConfigurationExportImportDialog = ({ isOpen, onClose, onSuccess, mode = 'export' }) => {
+const ConfigurationExportImportDialog = ({ isOpen, onClose, onSuccess, mode: initialMode = 'export' }) => {
+  const { user } = useUser();
+  const userId = user?.uid || user?.id;
   const { data: companies } = useCompanies();
   const { data: ticketTypes } = useTicketTypes();
-  const { success, error: showError } = useToast();
+  const { ToastContainer, success, error: showError } = useToast();
 
   const [formData, setFormData] = useState({
     sourceCompanyId: '',
@@ -34,7 +37,8 @@ const ConfigurationExportImportDialog = ({ isOpen, onClose, onSuccess, mode = 'e
   const [formError, setFormError] = useState('');
   const [exportedData, setExportedData] = useState(null);
   const [importPreview, setImportPreview] = useState(null);
-  const [currentStep, setCurrentStep] = useState(mode === 'export' ? 'configure-export' : 'configure-import');
+  const [mode, setMode] = useState(initialMode);
+  const [currentStep, setCurrentStep] = useState(initialMode === 'export' ? 'configure-export' : 'configure-import');
 
   const exportableItems = [
     { key: 'exportWorkflows', label: 'Workflow Steps & Configurations', description: 'Complete workflow definitions including steps, approvers, and conditions' },
@@ -76,6 +80,7 @@ const ConfigurationExportImportDialog = ({ isOpen, onClose, onSuccess, mode = 'e
     setIsProcessing(true);
     try {
       const exportResponse = await API.System.exportConfiguration({
+        user_id: userId,
         company_id: formData.sourceCompanyId,
         ticket_type_ids: formData.ticketTypeIds,
         include_workflows: formData.exportWorkflows,
@@ -99,7 +104,8 @@ const ConfigurationExportImportDialog = ({ isOpen, onClose, onSuccess, mode = 'e
     }
   };
 
-  const handleImport = async () => {
+  // dryRun (AppScript v9.3): list what would happen per target company, change nothing
+  const handleImport = async (dryRun = true) => {
     if (!validateForm()) return;
 
     setIsProcessing(true);
@@ -110,9 +116,10 @@ const ConfigurationExportImportDialog = ({ isOpen, onClose, onSuccess, mode = 'e
         const targetCompany = companies?.find(c => c.id === targetCompanyId);
 
         try {
-          // Create backup if requested
-          if (formData.createBackup) {
+          // Create backup if requested (a JSON file in the script owner's Drive)
+          if (formData.createBackup && !dryRun) {
             await API.System.createConfigurationBackup({
+              user_id: userId,
               company_id: targetCompanyId,
               backup_name: `pre-import-${new Date().toISOString().split('T')[0]}`
             });
@@ -120,6 +127,8 @@ const ConfigurationExportImportDialog = ({ isOpen, onClose, onSuccess, mode = 'e
 
           // Import configuration
           const importResponse = await API.System.importConfiguration({
+            user_id: userId,
+            dry_run: dryRun,
             source_company_id: formData.sourceCompanyId,
             target_company_id: targetCompanyId,
             ticket_type_ids: formData.ticketTypeIds,
@@ -144,6 +153,12 @@ const ConfigurationExportImportDialog = ({ isOpen, onClose, onSuccess, mode = 'e
             error: error.message
           });
         }
+      }
+
+      setImportPreview(results);
+      if (dryRun) {
+        setCurrentStep('import-preview');
+        return;
       }
 
       // Show results summary
@@ -218,6 +233,7 @@ const ConfigurationExportImportDialog = ({ isOpen, onClose, onSuccess, mode = 'e
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
+      <ToastContainer />
       <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
         {/* Background overlay */}
         <div
@@ -455,6 +471,42 @@ const ConfigurationExportImportDialog = ({ isOpen, onClose, onSuccess, mode = 'e
               </div>
             )}
 
+            {/* Import preview (dry run) / result: what happens per target company */}
+            {(currentStep === 'import-preview' || currentStep === 'import-complete') && importPreview && (
+              <div className="space-y-4">
+                <p className="text-sm text-gray-700">
+                  {currentStep === 'import-preview'
+                    ? 'Dry run - nothing has changed yet. Check the list, then apply.'
+                    : 'Import finished.'}
+                </p>
+                {importPreview.map(result => (
+                  <div key={result.company} className="border border-gray-200 rounded-lg p-3">
+                    <h5 className="font-medium text-gray-900 mb-2">{result.company}</h5>
+                    {!result.success ? (
+                      <p className="text-sm text-red-600">{result.error}</p>
+                    ) : (result.data?.actions || []).length === 0 ? (
+                      <p className="text-sm text-gray-500">Nothing to copy</p>
+                    ) : (
+                      <ul className="text-sm space-y-1">
+                        {result.data.actions.map((action, index) => (
+                          <li key={index} className="flex gap-2">
+                            <span className={`px-1.5 rounded text-xs font-medium ${{
+                              copy: 'bg-green-100 text-green-800',
+                              replace: 'bg-yellow-100 text-yellow-800',
+                              refused: 'bg-red-100 text-red-800',
+                              error: 'bg-red-100 text-red-800'
+                            }[action.action] || 'bg-gray-100 text-gray-700'}`}>{action.action}</span>
+                            <span className="text-gray-500">{action.area}</span>
+                            <span className="text-gray-800">{action.detail}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Warning note */}
             <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
               <div className="flex">
@@ -464,8 +516,8 @@ const ConfigurationExportImportDialog = ({ isOpen, onClose, onSuccess, mode = 'e
                 <div className="ml-3">
                   <p className="text-sm text-yellow-700">
                     <strong>Important:</strong> {mode === 'export'
-                      ? 'This will export all configurations for the selected ticket types. Sensitive data will be excluded.'
-                      : 'This operation will modify configurations in target companies. Create backups before proceeding.'
+                      ? 'This will export all configurations for the selected ticket types. Ticket data is not included.'
+                      : 'Import copies the source company\'s setup into each target company. Existing workflows are kept unless you tick overwrite; custom fields are shared by every company already.'
                     }
                   </p>
                 </div>
@@ -485,16 +537,34 @@ const ConfigurationExportImportDialog = ({ isOpen, onClose, onSuccess, mode = 'e
                   Download Export
                 </button>
                 <button
-                  onClick={() => setCurrentStep('configure-import')}
+                  onClick={() => { setMode('import'); setCurrentStep('configure-import'); }}
                   className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                 >
                   Import to Companies
                 </button>
               </>
-            ) : (
+            ) : currentStep === 'import-preview' ? (
               <>
                 <button
-                  onClick={mode === 'export' ? handleExport : handleImport}
+                  onClick={() => handleImport(false)}
+                  disabled={isProcessing}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
+                >
+                  <Icons.Upload size={16} className="mr-2" />
+                  {isProcessing ? 'Importing...' : 'Apply Import'}
+                </button>
+                <button
+                  onClick={() => setCurrentStep('configure-import')}
+                  disabled={isProcessing}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Back
+                </button>
+              </>
+            ) : currentStep === 'import-complete' ? null : (
+              <>
+                <button
+                  onClick={mode === 'export' ? handleExport : () => handleImport(true)}
                   disabled={isProcessing}
                   className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:ml-3 sm:w-auto sm:text-sm disabled:opacity-50"
                 >
@@ -506,7 +576,7 @@ const ConfigurationExportImportDialog = ({ isOpen, onClose, onSuccess, mode = 'e
                   ) : (
                     <>
                       {mode === 'export' ? <Icons.Download size={16} className="mr-2" /> : <Icons.Upload size={16} className="mr-2" />}
-                      {mode === 'export' ? 'Export Configuration' : 'Import Configuration'}
+                      {mode === 'export' ? 'Export Configuration' : 'Preview Import (dry run)'}
                     </>
                   )}
                 </button>
@@ -518,7 +588,7 @@ const ConfigurationExportImportDialog = ({ isOpen, onClose, onSuccess, mode = 'e
               disabled={isProcessing}
               className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
             >
-              {currentStep === 'export-complete' ? 'Close' : 'Cancel'}
+              {currentStep === 'export-complete' || currentStep === 'import-complete' ? 'Close' : 'Cancel'}
             </button>
           </div>
         </div>

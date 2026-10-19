@@ -18,6 +18,8 @@ import AdminWorkflowBuilder from '../components/admin/AdminWorkflowBuilder';
 import CrossCompanyTicketLinker from '../components/admin/CrossCompanyTicketLinker';
 import AdminReportConfigManager from '../components/admin/AdminReportConfigManager';
 import AdminAuditLogViewer from '../components/admin/AdminAuditLogViewer';
+import CompanySLAManager from '../components/admin/CompanySLAManager';
+import AdminSystemBackup from '../components/admin/AdminSystemBackup';
 import APIConnectionStatus from '../components/admin/APIConnectionStatus';
 import Footer from '../components/shared/Footer';
 
@@ -209,6 +211,20 @@ const AdminPage = () => {
       component: AdminAuditLogViewer
     },
     {
+      id: 'sla-rules',
+      name: 'SLA Rules',
+      icon: Icons.Clock,
+      description: 'Company SLA targets, escalation and business hours per ticket type step',
+      component: CompanySLAManager
+    },
+    {
+      id: 'system',
+      name: 'System & Backup',
+      icon: Icons.Settings,
+      description: 'Schema health, configuration backup to Drive, export and company-to-company import',
+      component: AdminSystemBackup
+    },
+    {
       id: 'dropdowns',
       name: 'Dropdown Lists',
       icon: Icons.ChevronDown,
@@ -308,6 +324,10 @@ const AdminPage = () => {
         return 'Columns per type';
       case 'audit-log':
         return 'Who changed what';
+      case 'sla-rules':
+        return 'Per company';
+      case 'system':
+        return 'Health + backup';
       case 'dropdowns':
         if (dropdownsLoading) return 'Loading...';
         return `${dropdownLists?.length || 0} lists`;

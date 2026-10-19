@@ -4,6 +4,8 @@ import { useCompanies, useTicketTypes, useUsers, useTicketHistory, useTicketMuta
 import { getSLAStatus } from '../../utils/slaCalculator';
 import { useToast } from '../shared/Toast';
 import WorkflowStep from './WorkflowStep';
+import TicketTagManager from './TicketTagManager';
+import TicketCollaborationManager from './TicketCollaborationManager';
 import Icons from '../shared/Icons';
 
 // Ticket statuses that end the workflow (AppScript TERMINAL_TICKET_STATUSES)
@@ -334,10 +336,17 @@ const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
     </div>
   );
 
+  // Tags / Sharing tabs only when the ticket type has them turned on (AppScript v9.3 setTicketTypeFeatures)
+  const isOn = value => value === true || String(value).toUpperCase() === 'TRUE';
+  const tagsOn = isOn(ticketType?.enable_tags);
+  const sharingOn = isOn(ticketType?.enable_sharing);
+
   const tabs = [
     { id: 'details', name: 'Details', icon: Icons.Info },
     { id: 'workflow', name: 'Workflow', icon: Icons.Workflow },
     { id: 'history', name: 'History', icon: Icons.History, count: (history || []).length },
+    ...(tagsOn ? [{ id: 'tags', name: 'Tags', icon: Icons.Tag }] : []),
+    ...(sharingOn ? [{ id: 'sharing', name: 'Sharing', icon: Icons.Share }] : []),
     { id: 'actions', name: 'Actions', icon: Icons.Create }
   ];
 
@@ -400,6 +409,22 @@ const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
             {activeTab === 'history' && renderHistoryTab()}
             {activeTab === 'actions' && renderActionsTab()}
             {activeTab === 'workflow' && renderWorkflowTab()}
+            {activeTab === 'tags' && tagsOn && (
+              <TicketTagManager
+                ticketId={ticket.id}
+                companyId={ticket.company_id}
+                currentUserId={currentUserId}
+                canEdit={!isClosed}
+              />
+            )}
+            {activeTab === 'sharing' && sharingOn && (
+              <TicketCollaborationManager
+                ticketId={ticket.id}
+                companyId={ticket.company_id}
+                currentUserId={currentUserId}
+                canShare={isRequester || Boolean(isAdmin)}
+              />
+            )}
           </div>
         </div>
       </div>

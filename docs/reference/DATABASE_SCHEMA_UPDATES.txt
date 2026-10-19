@@ -28,11 +28,34 @@
 
 ---
 
-## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v9.1)
+## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v9.3)
 
-`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v9.1_20261019_1400.txt` is now the single source of truth
-for the headers of all 33 tables (25 in SHEETS + 8 in TAG_SHEETS). Where this document and the code
-disagree, the code wins.
+`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v9.3_20261019_2015.txt` is now the single source of truth
+for the headers of all 35 tables (v9.3 moved the tag / sharing names from TAG_SHEETS into SHEETS). Where this
+document and the code disagree, the code wins.
+
+**v9.3 (October 19, 2026) — 2 new tables, ticket_types: 10 → 12 columns.**
+- `dropdown_company_assignments` (12): id, dropdown_list_id, company_id, is_global + audit / deactivation columns.
+  Live rows decide who can use a list: a global row = every company; company rows = those companies; rows that were
+  all removed = a draft only admins see. A list that never had a row keeps its pre-v9.3 meaning (its own company_id,
+  blank = every company). Removing access deactivates the row.
+- `company_sla_rules` (25): id, company_id, ticket_type_id, step_name, duration, unit (minutes / hours / days /
+  business_hours / business_days), exclude_weekends, exclude_holidays, escalation_enabled, escalation_delay,
+  escalation_unit, escalation_recipients (JSON list), warning_threshold (%), business_hours_start / _end,
+  business_days (JSON list, 0 = Sunday), timezone + audit / deactivation columns. One live rule per (company, ticket
+  type, step name). Reference targets: ticket due dates still come from the step SLA (step_slas).
+- `ticket_types` + `enable_tags, enable_sharing` (COLUMN_DEFAULTS: FALSE). Turning one off is refused once a ticket
+  of the type has a live tag / share, so nothing is orphaned.
+- Tags and sharing (Phase 11 tables, unchanged columns) are written by header now: `ticket_tags` (unique name per
+  scope; blank company_id = global), `ticket_tag_assignments` (removal writes deleted_*), `ticket_collaborations`
+  (permission_level view / comment; revoke writes revoked_*; expiration_date ends a share), `collaboration_notifications`
+  (one row when a ticket is shared with a user). The old Phase 11 functions (positional writers) were removed.
+
+**v9.2 (October 19, 2026) — no column changes.** `step_conditions` rows now drive routing: one row per condition,
+`condition_group` = the route (rows in a group are ANDed, groups tried in order), `next_step_id` = the target (a later
+step, or `__end__` to complete the workflow); a group whose single row has no `custom_field_id` is the default route;
+`custom_field_id` may also be `field:priority` / `field:title`. `report_configurations` rows are a ticket type's report
+columns (company rows win over global rows); saving replaces the set and deactivates the old rows.
 
 **v9.1 (October 19, 2026) — ticket_links: 14 → 17 columns.** Appended: `enforce_blocking_rules, sync_status,
 notify_on_update` (COLUMN_DEFAULTS: FALSE for existing rows). Links are created by ticket number; a blocks /

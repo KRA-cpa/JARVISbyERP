@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import Icons from '../shared/Icons';
 import { useToast } from '../shared/Toast';
 import { useTicketTypes, useCompanies } from '../../hooks/useAPI';
+import { useUser } from '../../contexts/UserContext';
 import { API } from '../../api/googleSheet';
+
+// Sheet booleans arrive as true / 'TRUE'
+const isOn = value => value === true || String(value).toUpperCase() === 'TRUE';
 
 /**
  * AdminTicketTypeList Component
@@ -16,6 +20,7 @@ import { API } from '../../api/googleSheet';
  */
 const AdminTicketTypeList = () => {
   const navigate = useNavigate();
+  const { user } = useUser();
   const { success, error, ToastContainer } = useToast();
   const [loading, setLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -112,6 +117,23 @@ const AdminTicketTypeList = () => {
       refetchTicketTypes();
     } catch (err) {
       error(err.message || 'Failed to deactivate ticket type');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Tags / sharing switches (AppScript v9.3): off by default; the backend refuses turning one off once a
+  // ticket of this type is tagged / shared, so nothing is orphaned
+  const handleToggleFeature = async (ticketType, feature) => {
+    const key = feature === 'tags' ? 'enable_tags' : 'enable_sharing';
+    const turnOn = !isOn(ticketType[key]);
+    setLoading(true);
+    try {
+      await API.TicketTypes.setFeatures(ticketType.id, { [key]: turnOn }, user?.uid || user?.id);
+      success(`${feature === 'tags' ? 'Tags' : 'Sharing'} turned ${turnOn ? 'on' : 'off'} for ${ticketType.name}`);
+      refetchTicketTypes();
+    } catch (err) {
+      error(err.message || 'Failed to change the setting');
     } finally {
       setLoading(false);
     }
@@ -218,6 +240,24 @@ const AdminTicketTypeList = () => {
                             Attachment Required
                           </span>
                         )}
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {[['tags', 'Tags', 'enable_tags', Icons.Tag], ['sharing', 'Sharing', 'enable_sharing', Icons.Share]].map(([feature, label, key, FeatureIcon]) => (
+                          <button
+                            key={feature}
+                            onClick={() => handleToggleFeature(ticketType, feature)}
+                            disabled={loading}
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border disabled:opacity-50 ${
+                              isOn(ticketType[key]) ? 'bg-green-50 text-green-800 border-green-200' : 'bg-gray-50 text-gray-600 border-gray-200'
+                            }`}
+                            title={isOn(ticketType[key])
+                              ? `${label} on - can be turned off only while no ticket of this type uses it`
+                              : `Turn ${label.toLowerCase()} on for this ticket type`}
+                          >
+                            <FeatureIcon size={12} className="mr-1" />
+                            {label}: {isOn(ticketType[key]) ? 'on' : 'off'}
+                          </button>
+                        ))}
                       </div>
                     </div>
 

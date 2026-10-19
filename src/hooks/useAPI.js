@@ -430,6 +430,24 @@ export const useUserPreferences = (userId) => {
   return { ...query, save };
 };
 
+// Live tags (a company's own + global when companyId is given); only fetched when enabled (AppScript v9.3)
+export const useTags = (companyId = null, enabled = true) => {
+  return useAPIData(
+    ['tags', companyId],
+    () => API.Tags.getAll(companyId),
+    { enabled }
+  );
+};
+
+// Tickets shared with the user, each with .share (AppScript v9.3)
+export const useSharedTickets = (userId) => {
+  return useAPIData(
+    ['shared_tickets', userId],
+    () => API.Sharing.getSharedWithMe(userId),
+    { enabled: !!userId }
+  );
+};
+
 // A workflow step's conditional routes (AppScript v9.2)
 export const useStepConditions = (stepId) => {
   return useAPIData(
@@ -1144,6 +1162,8 @@ const useAPIModule = {
   useTicketsForApproval,
   useCommentRequirements,
   useUserPreferences,
+  useTags,
+  useSharedTickets,
   useStepConditions,
   useReportConfig,
   useTicketActionLogs,

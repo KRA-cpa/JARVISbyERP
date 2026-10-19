@@ -307,7 +307,7 @@ Config
 | `src/api/googleSheet.js` | API | `makeRequest` throws on `success: false` and on a payload key `action`; `readActions` + `getCompany`, `getDropdownOptions`, `getUserPreferences`; new `StepApprovals.getApprovalEligibility`, `Users.updateRoleAssignment` / `deleteRoleAssignment` / `getExpiringAssignments` / `getGeneralRole`; `submitApproval` sends `decision`; `normalizeIsActive()` (module-private) | hooks |
 | `src/config/apiConfig.js` | Config | `API_ENDPOINTS` cut to the 3 names used inside the file (it never was a route list) | `apiConfig.js` only |
 
-- **Contract rule (compliance A12)**: every `makeRequest('<action>')` needs a `case` in the newest AppScript file — in `doGet` if the action is in `readActions`, else in `routePostAction`. `npm run check:api-contract` checks it; `scripts/api-contract-known-gaps.txt` lists the 31 actions still to route (v9.1/v9.2) and may only shrink.
+- **Contract rule (compliance A12)**: every `makeRequest('<action>')` needs a `case` in the newest AppScript file — in `doGet` if the action is in `readActions`, else in `routePostAction`. `npm run check:api-contract` checks it; `scripts/api-contract-known-gaps.txt` may only shrink (v9.3: no action left without a route).
 - **Response shape (v9.0 routes)**: `createDataResponse` unwraps the handler's `{status, data}`, so `response.data` is the records. Phase 10.0 routes still use `createHandlerResponse` + `unwrapHandlerResult()`.
 - **User id**: Firebase / dev users carry `uid` (no `id`); components use `user?.uid || user?.id`.
 - **Not used any more by WorkflowStep**: `useAutoWorkflowRouter` / `src/utils/approvalRouter.js` (client-side routing duplicated what `submitStepApproval` now does server-side; kept for other callers).
@@ -335,6 +335,33 @@ Until v9.1 nothing imported the ticket components or `AdminWorkflowBuilder`; `np
 
 - **Still unmounted** (backend or feature not ready, listed in `scripts/api-contract-known-gaps.txt`): `BulkOperationsManager` (+ its dialogs), `CompanySLAManager`, `ConfigurationExportImportDialog` (v9.2 routes), `ConditionalWorkflowBuilder` (no condition evaluator), tags / collaboration (Phase 11), `AdminSLAEscalationManager`, `RBACSettings`, superseded `AdminTicketTypeManager` / `AdminCustomFieldManager`, and shared `APITestPanel`, `ActionCommentModal`, `InfiniteLoopMonitor`, `SLANotificationSystem`, `SLAWidgets` (hidden), `UserPreferencesPanel`.
 - **Permissions**: the ticket screens gate approve / reject on the backend's eligibility (`getTicketsForApproval`, `canUserApprove`), not on `hasPermission('canApproveTickets')`, which only knows fixed role names (manager, approver, ...).
+
+### **🧭 WORKFLOW LOGIC, REPORTS, TAGS & SHARING (October 19, 2026 — AppScript v9.2 + v9.3)**
+
+| File | Layer | Imports (new in bold) | Used by |
+|---|---|---|---|
+| `src/pages/ReportsPage.js` | Page (new) | `useUser`, `Header`, `Footer`, **`TicketReport`** | `App.js` route `/reports` (ProtectedRoute) |
+| `src/components/tickets/TicketReport.js` | Component (new) | `useTicketTypes`, `useCompanies`, `useTickets`, `API.Reports.getData`, **`downloadCSV`** (utils), `TicketDetail` | `ReportsPage` |
+| `src/utils/csvExport.js` | Util (new) | - (RFC 4180 + formula-injection guard) | `TicketReport` |
+| `src/components/admin/ConditionalWorkflowBuilder.js` | Component (rewritten) | **`useCustomFields`**, **`useStepConditions`**, `CONDITION_OPERATORS` (utils), `API.WorkflowSteps.saveConditions` | `AdminWorkflowBuilder` (Routing button per step) |
+| `src/components/admin/AdminReportConfigManager.js` | Component (new) | `useTicketTypes`, `useCompanies`, **`useReportConfig`**, `API.Reports.saveConfig` | `AdminPage` tab **Reports** |
+| `src/components/admin/AdminAuditLogViewer.js` | Component (new) | `API.AuditLogs.getAdminLogs` | `AdminPage` tab **Audit Log** |
+| `src/components/admin/AdminSystemBackup.js` | Component (new) | **`APITestPanel`**, **`ConfigurationExportImportDialog`**, `API.System.createConfigurationBackup` | `AdminPage` tab **System & Backup** |
+| `src/components/admin/CompanySLAManager.js` | Component (now mounted) | `API.SLA` company rules (routed in v9.3) | `AdminPage` tab **SLA Rules** |
+| `src/components/admin/ConfigurationExportImportDialog.js` | Component (now mounted) | **`useUser`**; import = dry-run preview, then apply | `AdminSystemBackup` |
+| `src/components/admin/AdminDropdownManager.js` | Component | `dropdownAPI.updateCompanyAssignments` (was a "not implemented" message); filter by `availability` | `AdminPage` dropdowns tab |
+| `src/components/admin/AdminTicketTypeList.js` | Component | **`useUser`**, `API.TicketTypes.setFeatures` (Tags / Sharing pills) | `AdminPage` ticket types tab |
+| `src/components/tickets/TicketTagManager.js` | Component (rewritten, now mounted) | **`TagInput`**, `API.Tags` (was `fetch('/api/...')` + mock data) | `TicketDetail` tab **Tags** |
+| `src/components/tickets/TicketCollaborationManager.js` | Component (rewritten, now mounted) | `useUsers`, `useCompanies`, `API.Sharing` | `TicketDetail` tab **Sharing** |
+| `src/components/shared/TagInput.js`, `TagSearchFilter.js` | Shared (now mounted) | `Icons` | `TicketTagManager`, `TicketDashboard` |
+| `src/components/shared/SLAWidgets.js`, `SLANotificationSystem.js` | Shared (now mounted) | SLA hooks (open tickets only) | `DashboardPage` |
+| `src/components/shared/UserPreferencesPanel.js` | Shared (now mounted) | `API.Users.getPreferences` / `updatePreferences` with `uid` | `ProfilePage` |
+| `src/components/tickets/TicketDashboard.js` | Component | **`TagSearchFilter`**, **`useTags`**, **`useSharedTickets`**, `useSearchParams` (`?sla=`, `?show=`); chained parent/child rows | `TicketsPage` |
+| `src/components/tickets/TicketDetail.js` | Component | **`TicketTagManager`**, **`TicketCollaborationManager`**, **`useTicketActionLogs`** (admin system log) | `TicketDashboard`, `TicketReport` |
+| `src/hooks/useAPI.js` | Hooks | new **`useStepConditions`**, **`useReportConfig`**, **`useTicketActionLogs`**, **`useUserPreferences`**, **`useTags`**, **`useSharedTickets`**; SLA hooks skip closed tickets | components above |
+| `src/api/googleSheet.js` | API | v9.2 + v9.3 reads in `readActions`; new **`API.Reports`**, **`API.AuditLogs`**, **`API.Tags`**, **`API.Sharing`**; `WorkflowSteps.getConditions` / `saveConditions`; `TicketTypes.setFeatures`; `System.runTest` = read-only health check | hooks |
+
+- **Still unmounted** (`scripts/api-contract-known-gaps.txt`, 9 + 2 icons): `BulkOperationsManager` + `BulkRoleAssignmentDialog` / `BulkWorkflowDialog`, `AdminSLAEscalationManager`, `RBACSettings`, superseded `AdminTicketTypeManager` / `AdminCustomFieldManager`, `ActionCommentModal`, `InfiniteLoopMonitor`.
 
 ### **📊 DEPENDENCY IMPACT ANALYSIS**
 

@@ -45,6 +45,10 @@ const AdminTicketTypeCreatePage = () => {
     require_on_cancel: false
   });
 
+  // Tags / sharing switches (AppScript v9.3), saved after the type exists; off by default. Once a ticket of
+  // the type is tagged / shared they can't be turned off again.
+  const [features, setFeatures] = useState({ enable_tags: false, enable_sharing: false });
+
   // Activation state
   const [showActivationDialog, setShowActivationDialog] = useState(false);
   const [pendingActivation, setPendingActivation] = useState(null);
@@ -111,6 +115,10 @@ const AdminTicketTypeCreatePage = () => {
       if (hasCommentRequirements) {
         // AppScript v9.1: a company type's rule is that company's row; a global type's rule is the global row
         await API.TicketTypes.saveCommentRequirements(savedTicketType.id, commentRequirements, ticketTypeData.company_id);
+      }
+
+      if (features.enable_tags || features.enable_sharing) {
+        await API.TicketTypes.setFeatures(savedTicketType.id, features, user?.uid || user?.id);
       }
 
       // If user wants to activate immediately, show activation dialog
@@ -404,6 +412,21 @@ const AdminTicketTypeCreatePage = () => {
                           Require attachment on creation
                         </label>
                       </div>
+
+                      {[['enable_tags', 'Allow tags on these tickets'], ['enable_sharing', 'Allow sharing these tickets with other users or companies']].map(([key, label]) => (
+                        <div key={key} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={features[key]}
+                            onChange={(e) => setFeatures(prev => ({ ...prev, [key]: e.target.checked }))}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          />
+                          <label className="ml-2 block text-sm text-gray-900">{label}</label>
+                        </div>
+                      ))}
+                      <p className="text-xs text-gray-500">
+                        Tags and sharing can be turned off again only until the first ticket uses them.
+                      </p>
                     </div>
 
                     {/* Comment Requirements */}

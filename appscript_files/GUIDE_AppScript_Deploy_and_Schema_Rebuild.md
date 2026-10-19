@@ -2,7 +2,7 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.5.0
+Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.6.0
 Created: 17 October 2026 UTC+8 (Philippine Standard Time) | Modified: 19 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Step-by-step guide to paste a new AppScript version and rebuild all Google Sheet tables safely | Status: Active
 
@@ -14,6 +14,7 @@ REVISION HISTORY:
 - v1.3.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5 step 3: the New version description is copied from the file header's `Deploy description:` line (rule A11, from v8.4 on)
 - v1.4.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.0 (API contract routes, roles & approvals); deploy the frontend with it (breaking: approve payload, loud errors); roles 5 → 12 columns (rebuild apply needed); §5 ping reports the file version
 - v1.5.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.1 (core ticket loop, workflow admin, links, company lock, comment requirements); ticket_links 14 → 17 columns; new §3a repairCompanyLocks(); v9.0 may be skipped (v9.1 includes it)
+- v1.6.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.3 (v9.2 routing / reports / audit log + v9.3 dropdown access, company SLA rules, config export / import / backup, tags & sharing); 2 new tabs, ticket_types 10 → 12 columns; Drive permission for backups; §5a turn tags / sharing on per ticket type; v9.0–v9.2 may be skipped
 ===============================================================================
 -->
 
@@ -21,17 +22,19 @@ REVISION HISTORY:
 
 > Use this guide every time a new `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` file is created.
 > **Latest file is the one with the newest timestamp** in `appscript_files/`.
-> Current: `APPSCRIPT_v9.1_20261019_1400.txt` (contains v9.0 - if v9.0 was never deployed, go straight to v9.1)
+> Current: `APPSCRIPT_v9.3_20261019_2015.txt` (contains v9.0–v9.2 - deploy it directly; nothing in between has to be deployed first)
 
-> ⚠️ **v9.0 / v9.1 change the API contract** - deploy the frontend from the same commit right after §5:
+> ⚠️ **v9.0 – v9.3 change the API contract** - deploy the frontend from the same commit right after §5:
 > - The approve request sends `decision` (v9.0), and failures return `status: 'error'`, which the frontend shows instead of an empty list.
-> - The new screens (`/tickets`, Admin → Workflows, Ticket Links) call the v9.1 routes.
+> - The new screens (`/tickets`, Admin → Workflows, Ticket Links) call the v9.1 routes; `/reports`, routing, Admin → Reports / Audit Log call v9.2; Admin → SLA Rules / System & Backup, dropdown access, tags and sharing call v9.3.
+> - A task step's **Mark Task Complete** now moves the ticket to the next step (v9.2); before, it closed the whole ticket.
 > - Cancel / reopen now need `user_id`, and reopen needs an admin role (a role whose name contains "admin").
 >
 > An older frontend keeps working for everything except approvals and the new screens.
 >
 > Offline tests (all must pass on the file you paste):
-> - `node appscript_files/tools/ROUTES_TEST_v9.1.js appscript_files/APPSCRIPT_v9.1_20261019_1400.txt` → 18 PASS
+> - `node appscript_files/tools/ROUTES_TEST_v9.3.js appscript_files/APPSCRIPT_v9.3_20261019_2015.txt` → 10 PASS
+> - `ROUTES_TEST_v9.2.js` → 14 PASS, `ROUTES_TEST_v9.1.js` → 18 PASS
 > - `ROUTES_AND_APPROVALS_TEST_v9.0.js` → 21 PASS
 > - `CODE_REVIEW_FIXES_TEST_v8.3.js` → 11 PASS (same file)
 >
@@ -55,10 +58,10 @@ REVISION HISTORY:
 
 1. Open the Google Sheet → **Extensions → Apps Script** (or open the project from script.google.com).
 2. In the left panel, click the script file (usually `Code.gs`).
-3. In the repo, open the latest file: `appscript_files/APPSCRIPT_v9.1_20261019_1400.txt` → select all → copy.
+3. In the repo, open the latest file: `appscript_files/APPSCRIPT_v9.3_20261019_2015.txt` → select all → copy.
 4. In the editor: **Ctrl+A** → **Ctrl+V** to replace everything.
 5. **Ctrl+S** to save. If a red error bar appears, the paste was incomplete — repeat steps 3–5.
-6. Quick check: the first lines must say `Version: 9.1`.
+6. Quick check: the first lines must say `Version: 9.3`.
 
 > Pasting and saving updates the **editor** only. The live web app keeps serving the old version until you redeploy (§5).
 
@@ -70,7 +73,7 @@ This **only reports**. It changes nothing.
 
 1. In the toolbar function dropdown (next to **Debug**), choose **`rebuildAllTables`**.
 2. Click **Run**.
-3. First run only: Google asks for authorization → **Review permissions** → choose your account → **Advanced → Go to (project) (unsafe)** → **Allow**.
+3. First run only - and again after pasting v9.3, which adds Google Drive access for configuration backups: Google asks for authorization → **Review permissions** → choose your account → **Advanced → Go to (project) (unsafe)** → **Allow**. The Drive permission lets `createConfigurationBackup` save a JSON file in your Drive; nothing else uses it.
 4. The **Execution log** opens at the bottom. Read one line per table:
 
 | Log line | Meaning | Action |
@@ -85,11 +88,13 @@ This **only reports**. It changes nothing.
 **Review before applying:**
 - **`added`** — new columns, empty for existing rows. Normal.
 - **`defaulted`** — added columns that existing rows get a value for instead of blank (`COLUMN_DEFAULTS`): `entity_category = 'ticket'` in `custom_fields` / `custom_field_values`, and (v9.0) `is_active = TRUE` in `roles`. Normal.
-- **v9.1 expects**
-  - `REPAIRED: ticket_links … added: [enforce_blocking_rules, sync_status, notify_on_update] … defaulted: [enforce_blocking_rules, sync_status, notify_on_update]`
+- **v9.3 expects**
+  - `CREATED: dropdown_company_assignments` and `CREATED: company_sla_rules`
+  - `REPAIRED: ticket_types … added: [enable_tags, enable_sharing] … defaulted: [enable_tags, enable_sharing]` (both off)
+  - if v9.1 was never applied, also `REPAIRED: ticket_links … added: [enforce_blocking_rules, sync_status, notify_on_update] … defaulted: [enforce_blocking_rules, sync_status, notify_on_update]`
   - if v9.0 was never applied, also `REPAIRED: roles … added: [role_type_id, is_active, created_by, updated_by, deactivated_at, deactivated_by, deactivation_reason] … defaulted: [is_active]`
 
-  Nothing else should change if v8.3 was applied.
+  v9.2 changes no table. Nothing else should change if v8.3 was applied.
 - **`moved`** — existing columns that will change position. Data moves with its header. Normal.
 - **`extra`** — columns in the tab that are **not** in `TABLE_SCHEMAS`. They are **kept**, moved after the official columns, with their data. A blank header becomes `_unnamed_<col>`; a repeated header becomes `<name>_dup_<col>`. If a name looks like a typo of a real column (e.g. `creatd_at`), fix the header in the Sheet by hand **before applying** and re-run the dry run — otherwise its data stays in the extra column instead of the real one.
 
@@ -109,7 +114,7 @@ This **only reports**. It changes nothing.
 
 ---
 
-## §3a v9.1 only: Repair the company lock columns — `repairCompanyLocks()`
+## §3a Once, on the first deploy of v9.1 or later: Repair the company lock columns — `repairCompanyLocks()`
 
 Before v9.1, every company edit wrote `created_at` / `updated_at` into `code_locked` / `code_locked_at`, and nothing ever set the lock or `ticket_count`.
 
@@ -134,13 +139,14 @@ From now on the first ticket of a company locks its code. Admin → Companies �
 | roles | 12 | step_conditions | 16 | role_types | 17 |
 | tickets | 27 | dropdown_lists | 12 | user_profiles | 19 |
 | ticket_history | 11 | dropdown_options | 5 | ticket_tags | 18 |
-| ticket_types | 10 | ticket_attachments | 19 | ticket_tag_assignments | 13 |
+| ticket_types | 12 | ticket_attachments | 19 | ticket_tag_assignments | 13 |
 | comment_requirements | 16 | report_configurations | 18 | tag_categories | 15 |
 | custom_fields | 19 | ticket_links | 17 | tag_usage_statistics | 8 |
 | custom_field_values | 18 | sequence_counters | 2 | ticket_collaborations | 20 |
 | workflow_steps | 19 | ticket_action_logs | 6 | collaboration_requests | 19 |
 | step_approvers | 2 | admin_action_logs | 7 | collaboration_notifications | 10 |
 | user_role_assignments | 24 | user_preferences | 12 | shared_ticket_access_logs | 9 |
+| dropdown_company_assignments | 12 | company_sla_rules | 25 | | |
 
 A table with **more** columns than listed had `extra` columns, which are kept at the end — that's expected. Delete them in the Sheet by hand once you're sure they aren't needed.
 
@@ -152,10 +158,20 @@ A table with **more** columns than listed had `extra` columns, which are kept at
 
 1. **Deploy → Manage deployments**.
 2. Select the active web-app deployment → **✏️ Edit**.
-3. **Version → New version** → **Description**: copy the `Deploy description:` line from the header of the file you pasted (v9.1: `v9.1 20261019_1400 - core ticket loop routes, workflow admin, links, company lock, comment rules`; v9.0: `v9.0 20261019_0501 - API contract routes, roles & approval engine, loud errors`). For v8.3, which predates that line, use `v8.3 20261017_1510 - code review fixes CR-01..CR-07`. → **Deploy**.
+3. **Version → New version** → **Description**: copy the `Deploy description:` line from the header of the file you pasted (v9.3: `v9.3 20261019_2015 - dropdown access, company SLA rules, config export/import, tags & sharing`; v9.2: `v9.2 20261019_1946 - conditional routing, task steps, reports, audit log`; v9.1: `v9.1 20261019_1400 - core ticket loop routes, workflow admin, links, company lock, comment rules`; v9.0: `v9.0 20261019_0501 - API contract routes, roles & approval engine, loud errors`). For v8.3, which predates that line, use `v8.3 20261017_1510 - code review fixes CR-01..CR-07`. → **Deploy**.
 4. The web-app URL stays the same — no frontend change needed.
 5. Open the app → Admin page → confirm the API status shows connected and lists load.
-6. From v9.0, `<web app URL>?action=ping` returns the file's `API_VERSION` - `"version": "9.1.0"` for v9.1. Before v9.0 it always said `8.0.0`. `?action=getSystemHealth` lists any tab whose headers differ from `TABLE_SCHEMAS`.
+6. From v9.0, `<web app URL>?action=ping` returns the file's `API_VERSION` - `"version": "9.3.0"` for v9.3. Before v9.0 it always said `8.0.0`. `?action=getSystemHealth` lists any tab whose headers differ from `TABLE_SCHEMAS`.
+
+---
+
+## §5a After v9.3: turn on tags / sharing where you want them
+
+Both are **off** for every ticket type after the rebuild.
+
+1. App → **Admin → Ticket Types**: each row has **Tags: off** and **Sharing: off** pills - click one to turn it on.
+2. A switch can be turned off again only until the first ticket of that type is tagged / shared. After that the backend refuses, so no tag or share is orphaned (remove the tags / shares first if you really need it off).
+3. Then: **Admin → SLA Rules** for company SLA targets, **Admin → System & Backup** → **Back up to Drive** once to confirm the Drive permission works (the file appears in the script owner's Drive).
 
 ---
 
@@ -174,6 +190,7 @@ A table with **more** columns than listed had `extra` columns, which are kept at
 | App shows a save error with `lock` in it during §3 | v8.3 web-app writes wait up to 30s for the rebuild's lock, then fail rather than lose data | Retry the save after the rebuild finishes |
 | `A sheet with the name "_bak_…" already exists` | Two applies in the same second | Run again |
 | `Exceeded maximum execution time` | 6-minute limit | Run again — finished tables are skipped |
+| Backup fails with `You do not have permission to call DriveApp.createFile` | The Drive permission (v9.3) wasn't granted | Run any function in the editor (e.g. `rebuildAllTables`), allow the Drive permission, then redeploy (§5) |
 
 **Cleanup:** after the app has worked normally for a few days, delete the `_bak_*` tabs.
 
@@ -183,3 +200,22 @@ A table with **more** columns than listed had `extra` columns, which are kept at
 
 - Add a line to `REF_SessionLog.md` (or tell Claude) with the date, the file version deployed, and the dry-run counts.
 - Next AppScript change → new timestamped file → repeat this guide from §0.
+
+---
+
+## §8 Optional: Test Data — `SEED_TestData_v1.0_<stamp>.txt`
+
+A separate script file that fills the Sheet with a complete test setup, so every screen has something to show. It
+needs the main file v9.3+ in the same project and §3 done. Offline test: `node appscript_files/tools/SEED_TEST.js <APPSCRIPT file> <SEED file>` → 4 PASS.
+
+1. Apps Script editor → **Files +** → **Script** → name it `seed` → paste the whole `appscript_files/SEED_TestData_v1.0_*.txt` → **Ctrl+S**. (Don't paste it into `Code.gs` - it is a second file.)
+2. Optional: set `SEED_MY_USER_ID` at the top to your Firebase uid, so you get admin + Manager + Finance + IT roles in both seed companies and can approve / complete the seeded tickets yourself.
+3. Function dropdown → **`seedTestData`** → **Run** (dry run: lists what it would add).
+4. **`seedTestDataApply`** → **Run**. It adds:
+   - companies **Seed Alpha Corp** (`SEEDA`) and **Seed Beta Inc** (`SEEDB`); ticket types **Seed Purchase Request** (tags + sharing on) and **Seed IT Setup**
+   - custom fields (amount, department dropdown, date), roles, 4 seed users, comment rules (return / reject / cancel), report columns, a company SLA rule, 2 tags
+   - per company: Manager Approval → (amount ≥ 50,000: Finance Review) → Procurement task (completing it creates a chained **Seed IT Setup** ticket), all with SLAs
+   - 12 tickets taken through the real engine: waiting, at Finance, at the task, routed past Finance, completed + chained, returned, rejected, cancelled, overdue, tagged + shared, and 2 in Seed Beta
+5. Re-running adds nothing. To start over or clean up: **`removeSeedData`** (dry run) → **`removeSeedDataApply`**. It deletes only seed rows (ids / keys starting `seed_`, the seed companies' tickets and everything attached to them, the `SEEDA-` / `SEEDB-` number counters). Admin log entries stay.
+
+> The seed is editor-only and never routed. Don't run it on a Sheet where real companies use the codes `SEEDA` / `SEEDB`.

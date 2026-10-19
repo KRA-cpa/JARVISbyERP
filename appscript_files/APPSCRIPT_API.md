@@ -1815,11 +1815,10 @@ After deployment, you can test the API using these functions in the Apps Script 
 
 ## 📊 Available Endpoints
 
-> **Updated October 19, 2026 (AppScript v9.1).** The authoritative list is the `case` labels of `doGet` and
+> **Updated October 19, 2026 (AppScript v9.3).** The authoritative list is the `case` labels of `doGet` and
 > `routePostAction` in the newest `appscript_files/APPSCRIPT_v*.txt`; `npm run check:api-contract` compares them with
-> what `src/api/googleSheet.js` sends. This section used to list endpoints that were never routed
-> (`getDropdownAssignments`, `assignDropdownToCompany`, `removeDropdownFromCompany`, `setDropdownGlobal`) - the
-> dropdown company-assignment routes are planned for v9.2.
+> what `src/api/googleSheet.js` sends. Since v9.3 every action the frontend sends has a route.
+> `runCompleteAPITest` is editor-only (it creates and deletes real rows); the Admin health check uses getSystemHealth.
 
 **Response contract (v9.0):** success = `{ success: true, data }`; failure = `{ success: false, status: 'error', error }`
 (unknown action, thrown error, or a handler that returned `{ status: 'error' }`). POST bodies are flat
@@ -1829,6 +1828,54 @@ After deployment, you can test the API using these functions in the Apps Script 
 getDropdownOptions, getTicketTypes, getTickets, getUserPreferences, getSLAPerformanceByCompany, getSLAPerformanceByTicketType,
 getGlobalSLAPerformance, getUserProfileTypes / getRoleTypes (`include_inactive`), getUserProfiles, getCustomFields,
 **getWorkflowSteps** (v9.1: each step carries sla_duration / sla_unit / exclude_weekends), **getSystemHealth** (v9.0)
+
+**GET - new in v9.3:**
+
+| Action | Query | Returns (`data`) |
+|---|---|---|
+| getDropdownCompanyAssignments | dropdown_list_id | live assignments [{ company_id, is_global }] |
+| getCompanySLARules | company_id, ticket_type_id | live rules (escalation_recipients / business_days as lists) |
+| getTags | company_id (optional) | live tags (the company's own + global when given) |
+| getTicketTags | ticket_id | tags on the ticket (+ assignment_id, assigned_at, assigned_by_user_id) |
+| searchTicketsByTags | tag_ids, exclude_tag_ids (comma lists), operator AND / OR, company_id | { ticket_ids, operator } |
+| getTicketShares | ticket_id | shares in force (+ display names) |
+| getSharedTickets | user_id | tickets shared with the user or with a company they have a role in (+ share) |
+
+`getDropdownLists` (v9.3): each list has `assignments` and `availability` { mode: global / companies / draft / legacy,
+company_ids }; with `company_id` only the lists that company can use.
+`getTicketType` (v9.3): + `features` { enable_tags, enable_sharing, tags_locked, sharing_locked }.
+
+**POST - new in v9.3:**
+
+| Action | Request fields | Returns (`data`) |
+|---|---|---|
+| updateDropdownCompanyAssignments | dropdown_list_id, assignments [{ company_id, is_global }] | live assignments (exactly that set; [] = draft) |
+| assignDropdownToCompany / assignDropdownGlobally / removeDropdownCompanyAssignment | dropdown_list_id (+ company_id) | live assignments |
+| createCompanySLARule / updateCompanySLARule / deleteCompanySLARule | company_id, ticket_type_id, step_name, duration, unit, ... / rule_id | rule / soft delete |
+| exportConfiguration (read-only, admins) | user_id, company_id, ticket_type_ids, include_workflows / custom_fields / sla_rules / roles / dropdowns | export document (format jarvis-config) |
+| createConfigurationBackup (admins) | user_id, company_id, backup_name | { file_id, url, name, size } - a JSON file in the owner's Drive |
+| importConfiguration (admins) | user_id, source_company_id, target_company_id, ticket_type_ids, include_*, overwrite_existing, **dry_run** (default true) | { dry_run, actions [{ area, ticket_type_id, action copy / skip / replace / refused, detail }], counts } |
+| setTicketTypeFeatures | ticket_type_id, enable_tags, enable_sharing | features; turning one off is refused once it is in use |
+| createTag / updateTag / deleteTag | name, color (#RRGGBB), description, tag_category, company_id / tag_id | tag / soft delete |
+| assignTags / removeTags | ticket_id, tag_ids, user_id | the ticket's tags; refused when the type has tags off |
+| shareTicket | ticket_id, shared_with_user_id or shared_with_company_id, permission_level view / comment, expiration_date, share_reason, user_id (requester or admin) | share |
+| revokeTicketShare | collaboration_id, user_id (sharer, requester or admin), reason | { revoked } |
+
+**GET - new in v9.2:**
+
+| Action | Query | Returns (`data`) |
+|---|---|---|
+| getStepConditions | step_id | { step_id, enabled, routes [{ conditions { operator: and, conditions [{ custom_field_id, operator, value }] }, target_step_id, is_default }] } |
+| getReportConfig | ticket_type_id, company_id | { source company / global / default, columns, available } |
+| getReportData | user_id, ticket_type_id, company_id, status (open / closed / a status), date_from, date_to | { columns, rows [{ ticket_id, <field_name> }], total, scope all / mine } |
+| getAdminActionLogs (admins) | user_id, action_type, target_entity, target_id, admin_user_id, date_from, date_to, limit, offset | { logs, total, action_types, target_entities } |
+| getTicketActionLogs (admins) | user_id, ticket_id | ticket_action_logs rows, newest first |
+
+**POST - new in v9.2:** saveStepConditions (step_id, enabled, routes; targets must be later steps or `__end__`),
+saveReportConfig (ticket_type_id, company_id '' = global, columns [{ field_name, display_name }]).
+**Changed in v9.2:** submitStepApproval `decision: complete` finishes a **task** step and moves on like an approval
+(refused on approval steps); approve follows the step's routes; return goes back along the path the ticket took;
+getTickets adds `chained_children` / `chained_parent`.
 
 **GET - new in v9.1:**
 
