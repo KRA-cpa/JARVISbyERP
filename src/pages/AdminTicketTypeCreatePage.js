@@ -109,7 +109,8 @@ const AdminTicketTypeCreatePage = () => {
       // Save comment requirements if any are set
       const hasCommentRequirements = Object.values(commentRequirements).some(Boolean);
       if (hasCommentRequirements) {
-        await API.TicketTypes.saveCommentRequirements(savedTicketType.id, commentRequirements);
+        // AppScript v9.1: a company type's rule is that company's row; a global type's rule is the global row
+        await API.TicketTypes.saveCommentRequirements(savedTicketType.id, commentRequirements, ticketTypeData.company_id);
       }
 
       // If user wants to activate immediately, show activation dialog

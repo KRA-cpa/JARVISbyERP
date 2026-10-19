@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useCompanies } from '../../hooks/useAPI';
 import { companyAPI } from '../../api/googleSheet';
+import { useUser } from '../../contexts/UserContext';
 import { useToast } from '../shared/Toast';
 import Icons from '../shared/Icons';
 
+// Only true / 'TRUE' is locked - before AppScript v9.1, editing a company wrote a date into code_locked
+const isCodeLocked = company => company?.code_locked === true || String(company?.code_locked).toUpperCase() === 'TRUE';
+
 const AdminCompanyManager = () => {
+  const { user } = useUser();
   const { data: companies, loading, error, refetch } = useCompanies();
   const { ToastContainer, success, error: showError } = useToast();
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -12,6 +17,28 @@ const AdminCompanyManager = () => {
   const [formData, setFormData] = useState({ name: '', code: '' });
   const [formError, setFormError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [unlockReason, setUnlockReason] = useState('');
+
+  // Admin override (spec 3.3): unlock a locked code with a logged reason; new tickets use the new code
+  const handleUnlock = async () => {
+    if (!unlockReason.trim()) {
+      setFormError('Enter a reason to unlock the company code');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const unlocked = await companyAPI.unlock(editingCompany.id, unlockReason, user?.uid || user?.id);
+      setEditingCompany(prev => ({ ...prev, ...unlocked, code_locked: false }));
+      setUnlockReason('');
+      setFormError('');
+      refetch();
+      success('Company code unlocked - existing ticket numbers keep the old code');
+    } catch (err) {
+      setFormError(err.message || 'Failed to unlock the company code');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Reset form when closing
   useEffect(() => {
@@ -50,7 +77,7 @@ const AdminCompanyManager = () => {
     }
 
     // Check if editing a locked company's code
-    if (editingCompany && editingCompany.code_locked && formData.code !== editingCompany.code) {
+    if (editingCompany && isCodeLocked(editingCompany) && formData.code !== editingCompany.code) {
       setFormError('Cannot change code for locked company. Contact admin to unlock.');
       return false;
     }
@@ -175,18 +202,38 @@ const AdminCompanyManager = () => {
               code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')
             }))}
             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-              editingCompany?.code_locked ? 'border-gray-300 bg-gray-100 text-gray-500' : 'border-gray-300'
+              isCodeLocked(editingCompany) ? 'border-gray-300 bg-gray-100 text-gray-500' : 'border-gray-300'
             }`}
             placeholder="Enter company code (e.g., MAIN, DEV)"
             maxLength={10}
-            disabled={isSubmitting || editingCompany?.code_locked}
+            disabled={isSubmitting || isCodeLocked(editingCompany)}
           />
-          {editingCompany?.code_locked ? (
-            <div className="flex items-center mt-1">
-              <Icons.Warning size={14} className="text-orange-500 mr-1" />
-              <p className="text-xs text-orange-600">
-                Code is locked (tickets exist). Contact admin to unlock.
-              </p>
+          {isCodeLocked(editingCompany) ? (
+            <div className="mt-2 space-y-2">
+              <div className="flex items-center">
+                <Icons.Warning size={14} className="text-orange-500 mr-1" />
+                <p className="text-xs text-orange-600">
+                  Code is locked because tickets use it in their numbers. Unlocking is an admin override and is logged.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={unlockReason}
+                  onChange={(e) => setUnlockReason(e.target.value)}
+                  placeholder="Reason for unlocking (required)"
+                  className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                  disabled={isSubmitting}
+                />
+                <button
+                  type="button"
+                  onClick={handleUnlock}
+                  disabled={isSubmitting || !unlockReason.trim()}
+                  className="px-3 py-1.5 text-sm font-medium text-orange-700 bg-orange-100 hover:bg-orange-200 rounded-lg disabled:opacity-50"
+                >
+                  Unlock Code
+                </button>
+              </div>
             </div>
           ) : (
             <p className="text-xs text-gray-500 mt-1">
@@ -255,7 +302,7 @@ const AdminCompanyManager = () => {
                     <div>
                       <div className="flex items-center space-x-2">
                         <h4 className="text-sm font-medium text-gray-900">{company.name}</h4>
-                        {company.code_locked && (
+                        {isCodeLocked(company) && (
                           <div className="flex items-center" title="Code locked - tickets exist">
                             <Icons.Warning size={14} className="text-orange-500" />
                           </div>
@@ -263,7 +310,7 @@ const AdminCompanyManager = () => {
                       </div>
                       <div className="flex items-center space-x-2">
                         <p className="text-sm text-gray-500">Code: {company.code}</p>
-                        {company.code_locked && (
+                        {isCodeLocked(company) && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-800">
                             Locked
                           </span>
@@ -274,7 +321,7 @@ const AdminCompanyManager = () => {
                   {company.created_at && (
                     <p className="text-xs text-gray-400 mt-1">
                       Created: {new Date(company.created_at).toLocaleDateString()}
-                      {company.code_locked && company.code_locked_at && (
+                      {isCodeLocked(company) && company.code_locked_at && (
                         <span className="ml-2">
                           • Locked: {new Date(company.code_locked_at).toLocaleDateString()}
                         </span>

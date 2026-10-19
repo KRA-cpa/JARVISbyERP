@@ -1,5 +1,3 @@
-import { WORKFLOW_CONSTANTS } from './workflowEngine';
-
 /**
  * Conditional Workflow Engine
  * Handles field-based workflow branching and conditional step routing
@@ -455,7 +453,7 @@ export const createSampleConditionalRouting = () => {
   };
 };
 
-export default {
+const conditionalWorkflows = {
   evaluateCondition,
   evaluateConditionGroup,
   findConditionalNextStep,
@@ -465,3 +463,5 @@ export default {
   FIELD_TYPES,
   LOGICAL_OPERATORS
 };
+
+export default conditionalWorkflows;

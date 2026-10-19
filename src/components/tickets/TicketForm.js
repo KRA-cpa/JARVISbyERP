@@ -1,19 +1,63 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../../contexts/UserContext';
-import { useCompanies, useTicketTypes, useDropdownLists } from '../../hooks/useAPI';
+import { useCompanies, useTicketTypes, useCustomFields, useDropdownOptions } from '../../hooks/useAPI';
 import { useToast } from '../shared/Toast';
 import { previewTicketNumber } from '../../utils/ticketNumber';
 import { ticketAPI } from '../../api/googleSheet';
-import { processTicketWorkflow } from '../../utils/approvalRouter';
+import DateRangeInput from '../shared/DateRangeInput';
 import Icons from '../shared/Icons';
 
-const TicketForm = ({ ticket = null, onSave, onCancel }) => {
-  const { user, hasPermission } = useUser();
-  const { data: companies } = useCompanies();
-  const { data: ticketTypes } = useTicketTypes();
-  const { data: dropdownLists } = useDropdownLists();
-  const { ToastContainer, success, error: showError } = useToast();
+/** Cell / form value -> boolean (sheet booleans can arrive as 'TRUE'). */
+const isTrue = value => value === true || String(value).toUpperCase() === 'TRUE';
 
+/**
+ * A dropdown custom field: loads its list's options (DropdownAPI.getOptions). The value is the option id -
+ * AppScript setCustomFieldValue stores an opt_* id in dropdown_option_id.
+ */
+const DropdownFieldInput = ({ listId, value, onChange, className, disabled, label }) => {
+  const { data: options, loading } = useDropdownOptions(listId);
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)} className={className} disabled={disabled || loading}>
+      <option value="">{loading ? 'Loading options...' : `Select ${label}`}</option>
+      {(options || []).filter(option => isTrue(option.is_active ?? true)).map((option) => (
+        <option key={option.id} value={option.id}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  );
+};
+
+/**
+ * Turn the form's custom field values into the createTicket customData map (field id -> value):
+ * amount -> number, daterange -> { start_date, end_date }, others as entered; blanks are left out.
+ */
+const toCustomData = (fields, values) => {
+  const data = {};
+  fields.forEach(field => {
+    const value = values[field.id];
+    if (value === undefined || value === null || value === '') return;
+    if (field.type === 'amount') {
+      data[field.id] = Number(value);
+    } else if (field.type === 'daterange') {
+      if (value.startDate && value.endDate) data[field.id] = { start_date: value.startDate, end_date: value.endDate };
+    } else if (field.type !== 'file') {
+      data[field.id] = value;
+    }
+  });
+  return data;
+};
+
+/**
+ * TicketForm - create a ticket (or edit title / description / priority of an existing one).
+ *
+ * Create: AppScript createTicket numbers the ticket, saves its custom field values and starts its
+ * workflow at the company's first step (there is no client-side workflow setup any more).
+ * Props: ticket (edit mode), onSave(result), onCancel.
+ */
+const TicketForm = ({ ticket = null, onSave, onCancel }) => {
+  const { user } = useUser();
+  const currentUserId = user?.uid || user?.id;
   const isEditing = !!ticket;
 
   const [formData, setFormData] = useState({
@@ -22,13 +66,18 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
     company_id: '',
     ticket_type_id: '',
     priority: 'medium',
-    assignee_email: '',
-    due_date: '',
     custom_fields: {}
   });
 
-  const [selectedTicketType, setSelectedTicketType] = useState(null);
-  const [selectedCompany, setSelectedCompany] = useState(null);
+  const { data: companies } = useCompanies();
+  const { data: ticketTypes } = useTicketTypes(formData.company_id || null);
+  const { data: customFieldList, loading: fieldsLoading } = useCustomFields(formData.ticket_type_id || null);
+  const { ToastContainer, success, error: showError } = useToast();
+
+  const customFields = formData.ticket_type_id
+    ? (customFieldList || []).filter(field => !isTrue(field.is_hidden))
+    : [];
+
   const [ticketNumberPreview, setTicketNumberPreview] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
@@ -39,56 +88,29 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
       setFormData({
         title: ticket.title || '',
         description: ticket.description || '',
-        company_id: ticket.company_id || '',
-        ticket_type_id: ticket.ticket_type_id || '',
+        company_id: ticket.company_id ? String(ticket.company_id) : '',
+        ticket_type_id: ticket.ticket_type_id ? String(ticket.ticket_type_id) : '',
         priority: ticket.priority || 'medium',
-        assignee_email: ticket.assignee_email || '',
-        due_date: ticket.due_date ? new Date(ticket.due_date).toISOString().split('T')[0] : '',
-        custom_fields: ticket.custom_fields || {}
+        custom_fields: {}
       });
     }
   }, [ticket]);
 
-  // Update selected company when company_id changes
-  useEffect(() => {
-    if (formData.company_id) {
-      const company = companies?.find(c => c.id === formData.company_id);
-      setSelectedCompany(company);
-    } else {
-      setSelectedCompany(null);
-    }
-  }, [formData.company_id, companies]);
+  const selectedCompany = companies?.find(c => String(c.id) === String(formData.company_id)) || null;
+  const selectedTicketType = ticketTypes?.find(t => String(t.id) === String(formData.ticket_type_id)) || null;
 
-  // Update selected ticket type when ticket_type_id changes
+  // Ticket number preview (AppScript v9.1 getNextTicketNumber peeks without reserving a number)
   useEffect(() => {
-    if (formData.ticket_type_id) {
-      const ticketType = ticketTypes?.find(t => t.id === formData.ticket_type_id);
-      setSelectedTicketType(ticketType);
-    } else {
-      setSelectedTicketType(null);
-    }
-  }, [formData.ticket_type_id, ticketTypes]);
-
-  // Update ticket number preview when company or ticket type changes
-  useEffect(() => {
-    if (selectedCompany && selectedTicketType && !isEditing) {
-      // For new tickets, show preview
-      const preview = previewTicketNumber(selectedCompany, selectedTicketType);
-      setTicketNumberPreview(preview);
-
-      // Optionally fetch actual next ticket number from backend
-      if (process.env.REACT_APP_USE_MOCK_DATA !== 'true') {
-        ticketAPI.getNextTicketNumber(selectedCompany.id, selectedTicketType.id)
-          .then(nextNumber => {
-            setTicketNumberPreview(nextNumber);
-          })
-          .catch(error => {
-            console.warn('Failed to get next ticket number:', error);
-          });
-      }
-    } else {
+    if (!selectedCompany || !selectedTicketType || isEditing) {
       setTicketNumberPreview('');
+      return undefined;
     }
+    let cancelled = false;
+    setTicketNumberPreview(previewTicketNumber(selectedCompany, selectedTicketType));
+    ticketAPI.getNextTicketNumber(selectedCompany.id, selectedTicketType.id)
+      .then(nextNumber => { if (!cancelled) setTicketNumberPreview(nextNumber); })
+      .catch(err => console.warn('Failed to get next ticket number:', err));
+    return () => { cancelled = true; };
   }, [selectedCompany, selectedTicketType, isEditing]);
 
   const validateForm = () => {
@@ -110,22 +132,18 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
       newErrors.ticket_type_id = 'Ticket type is required';
     }
 
-    if (formData.due_date) {
-      const dueDate = new Date(formData.due_date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      if (dueDate < today) {
-        newErrors.due_date = 'Due date cannot be in the past';
-      }
+    // Required custom fields (file upload isn't available yet, so a file field can't be required)
+    if (!isEditing) {
+      customFields.forEach(field => {
+        if (!isTrue(field.is_required) || field.type === 'file') return;
+        const value = formData.custom_fields[field.id];
+        const missing = field.type === 'daterange'
+          ? !(value && value.startDate && value.endDate)
+          : value === undefined || value === null || String(value).trim() === '';
+        if (missing) newErrors[`custom_${field.id}`] = `${field.label} is required`;
+        if (field.type === 'daterange' && value && value.isValid === false) newErrors[`custom_${field.id}`] = value.error;
+      });
     }
-
-    // Validate custom fields
-    selectedTicketType?.custom_fields?.forEach(field => {
-      if (field.required && !formData.custom_fields[field.id]) {
-        newErrors[`custom_${field.id}`] = `${field.label} is required`;
-      }
-    });
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -137,36 +155,37 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
 
     setIsSubmitting(true);
     try {
-      const ticketData = {
-        ...formData,
-        creator_email: user?.email,
-        status: isEditing ? ticket.status : 'open',
-        created_date: isEditing ? ticket.created_date : new Date().toISOString(),
-        updated_date: new Date().toISOString()
-      };
-
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // For new tickets, trigger initial workflow setup
-      if (!isEditing) {
-        try {
-          // The actual implementation would pass the new ticket ID
-          // For now, we'll simulate it
-          const newTicketId = 'new-ticket-id';
-          await processTicketWorkflow(ticketAPI, newTicketId);
-          console.log('Initial workflow setup completed for new ticket');
-        } catch (workflowError) {
-          console.error('Workflow setup failed:', workflowError);
-          // Don't fail the ticket creation, just log the error
+      let result;
+      if (isEditing) {
+        result = await ticketAPI.update(ticket.id, {
+          title: formData.title.trim(),
+          description: formData.description,
+          priority: formData.priority,
+          user_id: currentUserId
+        });
+        success('Ticket updated successfully!');
+      } else {
+        result = await ticketAPI.create({
+          title: formData.title,
+          description: formData.description,
+          company_id: formData.company_id,
+          ticket_type_id: formData.ticket_type_id,
+          priority: formData.priority,
+          requester_id: currentUserId,
+          customData: toCustomData(customFields, formData.custom_fields)
+        });
+        const started = result?.workflow?.started;
+        success(started
+          ? `Ticket ${result.ticket_number} created and sent for approval`
+          : `Ticket ${result?.ticket_number || ''} created - this company has no workflow for the ticket type yet, so it stays at "New"`);
+        if (result?.customFieldErrors?.length) {
+          showError(`Some custom field values were not saved: ${result.customFieldErrors.join('; ')}`);
         }
       }
-
-      success(isEditing ? 'Ticket updated successfully!' : 'Ticket created successfully!');
-      onSave?.(ticketData);
+      onSave?.(result);
     } catch (error) {
       console.error('Ticket operation failed:', error);
-      showError('Failed to save ticket. Please try again.');
+      showError(error.message || 'Failed to save ticket. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -175,7 +194,10 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: value,
+      // A different company has its own ticket types; a different type has its own fields
+      ...(field === 'company_id' ? { ticket_type_id: '', custom_fields: {} } : {}),
+      ...(field === 'ticket_type_id' ? { custom_fields: {} } : {})
     }));
 
     // Clear error when user starts typing
@@ -207,9 +229,10 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
   };
 
   const renderCustomField = (field) => {
-    const value = formData.custom_fields[field.id] || '';
+    const value = formData.custom_fields[field.id] ?? '';
     const errorKey = `custom_${field.id}`;
     const hasError = !!errors[errorKey];
+    const required = isTrue(field.is_required) && field.type !== 'file';
 
     const baseClasses = `w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
       hasError ? 'border-red-300' : 'border-gray-300'
@@ -218,7 +241,7 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
     const renderLabel = () => (
       <label className="block text-sm font-medium text-gray-700 mb-1">
         {field.label}
-        {field.required && <span className="text-red-500 ml-1">*</span>}
+        {required && <span className="text-red-500 ml-1">*</span>}
       </label>
     );
 
@@ -235,7 +258,6 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
               type="text"
               value={value}
               onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
-              placeholder={field.placeholder}
               className={baseClasses}
               disabled={isSubmitting}
             />
@@ -243,14 +265,13 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
           </div>
         );
 
-      case 'textarea':
+      case 'paragraph':
         return (
-          <div key={field.id}>
+          <div key={field.id} className="md:col-span-2">
             {renderLabel()}
             <textarea
               value={value}
               onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
-              placeholder={field.placeholder}
               rows={3}
               className={baseClasses}
               disabled={isSubmitting}
@@ -259,24 +280,18 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
           </div>
         );
 
-      case 'select':
-        const dropdownList = dropdownLists?.find(dl => dl.id === field.dropdown_list_id);
+      case 'dropdown':
         return (
           <div key={field.id}>
             {renderLabel()}
-            <select
+            <DropdownFieldInput
+              listId={field.dropdown_list_id}
               value={value}
-              onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
+              onChange={(v) => handleCustomFieldChange(field.id, v)}
               className={baseClasses}
               disabled={isSubmitting}
-            >
-              <option value="">Select {field.label}</option>
-              {dropdownList?.options?.map((option) => (
-                <option key={option.id} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              label={field.label}
+            />
             {renderError()}
           </div>
         );
@@ -296,17 +311,30 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
           </div>
         );
 
-      case 'number':
+      case 'daterange':
+        return (
+          <div key={field.id} className="md:col-span-2">
+            <DateRangeInput
+              label={field.label}
+              required={required}
+              value={value || { startDate: '', endDate: '' }}
+              onChange={(range) => handleCustomFieldChange(field.id, range)}
+              disabled={isSubmitting}
+              error={errors[errorKey] || ''}
+            />
+          </div>
+        );
+
+      case 'amount':
         return (
           <div key={field.id}>
             {renderLabel()}
             <input
               type="number"
+              step="0.01"
+              min="0"
               value={value}
               onChange={(e) => handleCustomFieldChange(field.id, e.target.value)}
-              placeholder={field.placeholder}
-              min={field.min_value}
-              max={field.max_value}
               className={baseClasses}
               disabled={isSubmitting}
             />
@@ -314,26 +342,13 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
           </div>
         );
 
-      case 'checkbox':
+      case 'file':
         return (
-          <div key={field.id} className="flex items-start space-x-2">
-            <input
-              type="checkbox"
-              checked={value === 'true' || value === true}
-              onChange={(e) => handleCustomFieldChange(field.id, e.target.checked)}
-              className="mt-1 rounded border-gray-300 focus:ring-blue-500"
-              disabled={isSubmitting}
-            />
-            <div>
-              <label className="text-sm font-medium text-gray-700">
-                {field.label}
-                {field.required && <span className="text-red-500 ml-1">*</span>}
-              </label>
-              {field.description && (
-                <p className="text-sm text-gray-500">{field.description}</p>
-              )}
-              {renderError()}
-            </div>
+          <div key={field.id}>
+            {renderLabel()}
+            <p className="text-sm text-gray-500 border border-dashed border-gray-300 rounded-lg px-3 py-2">
+              File upload isn't available yet - attach files after the feature ships.
+            </p>
           </div>
         );
 
@@ -353,6 +368,7 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
               {isEditing ? 'Edit Ticket' : 'Create New Ticket'}
             </h2>
             <button
+              type="button"
               onClick={onCancel}
               className="text-gray-400 hover:text-gray-600"
             >
@@ -370,7 +386,7 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
                 <div>
                   <h3 className="text-sm font-medium text-blue-900">Ticket Number Preview</h3>
                   <p className="text-lg font-mono text-blue-700 mt-1">{ticketNumberPreview}</p>
-                  <p className="text-xs text-blue-600 mt-1">This number will be assigned when the ticket is created</p>
+                  <p className="text-xs text-blue-600 mt-1">The next number in sequence; it is assigned when the ticket is created</p>
                 </div>
               </div>
             </div>
@@ -454,7 +470,7 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                   errors.company_id ? 'border-red-300' : 'border-gray-300'
                 }`}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isEditing}
               >
                 <option value="">Select Company</option>
                 {companies?.map((company) => (
@@ -476,10 +492,10 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
                 className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                   errors.ticket_type_id ? 'border-red-300' : 'border-gray-300'
                 }`}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isEditing || !formData.company_id}
               >
-                <option value="">Select Ticket Type</option>
-                {ticketTypes?.map((type) => (
+                <option value="">{formData.company_id ? 'Select Ticket Type' : 'Select a company first'}</option>
+                {ticketTypes?.filter(type => isTrue(type.is_active ?? true)).map((type) => (
                   <option key={type.id} value={type.id}>
                     {type.name}
                   </option>
@@ -489,50 +505,17 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Assignee
-              </label>
-              <input
-                type="email"
-                value={formData.assignee_email}
-                onChange={(e) => handleInputChange('assignee_email', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter assignee email"
-                disabled={isSubmitting || !hasPermission('canApproveTickets')}
-              />
-              {!hasPermission('canApproveTickets') && (
-                <p className="text-sm text-gray-500 mt-1">Admin will assign this ticket</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Due Date
-              </label>
-              <input
-                type="date"
-                value={formData.due_date}
-                onChange={(e) => handleInputChange('due_date', e.target.value)}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.due_date ? 'border-red-300' : 'border-gray-300'
-                }`}
-                disabled={isSubmitting}
-              />
-              {errors.due_date && <p className="text-sm text-red-600 mt-1">{errors.due_date}</p>}
-            </div>
-          </div>
-
-          {/* Custom Fields */}
-          {selectedTicketType?.custom_fields?.length > 0 && (
+          {/* Custom Fields (new tickets; editing values isn't part of updateTicket yet) */}
+          {!isEditing && formData.ticket_type_id && (fieldsLoading ? (
+            <p className="text-sm text-gray-500">Loading fields...</p>
+          ) : customFields.length > 0 && (
             <div>
               <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {selectedTicketType.custom_fields.map(renderCustomField)}
+                {customFields.map(renderCustomField)}
               </div>
             </div>
-          )}
+          ))}
 
           {/* Form Actions */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-6 border-t border-gray-200">
@@ -546,8 +529,8 @@ const TicketForm = ({ ticket = null, onSave, onCancel }) => {
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2"
+              disabled={isSubmitting || !currentUserId}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors duration-200 flex items-center justify-center space-x-2 disabled:opacity-50"
             >
               {isSubmitting && (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

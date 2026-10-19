@@ -2,7 +2,7 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 1.3.0
+Document: GUIDE_CodeReview_Compliance.md | Author: Kenneth R. Advento | Version: 1.4.0
 Created: 18 October 2026 UTC+8 (Philippine Standard Time) | Modified: 19 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Coding rules derived from the 17 Oct 2026 code review (CR-01–CR-13 + X-1–X-6), so new AppScript and script changes don't reintroduce them | Status: Active — MANDATORY for AppScript and scripts/ changes
 
@@ -11,6 +11,7 @@ REVISION HISTORY:
 - v1.1.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A11 step 2: header carries a `Deploy description:` line to paste at redeploy
 - v1.2.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A12 contract check (49 frontend actions had no route; 3 routes called functions that never existed), A13 no payload key `action`, A11 ping reports API_VERSION; P1 amended (diff-scoped review + contract check), P5 done = reachable
 - v1.3.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | P6 build like Vercel (`npm run build:ci`): Vercel's CI=true turned 13 ESLint warnings into errors and every deploy from 24934fd failed; frontend checklist added
+- v1.4.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | A12 also checks missing client methods, unmounted components and missing icons (the ticket UI was reachable from no screen); P5 "reachable" includes a screen
 ===============================================================================
 -->
 
@@ -154,6 +155,11 @@ npm run check:api-contract        # newest APPSCRIPT_v*.txt; or: node scripts/ch
 ```
 
 - It checks: no route; sent by GET but only in doPost (and the reverse); a router case calling an undefined function; a payload with an `action` key (A13).
+- From v1.4.0 it also checks the frontend's own wiring:
+  - `missing-method`: an `API.Group.method()` / `xxxAPI.method()` call the class doesn't define. `AdminWorkflowBuilder` called `updateStepApprovers` and `AdminTicketTypeCreatePage` called `saveCommentRequirements`; neither existed.
+  - `unmounted-component`: a `src/components` / `src/pages` file that `src/index.js` can't reach through imports. Until v9.1 the whole ticket UI (`TicketDashboard`, `TicketForm`, `TicketDetail` → `WorkflowStep`) and `AdminWorkflowBuilder` were reachable from no screen.
+  - `missing-icon`: `Icons.X` with no `X` in `Icons.js`. It renders `undefined`, which is React error #130. The mounted profile / role type lists used `Icons.Trash`.
+- A new component is mounted (imported from a page or a mounted component) in the batch that adds it.
 - `scripts/api-contract-known-gaps.txt` lists the gaps that are known and not fixed yet. It **may only shrink**: fix a gap, then `node scripts/check-api-contract.js --update`. Never add a line to silence a new gap. `--update` refuses to add.
 - A new frontend action ships with its backend route **in the same batch**. A new GET action goes into both `readActions` and `doGet`.
 - Unknown actions and handler failures return `success: false` **and** `status: 'error'` (doGet too, via `createHandlerResponse` / `createDataResponse`), and `makeRequest` throws on either. Never answer a failure with `success: true`.
@@ -238,7 +244,7 @@ git show --name-only HEAD; git diff --cached --name-only     # only the intended
 - **P2 — Fix in a new AppScript file** (A11) and tick the status in the tracker with the file or commit that fixed it.
 - **P3 — Deploy order for data migrations.** The lock (A5) only protects writes from a web app that runs the new code. Redeploy the web app **before** applying a rebuild or migration, or make sure nobody is using the app. See `appscript_files/GUIDE_AppScript_Deploy_and_Schema_Rebuild.md`.
 - **P4 — Promote lessons.** When a finding reveals a new class of bug, add a rule here (new version) and a check in `docs/reference/RESOLUTION_CHECKLIST.md`.
-- **P5 — Done means reachable.** A feature or phase is done when its endpoints are routed, the contract check passes, and a live smoke test exercised them (the deploy guide's verify step). Functions written but not routed count as not started. The v6.2–v6.3 workflow engine was marked "18 functions → v6.2" and was unreachable for a year.
+- **P5 — Done means reachable.** A feature or phase is done when its endpoints are routed, a screen reaches them (mounted, wired to the real API - no `setTimeout` "saves" or "will be implemented" placeholders), the contract check passes, and a live smoke test exercised them (the deploy guide's verify step). Functions written but not routed, or components written but not mounted, count as not started. The v6.2–v6.3 workflow engine was marked "18 functions → v6.2" and was unreachable for a year; the ticket screens were "Phase 6" components that no page imported.
 - **P6 — Build like Vercel.** Vercel builds with `CI=true`, where Create React App fails on any ESLint warning. A plain `npm run build` only prints them, so the warnings piled up locally while every Vercel deploy from 24934fd (19 Oct 2026) failed with "Failed to compile" and the site kept serving 3 Oct 2025. Run `npm run build:ci` before pushing frontend changes; it also clears the ESLint cache, which went stale on the Z: drive. Fix the warning or, when the code is deliberate, add an `eslint-disable-next-line` with the reason. Never set `CI=false` on Vercel.
 
 ---
@@ -247,7 +253,8 @@ git show --name-only HEAD; git diff --cached --name-only     # only the intended
 
 **Frontend change**
 - [ ] `npm run build:ci` passes: zero ESLint warnings (P6)
-- [ ] `npm run check:api-contract` passes if any `makeRequest` call changed (A12)
+- [ ] `npm run check:api-contract` passes: routes, client methods, mounted components and icons (A12)
+- [ ] A new screen is mounted and uses the real API - no simulated saves or placeholder modals (P5)
 
 **AppScript change**
 - [ ] New timestamped file; header block updated, including the `Deploy description:` line (A11)

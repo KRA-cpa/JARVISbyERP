@@ -52,6 +52,20 @@ REVISION HISTORY:
 6. Restart your `run-backend.bat` window (PID 35352 still runs the pre-edit mock server).
 7. ✅ Done 19 Oct 2026 (user OK): pushed `main3` (`b56ad57..24934fd`, 14 commits; checked for the backup password first: 0 matches in the diffs and the tree); deleted local `chore/repo-reorg` (merged) and `backup/main3-pre-rewrite-20261017`; removed the malformed global `safe.directory` entries (`'*'1`, `'*'` ×2, `'Z:'`; `~/.gitconfig` backed up in the session scratchpad). The backup branch's commits stay in the local reflog until it expires (never pushed).
 8. ✅ Vercel fixed 19 Oct 2026: the site served `b56ad57` (3 Oct 2025) because nothing newer was pushed for a year, and the first push (`24934fd`) failed — Vercel builds with `CI=true`, which turns ESLint warnings into errors. `503d97f` fixes them (incl. `Icons.Loading` not spinning: a duplicate key overrode it) and was reordered to sit before Release 1 (now `b22e593`) and pushed alone; Vercel "Deployment has completed". New `npm run build:ci` (clears the stale Z: ESLint cache) + compliance v1.3.0 P6 + frontend checklist. Local branch `backup/pre-reorder` (old order) can go once you're happy.
+9. ✅ **v9.1 batch built 19 Oct 2026 (paused ~13:20, resumed "continue"), committed locally, not pushed.** Plan: `~/.claude/plans/plan-already-the-next-squishy-sutherland.md` (everything in one v9.1; one push + Vercel check at the end). Assessment: ~40% of spec built, 0% of the core loop reachable from a screen before this batch.
+   - **AppScript** `appscript_files/APPSCRIPT_v9.1_20261019_1400.txt`:
+     - 18 v9.1 actions + 4 new (comment requirements get/save, getTicketHistory, getTicketsForApproval)
+     - updateCompany header-driven (it overwrote code_locked), lock on the first ticket + `repairCompanyLocks()`, custom field update/delete header-driven, step SLAs saved, createTicket keeps description / priority / customData, getTicketTypes / getTicketHistory id fixes
+     - review R-03–R-10 (`docs/planning/TODO_CodeReview_20261019.md`; R-08 partly)
+     - Offline: `ROUTES_TEST_v9.1.js` 18 PASS (all fail on v9.0), v9.0 suite 21, v8.3 suite 11 (v9.0 test fixture: global Manager role + an admin for reopen).
+   - **Frontend:**
+     - `/tickets` (`TicketsPage`): TicketDashboard / TicketForm / TicketDetail / WorkflowStep mounted and wired to the real API; they were never imported, and saves and bulk actions were simulated
+     - Admin → Workflows (`AdminWorkflowBuilder` per company + copy / default; it had a JSX error nobody saw), Admin → Ticket Links, company unlock with reason
+     - DashboardPage counters on real fields; R-01/R-02 cache fixes; `Icons.Trash` (crashed the mounted profile / role type lists) → `Icons.Delete`; new Copy / ArrowRight icons; utils lint
+   - **Guard:** `check-api-contract.js` adds `missing-method`, `unmounted-component`, `missing-icon` (+ R-09 fix); known gaps = 13 v9.2 actions + baseline 20 unmounted / 13 icons. `npm run build:ci` passes (bundle 174 → 201 kB). Mock server has an in-memory ticket flow (create / inbox / approve / history checked on :3012).
+   - **Docs:** compliance v1.4.0, deploy guide v1.5.0 (§3a repairCompanyLocks), Claude.md v3.8, APPSCRIPT_API, DATABASE_SCHEMA_UPDATES, DEPENDENCY_MAPPING, DEVELOPMENT_PLAN (Phase 6 correction), SUPERTHINK_TODO.
+   - **Not done - check live in a browser (user chose to skip the local click-through):** create a ticket at `/tickets` → it appears → open → approve; Admin → Workflows (pick company, add steps with SLA + approvers, edit, copy, default); Admin → Ticket Links; Companies → Unlock Code.
+   - **Next (user):** deploy v9.1 (guide v1.5.0; v9.0 can be skipped) → `repairCompanyLocks()` dry run then apply → OK the one push (Release 1 + `build:ci` + v9.1) → Vercel check → browser smoke test above.
 
 ### Pending — 504ece01 (18 Oct 2026)
 

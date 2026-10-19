@@ -262,7 +262,10 @@ class BaseAPI {
         'ping', 'getCompanies', 'getTickets', 'getTicketTypes', 'getRoles',
         'getDropdownLists', 'getCustomFields', 'getWorkflowSteps', 'getSystemHealth',
         'getUserProfileTypes', 'getRoleTypes', // routed in doGet only - doPost has no case for them
-        'getCompany', 'getDropdownOptions', 'getUserPreferences' // doGet only
+        'getCompany', 'getDropdownOptions', 'getUserPreferences', // doGet only
+        // AppScript v9.1 reads
+        'getNextTicketNumber', 'getTicketType', 'getCustomField', 'getTicketLinks', 'validateTicketDependencies',
+        'checkCompanyLockStatus', 'getCommentRequirements', 'getTicketHistory', 'getTicketsForApproval'
       ];
 
       const isGetRequest = readActions.includes(action);
@@ -329,8 +332,10 @@ class BaseAPI {
         cache.set(cacheKey, response);
       }
 
-      // Invalidate related cache entries on mutations
-      if (['create', 'update', 'delete'].some(verb => action.toLowerCase().includes(verb))) {
+      // Invalidate related cache entries on any write - not only create/update/delete names: assignUserRole,
+      // submitStepApproval, lockCompany... left stale cached reads behind (review R-02)
+      const isRead = isGetRequest || /^(get|can|check|validate)/.test(action);
+      if (!isRead) {
         cache.invalidate(this.entityName);
       }
 
@@ -408,13 +413,17 @@ class CompanyAPI extends BaseAPI {
     return response.data;
   }
 
-  async lock(id, reason = 'first_ticket_created') {
-    const response = await this.makeRequest('lockCompany', { id, reason });
+  async lock(id, reason = 'admin_lock', userId = null) {
+    const response = await this.makeRequest('lockCompany', { id, reason, user_id: userId });
     return response.data;
   }
 
-  async unlock(id, reason = 'admin_override') {
-    const response = await this.makeRequest('unlockCompany', { id, reason });
+  // Admin override (spec 3.3): the backend requires a reason and logs it with the previous lock
+  async unlock(id, reason, userId = null) {
+    if (!reason?.trim()) {
+      throw new Error('A reason is required to unlock a company code');
+    }
+    const response = await this.makeRequest('unlockCompany', { id, reason: reason.trim(), user_id: userId });
     return response.data;
   }
 
@@ -765,10 +774,8 @@ class TicketAPI extends BaseAPI {
       company_id: data.company_id,
       requester_id: data.requester_id,
       priority: data.priority || 'medium',
-      assignee_email: data.assignee_email || '',
-      due_date: data.due_date || '',
-      custom_fields: data.custom_fields || {},
-      customData: data.customData || {}
+      // custom field id -> value (AppScript createTicket writes them with setCustomFieldValue)
+      customData: data.customData || data.custom_fields || {}
     });
 
     // Clear tickets cache since we added a new ticket
@@ -821,7 +828,20 @@ class TicketAPI extends BaseAPI {
       comment: comment.trim(),
       user_id: userId
     });
+    cache.invalidate('tickets');
     return response.data;
+  }
+
+  // ticket_history rows, newest first (AppScript v9.1)
+  async getHistory(ticketId) {
+    const response = await this.makeRequest('getTicketHistory', { ticket_id: ticketId });
+    return response.data || [];
+  }
+
+  // Approver inbox: open tickets whose current step this user can approve now (AppScript v9.1)
+  async getForApproval(userId) {
+    const response = await this.makeRequest('getTicketsForApproval', { user_id: userId });
+    return response.data || [];
   }
 
   getMockData(action, params = {}) {
@@ -2085,6 +2105,32 @@ class TicketTypesAPI extends BaseAPI {
     return response.data;
   }
 
+  // Which actions need a comment: { source: 'company' | 'global' | 'none', require_on_approve, require_on_return,
+  // require_on_reject, require_on_cancel } - a company's row wins over the global one (AppScript v9.1)
+  async getCommentRequirements(ticketTypeId, companyId = null) {
+    const response = await this.makeRequest('getCommentRequirements', {
+      ticket_type_id: ticketTypeId,
+      company_id: companyId
+    });
+    return response.data || null;
+  }
+
+  // Save comment requirements for a ticket type; companyId null = the global row for every company
+  async saveCommentRequirements(ticketTypeId, requirements = {}, companyId = null) {
+    if (!ticketTypeId) {
+      throw new Error('Ticket type ID is required');
+    }
+    const response = await this.makeRequest('saveCommentRequirements', {
+      ticket_type_id: ticketTypeId,
+      company_id: companyId || '',
+      require_on_approve: Boolean(requirements.require_on_approve),
+      require_on_return: Boolean(requirements.require_on_return),
+      require_on_reject: Boolean(requirements.require_on_reject),
+      require_on_cancel: Boolean(requirements.require_on_cancel)
+    });
+    return response.data;
+  }
+
   // Validate ticket type name uniqueness (case-insensitive)
   async validateNameUniqueness(name, excludeId = null) {
     if (!name?.trim()) return;
@@ -2191,8 +2237,9 @@ class StepApprovalsAPI extends BaseAPI {
       timestamp: new Date().toISOString()
     });
 
+    // Module-level cache: `this.cache` doesn't exist and threw after the backend had saved the approval (review R-01)
     cache.invalidate('step_approvals');
-    this.cache.invalidate('tickets');
+    cache.invalidate('tickets');
     return response.data;
   }
 
@@ -2201,7 +2248,8 @@ class StepApprovalsAPI extends BaseAPI {
     return eligibility?.can_approve || false;
   }
 
-  // { can_approve, already_approved, approver_logic, eligible_role_ids, required_role_ids, approved_role_ids }
+  // { can_approve, can_act, already_approved, approver_logic, eligible_role_ids, required_role_ids, approved_role_ids }
+  // can_act (AppScript v9.1): may reject / return - true for a partial approver under 'all' too
   async getApprovalEligibility(userId, stepId, ticketId = null) {
     const response = await this.makeRequest('canUserApprove', {
       user_id: userId,

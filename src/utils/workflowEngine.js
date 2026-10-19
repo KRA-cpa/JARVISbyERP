@@ -141,13 +141,14 @@ export const evaluateSingleCondition = (condition, ticket) => {
     case 'equals':
     case '=':
     case '==':
-      passed = actualValue == value;
+      // Form values arrive as strings: compare as text so "5000" equals 5000 (what the old == did)
+      passed = String(actualValue ?? '') === String(value ?? '');
       description = `${custom_field_id || condition.field_name} equals ${value}`;
       break;
 
     case 'not_equals':
     case '!=':
-      passed = actualValue != value;
+      passed = String(actualValue ?? '') !== String(value ?? '');
       description = `${custom_field_id || condition.field_name} not equals ${value}`;
       break;
 
@@ -556,7 +557,7 @@ export const calculateNextStep = (currentStep, workflowSteps, ticketData) => {
 };
 
 // Export default object with all functions
-export default {
+const workflowEngine = {
   WORKFLOW_CONSTANTS,
   canStartWorkflowStep,
   evaluateStepConditions,
@@ -571,3 +572,5 @@ export default {
   validateWorkflowConfiguration,
   calculateNextStep
 };
+
+export default workflowEngine;

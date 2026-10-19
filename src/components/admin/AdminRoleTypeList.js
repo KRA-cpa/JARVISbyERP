@@ -210,7 +210,7 @@ const AdminRoleTypeList = () => {
                         {actionLoading[`delete_${roleType.id}`] ? (
                           <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current mr-1"></div>
                         ) : (
-                          <Icons.Trash size={12} className="mr-1" />
+                          <Icons.Delete size={12} className="mr-1" />
                         )}
                         Delete
                       </button>

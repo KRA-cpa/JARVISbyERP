@@ -312,6 +312,30 @@ Config
 - **User id**: Firebase / dev users carry `uid` (no `id`); components use `user?.uid || user?.id`.
 - **Not used any more by WorkflowStep**: `useAutoWorkflowRouter` / `src/utils/approvalRouter.js` (client-side routing duplicated what `submitStepApproval` now does server-side; kept for other callers).
 
+### **🎫 CORE TICKET LOOP + WORKFLOW ADMIN (October 19, 2026 — AppScript v9.1)**
+
+Until v9.1 nothing imported the ticket components or `AdminWorkflowBuilder`; `npm run check:api-contract` now reports any component `src/index.js` can't reach (`unmounted-component`).
+
+| File | Layer | Imports (new in bold) | Used by |
+|---|---|---|---|
+| `src/pages/TicketsPage.js` | Page (new) | `useUser`, `Header`, `Footer`, **`TicketDashboard`** | `App.js` route `/tickets` (ProtectedRoute) |
+| `src/components/tickets/TicketDashboard.js` | Component | **`TicketForm`**, **`TicketDetail`**, **`useTicketsForApproval`**, `API.StepApprovals.submitApproval` (bulk), `useTickets` / `useCompanies` / `useTicketTypes` | `TicketsPage` |
+| `src/components/tickets/TicketForm.js` | Component | **`useCustomFields(ticketTypeId)`**, **`useDropdownOptions`**, **`DateRangeInput`**, `ticketAPI.create` / `update` / `getNextTicketNumber`; dropped `processTicketWorkflow` (backend starts the workflow) | `TicketDashboard` (modal) |
+| `src/components/tickets/TicketDetail.js` | Component | **`useTicketHistory`**, **`useTicketMutations`** (cancel / reopen with userId), **`useCommentRequirements`**, `getSLAStatus` (utils), `WorkflowStep` | `TicketDashboard` |
+| `src/components/tickets/WorkflowStep.js` | Component | **`useCommentRequirements`**; `useWorkflowSteps(ticketTypeId, companyId)`; `can_act` for reject / return | `TicketDetail` |
+| `src/components/admin/AdminWorkflowBuilder.js` | Component | **`useCompanies`**, **`WorkflowCopyDialog`**; `API.WorkflowSteps.setStepApprovers` / `createDefaultForCompany` | `AdminPage` tab **Workflows** |
+| `src/components/admin/WorkflowCopyDialog.js` | Component | `useCompanies`, `useTicketTypes`, `API.WorkflowSteps.copyFromCompany`; reports counts via `onSuccess(message)` | `AdminWorkflowBuilder`, `BulkOperationsManager` (unmounted) |
+| `src/components/admin/CrossCompanyTicketLinker.js` | Component | `API.TicketLinks` (all routed in v9.1) | `AdminPage` tab **Ticket Links** |
+| `src/components/admin/AdminCompanyManager.js` | Component | **`useUser`**, `companyAPI.unlock(id, reason, userId)` | `AdminPage` companies tab |
+| `src/pages/DashboardPage.js` | Page | **`useTicketsForApproval`**, **`useNavigate`** (placeholders → `/tickets`) | `App.js` `/dashboard` |
+| `src/components/shared/Header.js` | Shared | nav link **Tickets** → `/tickets` | pages |
+| `src/components/shared/Icons.js` | Shared | new `Copy`, `ArrowRight`; `Icons.Trash` (never existed) → `Icons.Delete` in 5 files | all |
+| `src/hooks/useAPI.js` | Hooks | new **`useTicketHistory`**, **`useTicketsForApproval`**, **`useCommentRequirements`**; `useCustomFields(id)` loads one type's fields; removed dead `useUser` / `useTicketDueDates` | components above |
+| `src/api/googleSheet.js` | API | 9 v9.1 reads in `readActions`; `Tickets.getHistory` / `getForApproval`; `TicketTypes.getCommentRequirements` / `saveCommentRequirements`; `Companies.unlock(id, reason, userId)`; cache cleared after every write (R-02); `submitApproval` uses the module cache (R-01) | hooks |
+
+- **Still unmounted** (backend or feature not ready, listed in `scripts/api-contract-known-gaps.txt`): `BulkOperationsManager` (+ its dialogs), `CompanySLAManager`, `ConfigurationExportImportDialog` (v9.2 routes), `ConditionalWorkflowBuilder` (no condition evaluator), tags / collaboration (Phase 11), `AdminSLAEscalationManager`, `RBACSettings`, superseded `AdminTicketTypeManager` / `AdminCustomFieldManager`, and shared `APITestPanel`, `ActionCommentModal`, `InfiniteLoopMonitor`, `SLANotificationSystem`, `SLAWidgets` (hidden), `UserPreferencesPanel`.
+- **Permissions**: the ticket screens gate approve / reject on the backend's eligibility (`getTicketsForApproval`, `canUserApprove`), not on `hasPermission('canApproveTickets')`, which only knows fixed role names (manager, approver, ...).
+
 ### **📊 DEPENDENCY IMPACT ANALYSIS**
 
 #### **Zero Breaking Changes**

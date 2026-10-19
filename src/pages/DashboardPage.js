@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUser } from '../contexts/UserContext';
-import { useTickets, useCompanies, useTicketTypes } from '../hooks/useAPI';
+import { useTickets, useCompanies, useTicketTypes, useTicketsForApproval } from '../hooks/useAPI';
 import { useToast } from '../components/shared/Toast';
 import { useInformation } from '../components/shared/ConfirmationModal';
 import Header from '../components/shared/Header';
@@ -16,7 +17,11 @@ const DashboardPage = () => {
   const { data: tickets, loading: ticketsLoading, error: ticketsError, refetch: refetchTickets } = useTickets();
   const { data: companies } = useCompanies();
   const { data: ticketTypes } = useTicketTypes();
-  const { ToastContainer, success } = useToast();
+  const currentUserId = user?.uid || user?.id;
+  // Approver inbox from the backend's own eligibility (AppScript v9.1), not from role names
+  const { data: approvalInbox } = useTicketsForApproval(currentUserId);
+  const navigate = useNavigate();
+  const { ToastContainer } = useToast();
 
   // Modal hooks
   const { showInfo, InformationModal } = useInformation();
@@ -47,35 +52,30 @@ const DashboardPage = () => {
 
   // Filter tickets based on current selections
   const filteredTickets = tickets?.filter(ticket => {
-    const companyMatch = !selectedCompany || ticket.company_id === selectedCompany;
+    const companyMatch = !selectedCompany || String(ticket.company_id) === String(selectedCompany);
     const statusMatch = !selectedStatus || ticket.status === selectedStatus;
     const priorityMatch = !selectedPriority || ticket.priority === selectedPriority;
 
     return companyMatch && statusMatch && priorityMatch;
   }) || [];
 
-  // Calculate real statistics from filtered tickets
+  // Statistics on the ticket columns AppScript writes (status comes from each step's status_on_reach)
+  const isClosed = t => ['Completed', 'Rejected', 'Cancelled'].includes(t.status);
+  const inWorkflow = t => !isClosed(t) && Boolean(t.current_step_id);
   const stats = {
     total: filteredTickets.length,
-    open: filteredTickets.filter(t => ['open', 'in_progress', 'pending'].includes(t.status)).length,
-    pending: filteredTickets.filter(t => t.status === 'pending').length,
-    overdue: filteredTickets.filter(t => {
-      if (!t.due_date) return false;
-      return new Date(t.due_date) < new Date() && !['completed', 'closed'].includes(t.status);
-    }).length,
-    myTickets: filteredTickets.filter(t => t.assignee_email === user?.email || t.creator_email === user?.email).length,
-    completed: filteredTickets.filter(t => ['completed', 'closed'].includes(t.status)).length,
-    forApproval: hasPermission('canApproveTickets') ? filteredTickets.filter(t => t.status === 'pending').length : 0
+    open: filteredTickets.filter(t => !isClosed(t)).length,
+    pending: filteredTickets.filter(inWorkflow).length,
+    overdue: filteredTickets.filter(t => inWorkflow(t) && t.step_due_date && new Date(t.step_due_date) < new Date()).length,
+    myTickets: filteredTickets.filter(t => String(t.requester_id) === String(currentUserId)).length,
+    completed: filteredTickets.filter(t => t.status === 'Completed').length,
+    forApproval: (approvalInbox || []).length
   };
+  const goToTickets = () => navigate('/tickets');
 
   // Get unique values for filter dropdowns
   const uniqueStatuses = [...new Set(tickets?.map(t => t.status) || [])];
   const uniquePriorities = [...new Set(tickets?.map(t => t.priority) || [])];
-
-  const handleQuickAction = (action, ticketId) => {
-    success(`${action} action completed for ticket ${ticketId}`);
-    refetchTickets();
-  };
 
   // Manual refresh: spin for at least 600 ms - a local or failing request can finish
   // before the browser paints, so the loading flag alone would never show the spin
@@ -89,8 +89,8 @@ const DashboardPage = () => {
   };
 
   const renderTicketRow = (ticket) => {
-    const company = companies?.find(c => c.id === ticket.company_id);
-    const ticketType = ticketTypes?.find(t => t.id === ticket.ticket_type_id);
+    const company = companies?.find(c => String(c.id) === String(ticket.company_id));
+    const ticketType = ticketTypes?.find(t => String(t.id) === String(ticket.ticket_type_id));
 
     const getPriorityColor = (priority) => {
       switch (priority?.toLowerCase()) {
@@ -140,11 +140,11 @@ const DashboardPage = () => {
                       </span>
                     </>
                   )}
-                  {ticket.due_date && (
+                  {ticket.step_due_date && !isClosed(ticket) && (
                     <>
                       <span className="text-gray-300">•</span>
                       <span className="text-xs text-gray-500">
-                        Due: {new Date(ticket.due_date).toLocaleDateString()}
+                        Step due: {new Date(ticket.step_due_date).toLocaleDateString()}
                       </span>
                     </>
                   )}
@@ -161,35 +161,18 @@ const DashboardPage = () => {
               {ticket.status || 'Open'}
             </span>
 
-            {hasPermission('canApproveTickets') && ticket.status === 'pending' && (
-              <div className="flex items-center space-x-1">
-                <button
-                  onClick={() => handleQuickAction('Approve', ticket.id)}
-                  className="p-1 text-green-600 hover:bg-green-50 rounded transition-colors duration-200"
-                  title="Quick Approve"
-                >
-                  <Icons.Success size={16} />
-                </button>
-                <button
-                  onClick={() => handleQuickAction('Reject', ticket.id)}
-                  className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors duration-200"
-                  title="Quick Reject"
-                >
-                  <Icons.Close size={16} />
-                </button>
-              </div>
+            {(approvalInbox || []).some(t => String(t.id) === String(ticket.id)) && (
+              <span className="px-2 py-1 rounded-full text-xs font-medium border text-purple-700 bg-purple-50 border-purple-200">
+                Your approval
+              </span>
             )}
 
             <button
-              onClick={() => showInfo({
-                title: 'Ticket Details',
-                message: `Detailed view for ticket ${ticket.ticket_number || ticket.id} will be available in the next phase.`,
-                type: 'info'
-              })}
+              onClick={goToTickets}
               className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors duration-200"
-              title="View Details"
+              title="Open in Tickets"
             >
-              <Icons.Edit size={16} />
+              <Icons.Info size={16} />
             </button>
           </div>
         </div>
@@ -325,7 +308,7 @@ const DashboardPage = () => {
                 </div>
               )}
 
-              {DEV_CONFIG.DASHBOARD_CARDS.SHOW_FOR_YOUR_APPROVAL && hasPermission('canApproveTickets') && (
+              {DEV_CONFIG.DASHBOARD_CARDS.SHOW_FOR_YOUR_APPROVAL && (
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -415,7 +398,7 @@ const DashboardPage = () => {
             </div>
 
             {/* Quick Actions */}
-            {hasPermission('canCreateTickets') && (
+            {currentUserId && (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
@@ -424,11 +407,7 @@ const DashboardPage = () => {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button
-                      onClick={() => showInfo({
-                        title: 'Create New Ticket',
-                        message: 'New ticket creation interface will be implemented in Phase 6.',
-                        type: 'info'
-                      })}
+                      onClick={goToTickets}
                       className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors duration-200 flex items-center space-x-2"
                     >
                       <Icons.Create size={16} />
@@ -497,11 +476,7 @@ const DashboardPage = () => {
                   {filteredTickets.length > 10 && (
                     <div className="text-center pt-4">
                       <button
-                        onClick={() => showInfo({
-                          title: 'View All Tickets',
-                          message: `Full list view for all ${filteredTickets.length} tickets will be implemented in Phase 6.`,
-                          type: 'info'
-                        })}
+                        onClick={goToTickets}
                         className="px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
                       >
                         View All {filteredTickets.length} Tickets
@@ -515,13 +490,9 @@ const DashboardPage = () => {
                   <p className="text-gray-500 mb-4">
                     {tickets?.length > 0 ? 'No tickets match your filters' : 'No tickets found'}
                   </p>
-                  {hasPermission('canCreateTickets') && (
+                  {currentUserId && (
                     <button
-                      onClick={() => showInfo({
-                        title: 'Create First Ticket',
-                        message: 'Ticket creation functionality is currently in development and will be available soon.',
-                        type: 'info'
-                      })}
+                      onClick={goToTickets}
                       className="px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"
                     >
                       Create First Ticket

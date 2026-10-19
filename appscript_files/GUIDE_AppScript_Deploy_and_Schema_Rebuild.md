@@ -2,7 +2,7 @@
 ===============================================================================
 JARVISbyERP — TICKETING & WORKFLOW ORCHESTRATION SYSTEM
 ===============================================================================
-Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.4.0
+Document: GUIDE_AppScript_Deploy_and_Schema_Rebuild.md | Author: Kenneth R. Advento | Version: 1.5.0
 Created: 17 October 2026 UTC+8 (Philippine Standard Time) | Modified: 19 October 2026 UTC+8 (Philippine Standard Time)
 Purpose: Step-by-step guide to paste a new AppScript version and rebuild all Google Sheet tables safely | Status: Active
 
@@ -13,6 +13,7 @@ REVISION HISTORY:
 - v1.2.0 | 17 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v8.3 (code review fixes); banner removed; §0/§3 redeploy-first note (write lock); `defaulted` log field; lock-timeout error row
 - v1.3.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | §5 step 3: the New version description is copied from the file header's `Deploy description:` line (rule A11, from v8.4 on)
 - v1.4.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.0 (API contract routes, roles & approvals); deploy the frontend with it (breaking: approve payload, loud errors); roles 5 → 12 columns (rebuild apply needed); §5 ping reports the file version
+- v1.5.0 | 19 October 2026 UTC+8 (Philippine Standard Time) | Kenneth R. Advento | Current file → v9.1 (core ticket loop, workflow admin, links, company lock, comment requirements); ticket_links 14 → 17 columns; new §3a repairCompanyLocks(); v9.0 may be skipped (v9.1 includes it)
 ===============================================================================
 -->
 
@@ -20,11 +21,21 @@ REVISION HISTORY:
 
 > Use this guide every time a new `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` file is created.
 > **Latest file is the one with the newest timestamp** in `appscript_files/`.
-> Current: `APPSCRIPT_v9.0_20261019_0501.txt`
+> Current: `APPSCRIPT_v9.1_20261019_1400.txt` (contains v9.0 - if v9.0 was never deployed, go straight to v9.1)
 
-> ⚠️ **v9.0 changes the API contract** - deploy the frontend from the same commit right after §5: the approve request now sends `decision` (the old `action` key never reached a route), and failures return `status: 'error'`, which the frontend now shows instead of an empty list. An older frontend keeps working for everything except approvals.
+> ⚠️ **v9.0 / v9.1 change the API contract** - deploy the frontend from the same commit right after §5:
+> - The approve request sends `decision` (v9.0), and failures return `status: 'error'`, which the frontend shows instead of an empty list.
+> - The new screens (`/tickets`, Admin → Workflows, Ticket Links) call the v9.1 routes.
+> - Cancel / reopen now need `user_id`, and reopen needs an admin role (a role whose name contains "admin").
 >
-> Offline tests (both must pass on the file you paste): `node appscript_files/tools/ROUTES_AND_APPROVALS_TEST_v9.0.js appscript_files/APPSCRIPT_v9.0_20261019_0501.txt` → 21 PASS; `node appscript_files/tools/CODE_REVIEW_FIXES_TEST_v8.3.js appscript_files/APPSCRIPT_v9.0_20261019_0501.txt` → 11 PASS. Contract: `npm run check:api-contract` → OK. Never apply with v8.2.
+> An older frontend keeps working for everything except approvals and the new screens.
+>
+> Offline tests (all must pass on the file you paste):
+> - `node appscript_files/tools/ROUTES_TEST_v9.1.js appscript_files/APPSCRIPT_v9.1_20261019_1400.txt` → 18 PASS
+> - `ROUTES_AND_APPROVALS_TEST_v9.0.js` → 21 PASS
+> - `CODE_REVIEW_FIXES_TEST_v8.3.js` → 11 PASS (same file)
+>
+> Contract: `npm run check:api-contract` → OK. Never apply with v8.2.
 
 **Time needed:** ~15 minutes | **Risk:** Low — the rebuild never deletes data and backs up every tab it changes
 
@@ -36,7 +47,7 @@ REVISION HISTORY:
 |---|---|
 | ☐ You can open the Google Sheet | Sheet ID `1EjFpr_yktSU6QAeBSAvcr6iWVtmaOCV1t5unvImmot4` (same as `SPREADSHEET_ID` in the script) |
 | ☐ An `xSchema` tab exists in the Sheet | Needed by `analyzeCurrentSchema()` in §4. If missing: in the Sheet click **+** (bottom-left) → rename the new tab to `xSchema` |
-| ☐ Nobody is using the app, **or** you redeploy (§5) before applying (§3) | The apply step holds the script lock, and v8.3+ web-app writes wait for it. Redeploying first is safe: v9.0 writes by header name and works on the old layout too (a missing `roles` column is just skipped until the rebuild adds it) |
+| ☐ Nobody is using the app, **or** you redeploy (§5) before applying (§3) | The apply step holds the script lock, and v8.3+ web-app writes wait for it. Redeploying first is safe: v9.0+ writes by header name and works on the old layout too (a missing `roles` / `ticket_links` column is just skipped until the rebuild adds it) |
 
 ---
 
@@ -44,10 +55,10 @@ REVISION HISTORY:
 
 1. Open the Google Sheet → **Extensions → Apps Script** (or open the project from script.google.com).
 2. In the left panel, click the script file (usually `Code.gs`).
-3. In the repo, open the latest file: `appscript_files/APPSCRIPT_v9.0_20261019_0501.txt` → select all → copy.
+3. In the repo, open the latest file: `appscript_files/APPSCRIPT_v9.1_20261019_1400.txt` → select all → copy.
 4. In the editor: **Ctrl+A** → **Ctrl+V** to replace everything.
 5. **Ctrl+S** to save. If a red error bar appears, the paste was incomplete — repeat steps 3–5.
-6. Quick check: the first lines must say `Version: 9.0`.
+6. Quick check: the first lines must say `Version: 9.1`.
 
 > Pasting and saving updates the **editor** only. The live web app keeps serving the old version until you redeploy (§5).
 
@@ -74,7 +85,11 @@ This **only reports**. It changes nothing.
 **Review before applying:**
 - **`added`** — new columns, empty for existing rows. Normal.
 - **`defaulted`** — added columns that existing rows get a value for instead of blank (`COLUMN_DEFAULTS`): `entity_category = 'ticket'` in `custom_fields` / `custom_field_values`, and (v9.0) `is_active = TRUE` in `roles`. Normal.
-- **v9.0 expects** `REPAIRED: roles … added: [role_type_id, is_active, created_by, updated_by, deactivated_at, deactivated_by, deactivation_reason] … defaulted: [is_active]`. Nothing else should change if v8.3 was applied.
+- **v9.1 expects**
+  - `REPAIRED: ticket_links … added: [enforce_blocking_rules, sync_status, notify_on_update] … defaulted: [enforce_blocking_rules, sync_status, notify_on_update]`
+  - if v9.0 was never applied, also `REPAIRED: roles … added: [role_type_id, is_active, created_by, updated_by, deactivated_at, deactivated_by, deactivation_reason] … defaulted: [is_active]`
+
+  Nothing else should change if v8.3 was applied.
 - **`moved`** — existing columns that will change position. Data moves with its header. Normal.
 - **`extra`** — columns in the tab that are **not** in `TABLE_SCHEMAS`. They are **kept**, moved after the official columns, with their data. A blank header becomes `_unnamed_<col>`; a repeated header becomes `<name>_dup_<col>`. If a name looks like a typo of a real column (e.g. `creatd_at`), fix the header in the Sheet by hand **before applying** and re-run the dry run — otherwise its data stays in the extra column instead of the real one.
 
@@ -94,6 +109,19 @@ This **only reports**. It changes nothing.
 
 ---
 
+## §3a v9.1 only: Repair the company lock columns — `repairCompanyLocks()`
+
+Before v9.1, every company edit wrote `created_at` / `updated_at` into `code_locked` / `code_locked_at`, and nothing ever set the lock or `ticket_count`.
+
+1. Function dropdown → **`repairCompanyLocks`** → **Run**. This is a dry run, so nothing changes. The log lists one line per company it would fix, e.g. `MYCO (co_1): {"code_locked":"2025-09-…"} -> {"code_locked":true,"ticket_count":3,…}`.
+2. Check that the companies with tickets are the ones that get `code_locked: true`.
+3. Function dropdown → **`repairCompanyLocksApply`** → **Run**.
+4. Run **`repairCompanyLocks`** once more: it should report `0 company row(s) to repair`.
+
+From now on the first ticket of a company locks its code. Admin → Companies → Edit has **Unlock Code**, which needs a reason that is logged.
+
+---
+
 ## §4 Verify — `analyzeCurrentSchema()`
 
 1. Function dropdown → **`analyzeCurrentSchema`** → **Run**.
@@ -108,7 +136,7 @@ This **only reports**. It changes nothing.
 | ticket_history | 11 | dropdown_options | 5 | ticket_tags | 18 |
 | ticket_types | 10 | ticket_attachments | 19 | ticket_tag_assignments | 13 |
 | comment_requirements | 16 | report_configurations | 18 | tag_categories | 15 |
-| custom_fields | 19 | ticket_links | 14 | tag_usage_statistics | 8 |
+| custom_fields | 19 | ticket_links | 17 | tag_usage_statistics | 8 |
 | custom_field_values | 18 | sequence_counters | 2 | ticket_collaborations | 20 |
 | workflow_steps | 19 | ticket_action_logs | 6 | collaboration_requests | 19 |
 | step_approvers | 2 | admin_action_logs | 7 | collaboration_notifications | 10 |
@@ -124,10 +152,10 @@ A table with **more** columns than listed had `extra` columns, which are kept at
 
 1. **Deploy → Manage deployments**.
 2. Select the active web-app deployment → **✏️ Edit**.
-3. **Version → New version** → **Description**: copy the `Deploy description:` line from the header of the file you pasted (v9.0: `v9.0 20261019_0501 - API contract routes, roles & approval engine, loud errors`). For v8.3, which predates that line, use `v8.3 20261017_1510 - code review fixes CR-01..CR-07`. → **Deploy**.
+3. **Version → New version** → **Description**: copy the `Deploy description:` line from the header of the file you pasted (v9.1: `v9.1 20261019_1400 - core ticket loop routes, workflow admin, links, company lock, comment rules`; v9.0: `v9.0 20261019_0501 - API contract routes, roles & approval engine, loud errors`). For v8.3, which predates that line, use `v8.3 20261017_1510 - code review fixes CR-01..CR-07`. → **Deploy**.
 4. The web-app URL stays the same — no frontend change needed.
 5. Open the app → Admin page → confirm the API status shows connected and lists load.
-6. From v9.0, `<web app URL>?action=ping` returns `"version": "9.0.0"` (the file's `API_VERSION`). Before v9.0 it always said `8.0.0`. `?action=getSystemHealth` lists any tab whose headers differ from `TABLE_SCHEMAS`.
+6. From v9.0, `<web app URL>?action=ping` returns the file's `API_VERSION` - `"version": "9.1.0"` for v9.1. Before v9.0 it always said `8.0.0`. `?action=getSystemHealth` lists any tab whose headers differ from `TABLE_SCHEMAS`.
 
 ---
 

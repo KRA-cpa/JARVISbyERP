@@ -69,6 +69,9 @@ const daysLeft = (endValue) => {
   return Math.ceil((endOfDay.getTime() - Date.now()) / DAY_MS) - 1;
 };
 
+// A global role (blank company) fits any company; a company's own role only that company (review R-10)
+const roleFitsCompany = (role, companyId) => !role.company_id || !companyId || String(role.company_id) === String(companyId);
+
 const emptyForm = () => ({
   roleId: '',
   companyId: '',
@@ -103,6 +106,8 @@ const DateBasedRoleAssignmentManager = ({ user, onClose, onChanged }) => {
   const needsEndDate = TYPES_NEEDING_END_DATE.includes(form.assignmentType);
   const formError = (() => {
     if (!form.roleId || !form.companyId) return 'Choose a role and a company';
+    const role = (roles || []).find(r => String(r.id) === String(form.roleId));
+    if (role && !roleFitsCompany(role, form.companyId)) return `"${role.name}" belongs to another company`;
     if (needsEndDate && !form.endDate) return 'This assignment type needs an end date';
     if (form.endDate && form.startDate && form.endDate < form.startDate) return 'The end date is before the start date';
     return null;
@@ -317,8 +322,9 @@ const DateBasedRoleAssignmentManager = ({ user, onClose, onChanged }) => {
               <label className="block text-sm font-medium text-gray-700">Role *</label>
               <select value={form.roleId} onChange={updateForm('roleId')} className={inputClass}>
                 <option value="">Select a role...</option>
-                {(roles || []).map(role => (
-                  <option key={role.id} value={role.id}>{role.name}</option>
+                {/* Global roles, and roles of the chosen company (AppScript v9.1 refuses others - review R-10) */}
+                {(roles || []).filter(role => roleFitsCompany(role, form.companyId)).map(role => (
+                  <option key={role.id} value={role.id}>{role.name}{role.company_id ? '' : ' (global)'}</option>
                 ))}
               </select>
             </div>

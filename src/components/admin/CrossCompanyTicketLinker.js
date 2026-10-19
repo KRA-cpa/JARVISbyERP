@@ -154,8 +154,10 @@ const CrossCompanyTicketLinker = () => {
     }
   };
 
+  // Reload when the search filters change (loadTicketLinks is redefined every render and reads them)
   React.useEffect(() => {
     loadTicketLinks();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchCriteria]);
 
   if (companiesLoading || ticketTypesLoading) {
@@ -482,7 +484,7 @@ const CrossCompanyTicketLinker = () => {
                         onClick={() => handleDeleteLink(link.id)}
                         className="text-red-500 hover:text-red-700"
                       >
-                        <Icons.Trash size={16} />
+                        <Icons.Delete size={16} />
                       </button>
                     </div>
                     {link.description && (

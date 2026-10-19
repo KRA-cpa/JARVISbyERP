@@ -1,57 +1,85 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../../contexts/UserContext';
-import { useTickets, useCompanies, useTicketTypes, useSLAStatus } from '../../hooks/useAPI';
+import { useTickets, useCompanies, useTicketTypes, useTicketsForApproval } from '../../hooks/useAPI';
+import { API } from '../../api/googleSheet';
 import { useToast } from '../shared/Toast';
-import { useConfirmation, useInformation } from '../shared/ConfirmationModal';
+import { useConfirmation } from '../shared/ConfirmationModal';
 import Icons from '../shared/Icons';
+import TicketForm from './TicketForm';
+import TicketDetail from './TicketDetail';
 
+// Ticket statuses that end the workflow (AppScript TERMINAL_TICKET_STATUSES)
+const TERMINAL_STATUSES = ['completed', 'rejected', 'cancelled'];
+
+/**
+ * TicketDashboard - ticket list for requesters and approvers (/tickets).
+ *
+ * - Show: all tickets / my tickets (requester_id) / waiting for my approval (AppScript v9.1
+ *   getTicketsForApproval - the backend's own eligibility, not role names)
+ * - Create opens TicketForm; a row opens TicketDetail (WorkflowStep approves / rejects / returns there)
+ * - Bulk approve / reject applies to tickets in the approval inbox, one submitStepApproval per ticket, and
+ *   reports the tickets that failed (e.g. a required comment, or the ticket moved on meanwhile)
+ */
 const TicketDashboard = () => {
-  const { user, hasPermission } = useUser();
+  const { user } = useUser();
+  const currentUserId = user?.uid || user?.id;
   const { data: tickets, loading, error, refetch } = useTickets();
   const { data: companies } = useCompanies();
   const { data: ticketTypes } = useTicketTypes();
-  const { ToastContainer, success, error: showError } = useToast();
+  const { data: approvalInbox, refetch: refetchInbox } = useTicketsForApproval(currentUserId);
+  const { ToastContainer, success, error: showError, warning } = useToast();
 
   // Modal hooks
   const { confirm, ConfirmationModal } = useConfirmation();
-  const { showInfo, InformationModal } = useInformation();
 
   const [filters, setFilters] = useState({
     search: '',
     company: '',
     status: '',
     priority: '',
-    assignee: '',
-    creator: '',
+    show: 'all', // all | mine | approval
     dateRange: 'all',
-    slaStatus: 'all' // New SLA filter
+    slaStatus: 'all'
   });
 
-  const [sortBy, setSortBy] = useState('created_date');
+  const [sortBy, setSortBy] = useState('created_at');
   const [sortOrder, setSortOrder] = useState('desc');
   const [selectedTickets, setSelectedTickets] = useState([]);
-  const [viewMode, setViewMode] = useState('list'); // list, grid, kanban
+  const [bulkComment, setBulkComment] = useState('');
+  const [bulkRunning, setBulkRunning] = useState(false);
   const [pageSize, setPageSize] = useState(20);
   const [currentPage, setCurrentPage] = useState(1);
+  const [showCreate, setShowCreate] = useState(false);
+  const [openTicketId, setOpenTicketId] = useState(null);
+
+  const approvalIds = new Set((approvalInbox || []).map(t => String(t.id)));
+  const openTicket = openTicketId ? (tickets || []).find(t => String(t.id) === String(openTicketId)) : null;
+
+  const refreshAll = () => {
+    refetch();
+    refetchInbox();
+  };
 
   // Filter and sort tickets
   const filteredTickets = tickets?.filter(ticket => {
+    const search = filters.search.toLowerCase();
     const searchMatch = !filters.search ||
-      ticket.title?.toLowerCase().includes(filters.search.toLowerCase()) ||
-      ticket.ticket_number?.toLowerCase().includes(filters.search.toLowerCase()) ||
-      ticket.description?.toLowerCase().includes(filters.search.toLowerCase());
+      ticket.title?.toLowerCase().includes(search) ||
+      String(ticket.ticket_number || '').toLowerCase().includes(search) ||
+      ticket.description?.toLowerCase().includes(search);
 
-    const companyMatch = !filters.company || ticket.company_id === filters.company;
+    const companyMatch = !filters.company || String(ticket.company_id) === String(filters.company);
     const statusMatch = !filters.status || ticket.status === filters.status;
     const priorityMatch = !filters.priority || ticket.priority === filters.priority;
-    const assigneeMatch = !filters.assignee || ticket.assignee_email === filters.assignee;
-    const creatorMatch = !filters.creator || ticket.creator_email === filters.creator;
+    const showMatch = filters.show === 'all' ||
+      (filters.show === 'mine' && String(ticket.requester_id) === String(currentUserId)) ||
+      (filters.show === 'approval' && approvalIds.has(String(ticket.id)));
 
     const dateMatch = (() => {
       if (filters.dateRange === 'all') return true;
-      if (!ticket.created_date) return false;
+      if (!ticket.created_at) return false;
 
-      const ticketDate = new Date(ticket.created_date);
+      const ticketDate = new Date(ticket.created_at);
       const now = new Date();
 
       switch (filters.dateRange) {
@@ -65,10 +93,8 @@ const TicketDashboard = () => {
     // SLA Status filtering
     const slaMatch = (() => {
       if (filters.slaStatus === 'all') return true;
-      if (!ticket.step_due_date && filters.slaStatus === 'no_sla') return true;
-      if (!ticket.step_due_date && filters.slaStatus !== 'no_sla') return false;
+      if (!ticket.step_due_date) return filters.slaStatus === 'no_sla';
 
-      // Calculate SLA status for filtering (simplified)
       const now = new Date();
       const dueDate = new Date(ticket.step_due_date);
       const isOverdue = now > dueDate;
@@ -78,12 +104,12 @@ const TicketDashboard = () => {
         case 'overdue': return isOverdue;
         case 'due_today': return isDueToday && !isOverdue;
         case 'on_time': return !isDueToday && !isOverdue;
-        case 'no_sla': return false; // Already handled above
+        case 'no_sla': return false;
         default: return true;
       }
     })();
 
-    return searchMatch && companyMatch && statusMatch && priorityMatch && assigneeMatch && creatorMatch && dateMatch && slaMatch;
+    return searchMatch && companyMatch && statusMatch && priorityMatch && showMatch && dateMatch && slaMatch;
   }) || [];
 
   // Sort tickets
@@ -92,7 +118,7 @@ const TicketDashboard = () => {
     let bValue = b[sortBy];
 
     // Handle date sorting
-    if (sortBy.includes('date')) {
+    if (sortBy.endsWith('_at') || sortBy.endsWith('_date')) {
       aValue = new Date(aValue || 0);
       bValue = new Date(bValue || 0);
     }
@@ -100,7 +126,7 @@ const TicketDashboard = () => {
     // Handle string sorting
     if (typeof aValue === 'string') {
       aValue = aValue.toLowerCase();
-      bValue = bValue?.toLowerCase() || '';
+      bValue = String(bValue || '').toLowerCase();
     }
 
     const comparison = aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
@@ -115,8 +141,13 @@ const TicketDashboard = () => {
   // Get unique values for filter dropdowns
   const uniqueStatuses = [...new Set(tickets?.map(t => t.status).filter(Boolean) || [])];
   const uniquePriorities = [...new Set(tickets?.map(t => t.priority).filter(Boolean) || [])];
-  const uniqueAssignees = [...new Set(tickets?.map(t => t.assignee_email).filter(Boolean) || [])];
-  const uniqueCreators = [...new Set(tickets?.map(t => t.creator_email).filter(Boolean) || [])];
+
+  // A selected ticket that left the inbox (approved elsewhere, moved on) is dropped from the selection
+  useEffect(() => {
+    setSelectedTickets(prev => prev.filter(id => approvalIds.has(String(id))));
+    // approvalIds is rebuilt each render from approvalInbox
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [approvalInbox]);
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
@@ -129,20 +160,11 @@ const TicketDashboard = () => {
       company: '',
       status: '',
       priority: '',
-      assignee: '',
-      creator: '',
-      dateRange: 'all'
+      show: 'all',
+      dateRange: 'all',
+      slaStatus: 'all'
     });
     setCurrentPage(1);
-  };
-
-  const handleSort = (field) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('desc');
-    }
   };
 
   const handleTicketSelect = (ticketId, selected) => {
@@ -153,35 +175,50 @@ const TicketDashboard = () => {
     );
   };
 
-  const handleBulkAction = async (action) => {
+  // One submitStepApproval per selected ticket, at the step it is on now
+  const handleBulkAction = async (decision) => {
     if (selectedTickets.length === 0) {
       showError('No tickets selected');
       return;
     }
-
-    if (!hasPermission('canApproveTickets')) {
-      showError('Insufficient permissions for bulk actions');
+    if (decision === 'reject' && !bulkComment.trim()) {
+      warning('Add a comment to reject the selected tickets');
       return;
     }
 
+    const label = decision === 'approve' ? 'Approve' : 'Reject';
     const confirmed = await confirm({
-      title: `${action} Tickets`,
-      message: `Are you sure you want to ${action.toLowerCase()} ${selectedTickets.length} selected ticket${selectedTickets.length !== 1 ? 's' : ''}?`,
-      type: action === 'Delete' ? 'error' : 'warning',
-      confirmText: action,
+      title: `${label} Tickets`,
+      message: `Are you sure you want to ${decision} ${selectedTickets.length} selected ticket${selectedTickets.length !== 1 ? 's' : ''}?`,
+      type: decision === 'reject' ? 'error' : 'warning',
+      confirmText: label,
       cancelText: 'Cancel'
     });
     if (!confirmed) return;
 
-    try {
-      // Simulate bulk action API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      success(`${action} completed for ${selectedTickets.length} tickets`);
-      setSelectedTickets([]);
-      refetch();
-    } catch (error) {
-      showError(`Failed to ${action.toLowerCase()} tickets`);
+    setBulkRunning(true);
+    const failures = [];
+    for (const ticketId of selectedTickets) {
+      const ticket = (approvalInbox || []).find(t => String(t.id) === String(ticketId));
+      try {
+        await API.StepApprovals.submitApproval(ticketId, ticket?.current_step_id, currentUserId, decision, bulkComment);
+      } catch (err) {
+        failures.push(`${ticket?.ticket_number || ticketId}: ${err.message}`);
+      }
     }
+    setBulkRunning(false);
+
+    const done = selectedTickets.length - failures.length;
+    if (done > 0) success(`${label}d ${done} ticket${done !== 1 ? 's' : ''}`);
+    if (failures.length > 0) showError(`Not ${decision}d: ${failures.join('; ')}`);
+    setSelectedTickets([]);
+    setBulkComment('');
+    refreshAll();
+  };
+
+  const handleCreated = () => {
+    setShowCreate(false);
+    refreshAll();
   };
 
   const getPriorityColor = (priority) => {
@@ -194,30 +231,30 @@ const TicketDashboard = () => {
     }
   };
 
+  // Statuses come from each workflow step's status_on_reach, so match on words, not fixed values
   const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'open': return 'text-blue-600 bg-blue-50 border-blue-200';
-      case 'in_progress': return 'text-purple-600 bg-purple-50 border-purple-200';
-      case 'pending': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'completed': return 'text-green-600 bg-green-50 border-green-200';
-      case 'closed': return 'text-gray-600 bg-gray-50 border-gray-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
-    }
+    const s = String(status || '').toLowerCase();
+    if (s === 'completed') return 'text-green-600 bg-green-50 border-green-200';
+    if (s === 'rejected') return 'text-red-600 bg-red-50 border-red-200';
+    if (s === 'cancelled') return 'text-gray-600 bg-gray-100 border-gray-300';
+    if (s.includes('return')) return 'text-orange-600 bg-orange-50 border-orange-200';
+    if (s.includes('pending') || s.includes('approval')) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    if (s === 'new') return 'text-blue-600 bg-blue-50 border-blue-200';
+    return 'text-purple-600 bg-purple-50 border-purple-200';
   };
 
   // SLA Status Component for individual tickets
-  const SLAStatusBadge = ({ ticketId, stepDueDate }) => {
+  const SLAStatusBadge = ({ stepDueDate, closed }) => {
     const [slaStatus, setSlaStatus] = useState(null);
 
     useEffect(() => {
-      if (stepDueDate) {
+      if (stepDueDate && !closed) {
         // Calculate SLA status client-side for performance
         import('../../utils/slaCalculator').then(({ getSLAStatus }) => {
-          const status = getSLAStatus(stepDueDate);
-          setSlaStatus(status);
+          setSlaStatus(getSLAStatus(stepDueDate));
         });
       }
-    }, [stepDueDate]);
+    }, [stepDueDate, closed]);
 
     if (!slaStatus) {
       return (
@@ -252,20 +289,26 @@ const TicketDashboard = () => {
   };
 
   const renderTicketRow = (ticket) => {
-    const company = companies?.find(c => c.id === ticket.company_id);
-    const ticketType = ticketTypes?.find(t => t.id === ticket.ticket_type_id);
+    const company = companies?.find(c => String(c.id) === String(ticket.company_id));
+    const ticketType = ticketTypes?.find(t => String(t.id) === String(ticket.ticket_type_id));
+    const inInbox = approvalIds.has(String(ticket.id));
     const isSelected = selectedTickets.includes(ticket.id);
+    const isMine = String(ticket.requester_id) === String(currentUserId);
+    const closed = TERMINAL_STATUSES.includes(String(ticket.status || '').toLowerCase());
 
     return (
       <div key={ticket.id} className={`border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 ${isSelected ? 'ring-2 ring-blue-500 bg-blue-50' : 'bg-white'}`}>
         <div className="flex items-start space-x-3">
-          {hasPermission('canApproveTickets') && (
+          {inInbox ? (
             <input
               type="checkbox"
               checked={isSelected}
               onChange={(e) => handleTicketSelect(ticket.id, e.target.checked)}
               className="mt-1 rounded border-gray-300 focus:ring-blue-500"
+              title="Select for bulk approve / reject"
             />
+          ) : (
+            <span className="w-4 flex-shrink-0" />
           )}
 
           <Icons.Ticket size={20} className="text-gray-400 flex-shrink-0 mt-1" />
@@ -273,9 +316,12 @@ const TicketDashboard = () => {
           <div className="flex-1 min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-medium text-gray-900 truncate">
+                <button
+                  onClick={() => setOpenTicketId(ticket.id)}
+                  className="text-sm font-medium text-blue-700 hover:underline truncate text-left"
+                >
                   {ticket.ticket_number || `TICKET-${ticket.id}`}
-                </h3>
+                </button>
                 <p className="text-sm text-gray-600 mt-1">
                   {ticket.title || 'No title provided'}
                 </p>
@@ -288,16 +334,22 @@ const TicketDashboard = () => {
                       <span>{ticketType.name}</span>
                     </>
                   )}
-                  {ticket.creator_email && (
+                  {isMine && (
                     <>
                       <span className="text-gray-300">•</span>
-                      <span>Created by {ticket.creator_email}</span>
+                      <span>Requested by you</span>
                     </>
                   )}
-                  {ticket.created_date && (
+                  {ticket.created_at && (
                     <>
                       <span className="text-gray-300">•</span>
-                      <span>{new Date(ticket.created_date).toLocaleDateString()}</span>
+                      <span>{new Date(ticket.created_at).toLocaleDateString()}</span>
+                    </>
+                  )}
+                  {inInbox && (
+                    <>
+                      <span className="text-gray-300">•</span>
+                      <span className="font-medium text-blue-700">Waiting for your approval</span>
                     </>
                   )}
                 </div>
@@ -308,20 +360,16 @@ const TicketDashboard = () => {
                   {ticket.priority || 'Normal'}
                 </span>
                 <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(ticket.status)}`}>
-                  {ticket.status || 'Open'}
+                  {ticket.status || 'New'}
                 </span>
-                <SLAStatusBadge ticketId={ticket.id} stepDueDate={ticket.step_due_date} />
+                <SLAStatusBadge stepDueDate={ticket.step_due_date} closed={closed} />
 
                 <button
-                  onClick={() => showInfo({
-                    title: 'Ticket Details',
-                    message: `Viewing details for ticket ${ticket.ticket_number || ticket.id}. Full ticket detail modal will be implemented in the next phase.`,
-                    type: 'info'
-                  })}
+                  onClick={() => setOpenTicketId(ticket.id)}
                   className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors duration-200"
                   title="View Details"
                 >
-                  <Icons.Edit size={16} />
+                  <Icons.Info size={16} />
                 </button>
               </div>
             </div>
@@ -335,38 +383,48 @@ const TicketDashboard = () => {
     <>
       <ToastContainer />
       <ConfirmationModal />
-      <InformationModal />
+
+      {/* Create ticket */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-500 bg-opacity-75 flex items-start justify-center p-4">
+          <div className="w-full max-w-3xl my-8">
+            <TicketForm onSave={handleCreated} onCancel={() => setShowCreate(false)} />
+          </div>
+        </div>
+      )}
+
+      {/* Ticket detail (approve / reject / return in its Workflow tab) */}
+      {openTicket && (
+        <TicketDetail
+          ticket={openTicket}
+          onClose={() => setOpenTicketId(null)}
+          onStatusChange={refreshAll}
+        />
+      )}
 
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Ticket Dashboard</h2>
-            <p className="text-gray-600">Advanced ticket management and filtering</p>
+            <h2 className="text-2xl font-bold text-gray-900">Tickets</h2>
+            <p className="text-gray-600">
+              {approvalInbox?.length
+                ? `${approvalInbox.length} waiting for your approval`
+                : 'Create, track and approve tickets'}
+            </p>
           </div>
 
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => setViewMode('list')}
-              className={`p-2 rounded ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-              title="List View"
+              onClick={refreshAll}
+              className="p-2 rounded text-gray-400 hover:text-gray-600"
+              title="Refresh"
             >
-              <Icons.List size={16} />
+              <Icons.Refresh size={16} />
             </button>
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-2 rounded ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-              title="Grid View"
-            >
-              <Icons.Dashboard size={16} />
-            </button>
-            {hasPermission('canCreateTickets') && (
+            {currentUserId && (
               <button
-                onClick={() => showInfo({
-                  title: 'Create New Ticket',
-                  message: 'Ticket creation functionality will be implemented in Phase 6. This will include a comprehensive form builder with custom fields.',
-                  type: 'info'
-                })}
+                onClick={() => setShowCreate(true)}
                 className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:scale-105"
               >
                 <Icons.Create size={20} />
@@ -374,6 +432,25 @@ const TicketDashboard = () => {
               </button>
             )}
           </div>
+        </div>
+
+        {/* Show: all / mine / approval */}
+        <div className="flex flex-wrap gap-2">
+          {[
+            { id: 'all', label: 'All tickets' },
+            { id: 'mine', label: 'My tickets' },
+            { id: 'approval', label: `Waiting for my approval (${approvalInbox?.length || 0})` }
+          ].map(option => (
+            <button
+              key={option.id}
+              onClick={() => handleFilterChange('show', option.id)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium border ${filters.show === option.id
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
 
         {/* Search and Filters */}
@@ -417,7 +494,7 @@ const TicketDashboard = () => {
                 <option value="">All Statuses</option>
                 {uniqueStatuses.map((status) => (
                   <option key={status} value={status}>
-                    {status?.charAt(0).toUpperCase() + status?.slice(1)}
+                    {status}
                   </option>
                 ))}
               </select>
@@ -437,33 +514,7 @@ const TicketDashboard = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <select
-              value={filters.assignee}
-              onChange={(e) => handleFilterChange('assignee', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">All Assignees</option>
-              {uniqueAssignees.map((assignee) => (
-                <option key={assignee} value={assignee}>
-                  {assignee}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={filters.creator}
-              onChange={(e) => handleFilterChange('creator', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">All Creators</option>
-              {uniqueCreators.map((creator) => (
-                <option key={creator} value={creator}>
-                  {creator}
-                </option>
-              ))}
-            </select>
-
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <select
               value={filters.dateRange}
               onChange={(e) => handleFilterChange('dateRange', e.target.value)}
@@ -497,38 +548,42 @@ const TicketDashboard = () => {
           </div>
         </div>
 
-        {/* Bulk Actions */}
-        {hasPermission('canApproveTickets') && selectedTickets.length > 0 && (
+        {/* Bulk Actions - tickets in the approval inbox only */}
+        {selectedTickets.length > 0 && (
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
               <div>
                 <h3 className="text-sm font-medium text-blue-900">
-                  {selectedTickets.length} tickets selected
+                  {selectedTickets.length} ticket{selectedTickets.length !== 1 ? 's' : ''} selected
                 </h3>
-                <p className="text-sm text-blue-700">Choose a bulk action to apply</p>
+                <p className="text-sm text-blue-700">Each is approved or rejected at the step it is on now</p>
               </div>
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+                <input
+                  type="text"
+                  value={bulkComment}
+                  onChange={(e) => setBulkComment(e.target.value)}
+                  placeholder="Comment (required to reject)"
+                  className="px-3 py-1 border border-gray-300 rounded text-sm sm:w-64"
+                />
                 <button
-                  onClick={() => handleBulkAction('Approve')}
-                  className="px-3 py-1 text-sm font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded"
+                  onClick={() => handleBulkAction('approve')}
+                  disabled={bulkRunning}
+                  className="px-3 py-1 text-sm font-medium text-green-700 bg-green-100 hover:bg-green-200 rounded disabled:opacity-50"
                 >
                   Approve All
                 </button>
                 <button
-                  onClick={() => handleBulkAction('Reject')}
-                  className="px-3 py-1 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded"
+                  onClick={() => handleBulkAction('reject')}
+                  disabled={bulkRunning}
+                  className="px-3 py-1 text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 rounded disabled:opacity-50"
                 >
                   Reject All
                 </button>
                 <button
-                  onClick={() => handleBulkAction('Assign')}
-                  className="px-3 py-1 text-sm font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded"
-                >
-                  Bulk Assign
-                </button>
-                <button
                   onClick={() => setSelectedTickets([])}
+                  disabled={bulkRunning}
                   className="px-3 py-1 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded"
                 >
                   Clear Selection
@@ -548,9 +603,9 @@ const TicketDashboard = () => {
                 onChange={(e) => setSortBy(e.target.value)}
                 className="px-3 py-1 border border-gray-300 rounded text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
-                <option value="created_date">Created Date</option>
-                <option value="updated_date">Updated Date</option>
-                <option value="due_date">Due Date</option>
+                <option value="created_at">Created Date</option>
+                <option value="updated_at">Updated Date</option>
+                <option value="step_due_date">Step Due Date</option>
                 <option value="priority">Priority</option>
                 <option value="status">Status</option>
                 <option value="title">Title</option>
@@ -615,7 +670,9 @@ const TicketDashboard = () => {
           ) : (
             <div className="p-6 text-center">
               <Icons.Ticket size={32} className="mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-500 mb-4">No tickets match your filters</p>
+              <p className="text-gray-500 mb-4">
+                {tickets?.length ? 'No tickets match your filters' : 'No tickets yet'}
+              </p>
               <button
                 onClick={clearFilters}
                 className="px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200"

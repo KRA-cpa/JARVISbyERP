@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Icons from '../shared/Icons';
 import { useToast } from '../shared/Toast';
-import { useTicketTypes, useWorkflowSteps, useRoles } from '../../hooks/useAPI';
+import { useTicketTypes, useWorkflowSteps, useRoles, useCompanies } from '../../hooks/useAPI';
 import { API } from '../../api/googleSheet';
+import WorkflowCopyDialog from './WorkflowCopyDialog';
 
 /**
  * AdminWorkflowBuilder Component
@@ -13,20 +14,27 @@ import { API } from '../../api/googleSheet';
  * - SLA configuration per step
  * - Approver role assignments
  * - Step type configuration (approval, task, external)
+ * - Per company (spec 3.0.1: every company/ticket type pair has its own workflow): copy another company's
+ *   workflow, or create one default step on an explicit click
  */
 const AdminWorkflowBuilder = () => {
   const { success, error, warning, ToastContainer } = useToast();
   const [loading, setLoading] = useState(false);
+  const [selectedCompany, setSelectedCompany] = useState('');
   const [selectedTicketType, setSelectedTicketType] = useState('');
   const [showStepForm, setShowStepForm] = useState(false);
   const [editingStep, setEditingStep] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingStep, setDeletingStep] = useState(null);
+  const [showCopyDialog, setShowCopyDialog] = useState(false);
 
-  // API data
-  const { data: ticketTypes, loading: ticketTypesLoading } = useTicketTypes();
-  const { data: workflowSteps, loading: stepsLoading, refetch: refetchSteps } = useWorkflowSteps(selectedTicketType);
+  // API data - steps load once both a company and a ticket type are chosen
+  const { data: companies } = useCompanies();
+  const { data: ticketTypes, loading: ticketTypesLoading } = useTicketTypes(selectedCompany || null);
+  const { data: workflowSteps, loading: stepsLoading, refetch: refetchSteps } =
+    useWorkflowSteps(selectedCompany ? selectedTicketType : null, selectedCompany || null);
   const { data: roles } = useRoles();
+  const isConfiguring = Boolean(selectedCompany && selectedTicketType);
 
   // Step form state
   const [stepFormData, setStepFormData] = useState({
@@ -45,10 +53,6 @@ const AdminWorkflowBuilder = () => {
     external_app_url: '',
     completion_action_name: ''
   });
-
-  // Activation state for workflow steps
-  const [showStepActivationDialog, setShowStepActivationDialog] = useState(false);
-  const [pendingStepActivation, setPendingStepActivation] = useState(null);
 
   const [stepFormErrors, setStepFormErrors] = useState({});
   const [selectedApprovers, setSelectedApprovers] = useState([]);
@@ -155,6 +159,7 @@ const AdminWorkflowBuilder = () => {
     try {
       const stepData = {
         ticket_type_id: selectedTicketType,
+        company_id: selectedCompany,
         name: stepFormData.name.trim(),
         status_on_reach: stepFormData.status_on_reach,
         step_type: stepFormData.step_type,
@@ -179,13 +184,10 @@ const AdminWorkflowBuilder = () => {
         success('Workflow step created successfully');
       }
 
-      // Update step approvers for approval steps
-      if (stepFormData.step_type === 'approval' && selectedApprovers.length > 0) {
-        const stepId = editingStep?.id || createdStep?.id;
-        if (stepId) {
-          // Clear existing approvers and add new ones
-          await API.WorkflowSteps.updateStepApprovers(stepId, selectedApprovers);
-        }
+      // Approver roles: the exact selected set (removed roles are removed); a non-approval step has none
+      const stepId = editingStep?.id || createdStep?.id;
+      if (stepId && (stepFormData.step_type === 'approval' || editingStep)) {
+        await API.WorkflowSteps.setStepApprovers(stepId, stepFormData.step_type === 'approval' ? selectedApprovers : []);
       }
 
       resetStepForm();
@@ -201,8 +203,8 @@ const AdminWorkflowBuilder = () => {
 
   // Handle create new step
   const handleCreateStep = () => {
-    if (!selectedTicketType) {
-      warning('Please select a ticket type first');
+    if (!isConfiguring) {
+      warning('Please select a company and a ticket type first');
       return;
     }
 
@@ -263,6 +265,20 @@ const AdminWorkflowBuilder = () => {
       refetchSteps();
     } catch (err) {
       error(err.message || 'Failed to delete workflow step');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // One editable approval step, only on this explicit click (no automatic default workflows)
+  const handleCreateDefault = async () => {
+    setLoading(true);
+    try {
+      await API.WorkflowSteps.createDefaultForCompany(selectedTicketType, selectedCompany);
+      success('Default workflow created - add approver roles to its step');
+      refetchSteps();
+    } catch (err) {
+      error(err.message || 'Failed to create the default workflow');
     } finally {
       setLoading(false);
     }
@@ -354,6 +370,16 @@ const AdminWorkflowBuilder = () => {
   return (
     <>
       <ToastContainer />
+      <WorkflowCopyDialog
+        isOpen={showCopyDialog}
+        onClose={() => setShowCopyDialog(false)}
+        initialTicketTypeId={selectedTicketType}
+        initialTargetCompanyId={selectedCompany}
+        onSuccess={(message) => {
+          success(message);
+          refetchSteps();
+        }}
+      />
       <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
@@ -363,29 +389,57 @@ const AdminWorkflowBuilder = () => {
             Configure multi-step approval workflows with SLA tracking
           </p>
         </div>
-        <button
-          onClick={handleCreateStep}
-          disabled={loading || !selectedTicketType}
-          className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-        >
-          <Icons.Plus size={16} className="mr-2" />
-          Add Workflow Step
-        </button>
+        <div className="mt-4 sm:mt-0 flex flex-wrap gap-2">
+          <button
+            onClick={() => setShowCopyDialog(true)}
+            disabled={loading}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+          >
+            <Icons.Copy size={16} className="mr-2" />
+            Copy from Company
+          </button>
+          <button
+            onClick={handleCreateStep}
+            disabled={loading || !isConfiguring}
+            className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+          >
+            <Icons.Plus size={16} className="mr-2" />
+            Add Workflow Step
+          </button>
+        </div>
       </div>
 
-      {/* Ticket Type Selection */}
+      {/* Company + Ticket Type Selection */}
       <div className="bg-white shadow rounded-lg p-6">
-        <div className="flex items-center space-x-4">
-          <div className="flex-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Select Ticket Type to Configure Workflow
+              Company
+            </label>
+            <select
+              value={selectedCompany}
+              onChange={(e) => { setSelectedCompany(e.target.value); setSelectedTicketType(''); }}
+              className="block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Choose a company...</option>
+              {companies?.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.name} ({company.code})
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Ticket Type
             </label>
             <select
               value={selectedTicketType}
               onChange={(e) => setSelectedTicketType(e.target.value)}
-              className="block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              disabled={!selectedCompany}
+              className="block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
             >
-              <option value="">Choose a ticket type...</option>
+              <option value="">{selectedCompany ? 'Choose a ticket type...' : 'Choose a company first'}</option>
               {ticketTypes?.map((type) => (
                 <option key={type.id} value={type.id}>
                   {type.name} ({type.code})
@@ -393,16 +447,16 @@ const AdminWorkflowBuilder = () => {
               ))}
             </select>
           </div>
-          {selectedTicketType && workflowSteps && (
-            <div className="text-sm text-gray-600">
-              {workflowSteps.length} step{workflowSteps.length !== 1 ? 's' : ''} configured
-            </div>
-          )}
         </div>
+        {isConfiguring && workflowSteps && (
+          <div className="mt-3 text-sm text-gray-600">
+            {workflowSteps.length} step{workflowSteps.length !== 1 ? 's' : ''} configured for this company
+          </div>
+        )}
       </div>
 
       {/* Workflow Steps List */}
-      {selectedTicketType && (
+      {isConfiguring && (
         <div className="bg-white shadow rounded-lg">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="text-lg font-medium text-gray-900">
@@ -470,15 +524,33 @@ const AdminWorkflowBuilder = () => {
               <Icons.Workflow size={48} className="mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No Workflow Steps</h3>
               <p className="text-gray-600 mb-4">
-                Create workflow steps to define the approval process for this ticket type.
+                This company has no workflow for this ticket type yet. Tickets of this type stay at "New" until it
+                has one. Add steps, copy another company's workflow, or start from one default approval step.
               </p>
-              <button
-                onClick={handleCreateStep}
-                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
-              >
-                <Icons.Plus size={16} className="mr-2" />
-                Add First Step
-              </button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <button
+                  onClick={handleCreateStep}
+                  className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                >
+                  <Icons.Plus size={16} className="mr-2" />
+                  Add First Step
+                </button>
+                <button
+                  onClick={() => setShowCopyDialog(true)}
+                  disabled={loading}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <Icons.Copy size={16} className="mr-2" />
+                  Copy from Company
+                </button>
+                <button
+                  onClick={handleCreateDefault}
+                  disabled={loading}
+                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Create Default Workflow
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -637,7 +709,6 @@ const AdminWorkflowBuilder = () => {
                               )}
                             </div>
                           )}
-                          </div>
                         </div>
 
                         {/* Approver Roles (for approval steps) */}

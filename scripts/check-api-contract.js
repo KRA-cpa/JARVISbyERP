@@ -18,6 +18,12 @@
  *   post-not-in-doPost  sent by POST, routed only in doGet
  *   action-key          the payload has its own `action` key, which overwrites the route name in the POST body
  *   undefined-function  doGet/routePostAction calls a function the AppScript file doesn't define
+ *   missing-method      API.<Group>.<method>() / <x>API.<method>() calls a client method the class (or its base
+ *                       class) doesn't define (v9.0: AdminWorkflowBuilder called WorkflowSteps.updateStepApprovers)
+ *   unmounted-component a src/components or src/pages file that src/index.js can't reach through imports, so no
+ *                       screen shows it (v9.0: the whole ticket UI - TicketDashboard, TicketForm, TicketDetail)
+ *   missing-icon        <Icons.X> / Icons.X used but not defined in src/components/shared/Icons.js - renders
+ *                       undefined, React error #130 (v9.0: Icons.Trash on the profile/role type list delete buttons)
  *
  * scripts/api-contract-known-gaps.txt lists gaps that are known and not fixed yet. It may only shrink:
  * the check fails on a gap that isn't listed, and on a listed gap that is fixed (remove it from the list).
@@ -115,13 +121,40 @@ function objectLiteral(text, open) {
   return '';
 }
 
-/** True when the object literal has a top-level `action:` key. */
+/**
+ * True when the object literal has a top-level `action:` key. Walks the text character by character
+ * (string-aware), so a one-line literal `{ id, action: 'approve' }` is caught too - the line-based version
+ * only tested keys at the start of a line (review R-09).
+ */
 function hasActionKey(literal) {
   let depth = 0;
-  const lines = literal.split('\n');
-  for (const line of lines) {
-    if (depth === 1 && /^\s*['"]?action['"]?\s*:/.test(line)) return true;
-    depth += (line.match(/[{[(]/g) || []).length - (line.match(/[}\])]/g) || []).length;
+  let quote = null;
+  let keyStart = true; // at a position where a property key can begin
+  for (let i = 0; i < literal.length; i++) {
+    const c = literal[i];
+    if (quote) {
+      if (c === '\\') i++;
+      else if (c === quote) quote = null;
+      continue;
+    }
+    if (depth === 1 && keyStart) {
+      const m = literal.slice(i).match(/^\s*['"]?action['"]?\s*:/);
+      if (m) return true;
+    }
+    if (c === '"' || c === "'" || c === '`') {
+      quote = c;
+      keyStart = false;
+    } else if ('{[('.includes(c)) {
+      depth++;
+      keyStart = depth === 1 && c === '{';
+    } else if ('}])'.includes(c)) {
+      depth--;
+      keyStart = false;
+    } else if (c === ',' && depth === 1) {
+      keyStart = true;
+    } else if (!/\s/.test(c)) {
+      keyStart = false;
+    }
   }
   return false;
 }
@@ -152,6 +185,131 @@ function readActions() {
   const m = text.match(/const readActions = \[([\s\S]*?)\];/);
   if (!m) fail(`readActions list not found in ${path.relative(ROOT, API_FILE)}`);
   return new Set([...m[1].replace(/\/\/.*$/gm, '').matchAll(/'([A-Za-z0-9_]+)'/g)].map(x => x[1]));
+}
+
+// --- Client methods --------------------------------------------------------
+
+const NOT_METHODS = new Set(['if', 'for', 'while', 'switch', 'catch', 'function', 'return']);
+
+/** Text of `class <name>` up to the next top-level class or the API export. */
+function classBody(text, name) {
+  const start = text.search(new RegExp(`^(?:export\\s+)?class ${name}\\b`, 'm'));
+  if (start === -1) return null;
+  const rest = text.slice(start + 1);
+  const end = rest.search(/^(?:export\s+)?class\s|^export const API\b/m);
+  return end === -1 ? text.slice(start) : text.slice(start, start + 1 + end);
+}
+
+function classMethods(text, name, seen = new Set()) {
+  if (seen.has(name)) return new Set();
+  seen.add(name);
+  const body = classBody(text, name);
+  if (body === null) return null;
+  const methods = new Set();
+  for (const m of body.matchAll(/^\s+(?:static\s+)?(?:async\s+)?([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{/gm)) {
+    if (!NOT_METHODS.has(m[1])) methods.add(m[1]);
+  }
+  for (const m of body.matchAll(/^\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/gm)) {
+    methods.add(m[1]);
+  }
+  const base = body.match(new RegExp(`class ${name}\\s+extends\\s+([A-Za-z_$][\\w$]*)`));
+  if (base) (classMethods(text, base[1], seen) || []).forEach(x => methods.add(x));
+  return methods;
+}
+
+/** Group/alias name -> method set, from `export const API = { Group: new Class() }` and `x = API.Group`. */
+function apiGroups() {
+  const text = fs.readFileSync(API_FILE, 'utf8').replace(/\r/g, '');
+  const open = text.indexOf('{', text.search(/^export const API = \{/m));
+  if (open === -1) fail(`export const API = { ... } not found in ${path.relative(ROOT, API_FILE)}`);
+  const groups = new Map();
+  for (const m of objectLiteral(text, open).matchAll(/([A-Za-z_$][\w$]*)\s*:\s*new\s+([A-Za-z_$][\w$]*)\s*\(/g)) {
+    const methods = classMethods(text, m[2]);
+    if (methods === null) fail(`class ${m[2]} (API.${m[1]}) not found in ${path.relative(ROOT, API_FILE)}`);
+    groups.set(`API.${m[1]}`, methods);
+  }
+  for (const m of text.matchAll(/^export const ([A-Za-z_$][\w$]*) = API\.([A-Za-z_$][\w$]*);/gm)) {
+    if (groups.has(`API.${m[2]}`)) groups.set(m[1], groups.get(`API.${m[2]}`));
+  }
+  return groups;
+}
+
+function missingMethods() {
+  const groups = apiGroups();
+  const missing = new Map(); // "API.Group.method" -> [file:line]
+  for (const file of sourceFiles(SRC)) {
+    const text = fs.readFileSync(file, 'utf8').replace(/\r/g, '');
+    const rel = path.relative(ROOT, file).replace(/\\/g, '/');
+    const re = /(?<![\w$.])((?:API\.[A-Za-z_$][\w$]*)|[A-Za-z_$][\w$]*API)\??\.([A-Za-z_$][\w$]*)\s*(?:\?\.)?\(/g;
+    for (const m of text.matchAll(re)) {
+      const methods = groups.get(m[1]);
+      if (!methods || methods.has(m[2])) continue;
+      const key = `${m[1]}.${m[2]}`;
+      if (!missing.has(key)) missing.set(key, []);
+      missing.get(key).push(`${rel}:${text.slice(0, m.index).split('\n').length}`);
+    }
+  }
+  return missing;
+}
+
+// --- Mounted screens -------------------------------------------------------
+
+function resolveImport(fromFile, spec) {
+  const base = path.resolve(path.dirname(fromFile), spec);
+  for (const candidate of [base, `${base}.js`, `${base}.jsx`, path.join(base, 'index.js')]) {
+    if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;
+  }
+  return null;
+}
+
+/** src/components and src/pages files that src/index.js can't reach through relative imports. */
+function unmountedScreens() {
+  const entry = path.join(SRC, 'index.js');
+  if (!fs.existsSync(entry)) fail('src/index.js not found');
+  const reached = new Set();
+  const queue = [entry];
+  while (queue.length) {
+    const file = queue.pop();
+    if (reached.has(file)) continue;
+    reached.add(file);
+    if (!/\.jsx?$/.test(file)) continue;
+    const code = fs.readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    for (const m of code.matchAll(/(?:\bfrom\s*|\bimport\s*\(\s*|\brequire\s*\(\s*|^\s*import\s+)['"](\.{1,2}\/[^'"]+)['"]/gm)) {
+      const target = resolveImport(file, m[1]);
+      if (target && !reached.has(target)) queue.push(target);
+    }
+  }
+  return sourceFiles(SRC)
+    .filter(file => /[\\/]src[\\/](components|pages)[\\/]/.test(file) && !reached.has(file))
+    .map(file => path.relative(ROOT, file).replace(/\\/g, '/'));
+}
+
+// --- Icons -------------------------------------------------------------------
+
+const ICONS_FILE = path.join(SRC, 'components/shared/Icons.js');
+
+/** "Icons.X" -> [file:line] for every Icons.X used in src/ but not defined in Icons.js. */
+function missingIcons() {
+  if (!fs.existsSync(ICONS_FILE)) fail(`${path.relative(ROOT, ICONS_FILE)} not found`);
+  const iconsText = fs.readFileSync(ICONS_FILE, 'utf8').replace(/\r/g, '');
+  const defined = new Set([...iconsText.matchAll(/^\s*([A-Z][A-Za-z0-9_]*)\s*:/gm)].map(m => m[1]));
+  const missing = new Map();
+  for (const file of sourceFiles(SRC)) {
+    if (file === ICONS_FILE) continue;
+    const text = fs.readFileSync(file, 'utf8').replace(/\r/g, '');
+    const rel = path.relative(ROOT, file).replace(/\\/g, '/');
+    for (const m of text.matchAll(/\bIcons\.([A-Z][A-Za-z0-9_]*)\b/g)) {
+      if (defined.has(m[1])) continue;
+      // Skip a name inside a string or a // comment on its line (ErrorBoundary130 prints "<Icons.NonExistentIcon />")
+      const before = text.slice(text.lastIndexOf('\n', m.index) + 1, m.index);
+      const inString = ["'", '"', '`'].some(q => (before.split(q).length - 1) % 2 === 1);
+      if (inString || before.includes('//')) continue;
+      const key = `Icons.${m[1]}`;
+      if (!missing.has(key)) missing.set(key, []);
+      missing.get(key).push(`${rel}:${text.slice(0, m.index).split('\n').length}`);
+    }
+  }
+  return missing;
 }
 
 // --- Known gaps ------------------------------------------------------------
@@ -198,6 +356,20 @@ for (const action of calls.keys()) {
 }
 for (const action of actionKeys.keys()) gaps.add(`action-key ${action}`);
 for (const fn of undefinedCalls(appscript, [getBody, postBody])) gaps.add(`undefined-function ${fn}`);
+const methodGaps = missingMethods();
+for (const call of methodGaps.keys()) gaps.add(`missing-method ${call}`);
+for (const file of unmountedScreens()) gaps.add(`unmounted-component ${file}`);
+const iconGaps = missingIcons();
+for (const icon of iconGaps.keys()) gaps.add(`missing-icon ${icon}`);
+
+/** Where a gap comes from, for the report. */
+function gapWhere(gap) {
+  const [kind, name] = gap.split(' ');
+  if (kind === 'action-key') return actionKeys.get(name) || [];
+  if (kind === 'missing-method') return methodGaps.get(name) || [];
+  if (kind === 'missing-icon') return iconGaps.get(name) || [];
+  return calls.get(name) || [];
+}
 
 const known = loadKnownGaps();
 const added = [...gaps].filter(g => !known.has(g)).sort();
@@ -210,7 +382,7 @@ if (UPDATE) {
   // The first run creates the baseline; after that the list may only shrink
   if (added.length && fs.existsSync(KNOWN_GAPS)) {
     console.error('Refusing to update: these gaps are not in the list (fix them; the list may only shrink):');
-    added.forEach(g => console.error(`  + ${g}  (${(calls.get(g.split(' ')[1]) || []).join(', ')})`));
+    added.forEach(g => console.error(`  + ${g}  (${gapWhere(g).join(', ')})`));
     process.exit(1);
   }
   writeKnownGaps(gaps, appscriptName);
@@ -220,11 +392,7 @@ if (UPDATE) {
 
 if (added.length) {
   console.error('\nNEW gaps (not in the known-gaps list):');
-  for (const g of added) {
-    const action = g.split(' ')[1];
-    const where = (g.startsWith('action-key') ? actionKeys.get(action) : calls.get(action)) || [];
-    console.error(`  + ${g}  (${where.join(', ')})`);
-  }
+  for (const g of added) console.error(`  + ${g}  (${gapWhere(g).join(', ')})`);
 }
 if (fixed.length) {
   console.error('\nFixed gaps still in the known-gaps list (run with --update to remove them):');

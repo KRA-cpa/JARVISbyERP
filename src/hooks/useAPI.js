@@ -152,7 +152,7 @@ export const useCompanyMutations = () => {
 
 // Ticket Types hooks
 export const useTicketTypes = (companyId = null) => {
-  return useAPI(() => API.TicketTypes?.getAll(companyId) || API.Tickets.getTicketTypes(companyId), [companyId], 'getTicketTypes');
+  return useAPI(() => API.TicketTypes.getAll(companyId), [companyId], 'getTicketTypes');
 };
 
 // Roles hooks
@@ -268,8 +268,13 @@ export const useDropdownMutations = () => {
 };
 
 // Custom Fields hooks
+// One ticket type's fields when an id is given (getAll() ignores arguments and returns every type's fields)
 export const useCustomFields = (ticketTypeId = null) => {
-  return useAPI(() => API.CustomFields.getAll(ticketTypeId), [ticketTypeId]);
+  return useAPI(
+    () => (ticketTypeId ? API.CustomFields.getByTicketType(ticketTypeId) : API.CustomFields.getAll()),
+    [ticketTypeId],
+    'getCustomFields'
+  );
 };
 
 export const useCustomField = (id) => {
@@ -365,11 +370,12 @@ export const useTicketMutations = () => {
     }
   };
 
-  const updateTicketStatus = async (id, status, comment = '') => {
+  // userId is required by AppScript v9.1: cancel = requester or admin, reopen = admin (review R-05)
+  const updateTicketStatus = async (id, status, comment = '', userId = null) => {
     try {
       setLoading(true);
       setError(null);
-      const result = await API.Tickets.updateStatus(id, status, comment);
+      const result = await API.Tickets.updateStatus(id, status, comment, userId);
       return result;
     } catch (err) {
       setError(err.message);
@@ -382,13 +388,36 @@ export const useTicketMutations = () => {
   return { createTicket, updateTicket, updateTicketStatus, loading, error };
 };
 
+// A ticket's history, newest first (AppScript v9.1)
+export const useTicketHistory = (ticketId) => {
+  return useAPIData(
+    ['ticket_history', ticketId],
+    () => API.Tickets.getHistory(ticketId),
+    { enabled: !!ticketId }
+  );
+};
+
+// Approver inbox: open tickets whose current step this user can approve now (AppScript v9.1)
+export const useTicketsForApproval = (userId) => {
+  return useAPIData(
+    ['tickets_for_approval', userId],
+    () => API.Tickets.getForApproval(userId),
+    { enabled: !!userId }
+  );
+};
+
+// Which actions need a comment for a ticket type / company (AppScript v9.1)
+export const useCommentRequirements = (ticketTypeId, companyId = null) => {
+  return useAPIData(
+    ['comment_requirements', ticketTypeId, companyId],
+    () => API.TicketTypes.getCommentRequirements(ticketTypeId, companyId),
+    { enabled: !!ticketTypeId }
+  );
+};
+
 // User hooks
 export const useUsers = () => {
   return useAPI(() => API.Users.getAll(), [], 'getUsers');
-};
-
-export const useUser = (id) => {
-  return useAPI(() => API.Users.getById(id), [id], 'getUser');
 };
 
 // System hooks
@@ -642,39 +671,6 @@ export const useWorkflowStepSLA = (stepId) => {
     {
       enabled: !!stepId,
       staleTime: 5 * 60 * 1000 // 5 minutes - SLA configs don't change often
-    }
-  );
-};
-
-/**
- * Hook for getting due dates of all tickets for a ticket type
- */
-export const useTicketDueDates = (ticketTypeId) => {
-  return useAPIData(
-    ['ticket_due_dates', ticketTypeId],
-    async () => {
-      if (!ticketTypeId) return [];
-
-      // Get all tickets for this type
-      const tickets = await API.Tickets.getByTicketType(ticketTypeId);
-      if (!tickets || tickets.length === 0) return [];
-
-      // Calculate SLA status for each ticket
-      const { getSLAStatus } = await import('../utils/slaCalculator');
-
-      return tickets.map(ticket => ({
-        id: ticket.id,
-        ticket_number: ticket.ticket_number,
-        title: ticket.title,
-        step_due_date: ticket.step_due_date,
-        sla_status: getSLAStatus(ticket.step_due_date),
-        current_step_id: ticket.current_step_id
-      }));
-    },
-    {
-      enabled: !!ticketTypeId,
-      staleTime: 60 * 1000, // 1 minute
-      refetchInterval: 2 * 60 * 1000 // Refresh every 2 minutes
     }
   );
 };
@@ -1096,13 +1092,15 @@ const useAPIModule = {
   useDropdownMutations,
   useTicket,
   useTicketMutations,
+  useTicketHistory,
+  useTicketsForApproval,
+  useCommentRequirements,
   useSystemHealth,
   useAPITest,
   useAPIConnection,
   // SLA hooks
   useSLAStatus,
   useWorkflowStepSLA,
-  useTicketDueDates,
   useSLAOverdueTickets,
   useSLADueTodayTickets,
   // Per-Company SLA Performance hooks (Phase 8.95)

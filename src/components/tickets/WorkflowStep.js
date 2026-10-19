@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useUser } from '../../contexts/UserContext';
-import { useWorkflowSteps, useStepApprovals, useApprovalEligibility } from '../../hooks/useAPI';
+import { useWorkflowSteps, useStepApprovals, useApprovalEligibility, useCommentRequirements } from '../../hooks/useAPI';
 import { useToast } from '../shared/Toast';
 import { API } from '../../api/googleSheet';
 import {
@@ -18,14 +18,14 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
   // so there is no client-side routing after an approval
   const currentUserId = user?.uid || user?.id;
 
-  // Get workflow steps for this ticket type
-  const { data: workflowSteps, loading: stepsLoading } = useWorkflowSteps(ticket?.ticket_type_id);
+  // Get workflow steps for this ticket type in the ticket's company (each company has its own workflow)
+  const { data: workflowSteps, loading: stepsLoading } = useWorkflowSteps(ticket?.ticket_type_id, ticket?.company_id);
 
   // Find current step
   const currentStep = workflowSteps?.find(step => String(step.id) === String(ticket?.current_step_id));
 
   // Get approvals for current step
-  const { data: stepApprovals, loading: approvalsLoading, refetch: refetchApprovals } = useStepApprovals(
+  const { data: stepApprovals, refetch: refetchApprovals } = useStepApprovals(
     ticket?.id,
     currentStep?.id
   );
@@ -33,6 +33,13 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
   // Can the current user act on this step? (company + ticket type roles in force; 'all' logic progress)
   const { data: eligibility, refetch: refetchEligibility } = useApprovalEligibility(currentUserId, currentStep?.id, ticket?.id);
   const canApprove = Boolean(eligibility?.can_approve);
+  // can_act (AppScript v9.1, review R-03): reject / return - true for a partial approver under 'all' too
+  const canAct = Boolean(eligibility?.can_act ?? eligibility?.can_approve);
+
+  // Which actions need a comment for this ticket type / company (spec 3.3; the backend enforces it too).
+  // Reject and return always ask for one here.
+  const { data: commentRules } = useCommentRequirements(ticket?.ticket_type_id, ticket?.company_id);
+  const commentRequired = pendingActionName => pendingActionName !== 'approve' || Boolean(commentRules?.require_on_approve);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCommentModal, setShowCommentModal] = useState(false);
@@ -385,29 +392,31 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
             </div>
           )}
 
-          {/* Why the current user can't act */}
+          {/* Why the current user can't approve */}
           {!canApprove && eligibility && currentStep.step_type === WORKFLOW_CONSTANTS.STEP_TYPES.APPROVAL && (
             <div className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">
               {eligibility.already_approved
-                ? 'You have approved this step. It moves on when every approver role has approved.'
+                ? 'You have approved this step. It moves on when every approver role has approved - you can still reject or return it.'
                 : 'You are not an approver for this step (no role in force for this company and ticket type).'}
             </div>
           )}
 
-          {/* Action Buttons */}
-          {canApprove && currentStep.step_type === WORKFLOW_CONSTANTS.STEP_TYPES.APPROVAL && (
+          {/* Action Buttons - approve needs can_approve; reject / return need can_act */}
+          {canAct && currentStep.step_type === WORKFLOW_CONSTANTS.STEP_TYPES.APPROVAL && (
             <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200">
-              <button
-                onClick={() => handleApprovalAction('approve')}
-                disabled={isSubmitting}
-                className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-              >
-                {(isSubmitting) && (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                )}
-                <Icons.Success size={16} className="mr-2" />
-                Approve
-              </button>
+              {canApprove && (
+                <button
+                  onClick={() => handleApprovalAction('approve')}
+                  disabled={isSubmitting}
+                  className="flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  {(isSubmitting) && (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                  )}
+                  <Icons.Success size={16} className="mr-2" />
+                  Approve
+                </button>
+              )}
 
               <button
                 onClick={() => handleApprovalAction('reject')}
@@ -448,7 +457,7 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Comment {pendingAction === 'approve' ? '(optional)' : '*'}
+                Comment {commentRequired(pendingAction) ? '*' : '(optional)'}
               </label>
               <textarea
                 value={comment}
@@ -469,7 +478,7 @@ const WorkflowStep = ({ ticket, onTicketUpdate }) => {
               </button>
               <button
                 onClick={submitApproval}
-                disabled={isSubmitting || (pendingAction !== 'approve' && !comment.trim())}
+                disabled={isSubmitting || (commentRequired(pendingAction) && !comment.trim())}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50 flex items-center"
               >
                 {isSubmitting && (

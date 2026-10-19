@@ -14,6 +14,8 @@ import AdminCustomFieldList from '../components/admin/AdminCustomFieldList';
 import AdminUserProfileTypeList from '../components/admin/AdminUserProfileTypeList';
 import AdminRoleTypeList from '../components/admin/AdminRoleTypeList';
 import AdminUserList from '../components/admin/AdminUserList';
+import AdminWorkflowBuilder from '../components/admin/AdminWorkflowBuilder';
+import CrossCompanyTicketLinker from '../components/admin/CrossCompanyTicketLinker';
 import APIConnectionStatus from '../components/admin/APIConnectionStatus';
 import Footer from '../components/shared/Footer';
 
@@ -177,6 +179,20 @@ const AdminPage = () => {
       component: AdminCustomFieldList
     },
     {
+      id: 'workflows',
+      name: 'Workflows',
+      icon: Icons.Approval,
+      description: 'Approval steps, approver roles and SLAs per company and ticket type',
+      component: AdminWorkflowBuilder
+    },
+    {
+      id: 'ticket-links',
+      name: 'Ticket Links',
+      icon: Icons.ExternalLink,
+      description: 'Link tickets (blocks, depends on, related) and check dependencies',
+      component: CrossCompanyTicketLinker
+    },
+    {
       id: 'dropdowns',
       name: 'Dropdown Lists',
       icon: Icons.ChevronDown,
@@ -268,6 +284,10 @@ const AdminPage = () => {
         return 'Phase 8.5 - Available';
       case 'custom-fields':
         return 'Phase 8.5 - Available';
+      case 'workflows':
+        return 'Per company';
+      case 'ticket-links':
+        return 'Dependencies';
       case 'dropdowns':
         if (dropdownsLoading) return 'Loading...';
         return `${dropdownLists?.length || 0} lists`;

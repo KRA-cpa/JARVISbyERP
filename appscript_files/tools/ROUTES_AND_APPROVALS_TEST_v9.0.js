@@ -37,7 +37,9 @@ function seed() {
   add('companies', { id: 'co_1', name: 'Co', code: 'MYCO', is_active: true });
   add('companies', { id: 'co_2', name: 'Other', code: 'OTH', is_active: true });
   add('ticket_types', { id: 'tt_1', code: 'PR', name: 'Purchase', is_active: true });
-  add('roles', { id: 'r_mgr', name: 'Manager', company_id: 'co_1', is_active: true });
+  // Global role (blank company): u_other may hold it in co_2. v9.1 refuses a company-specific role in
+  // another company (review R-10), so a co_1 role here would fail the seed instead of testing eligibility.
+  add('roles', { id: 'r_mgr', name: 'Manager', company_id: '', is_active: true });
   add('roles', { id: 'r_fin', name: 'Finance', company_id: 'co_1', is_active: true });
   add('workflow_steps', { id: 'ws_1', ticket_type_id: 'tt_1', company_id: 'co_1', name: 'Manager Approval',
     status_on_reach: 'Pending Manager', step_type: 'approval', approver_logic: 'any', sort_order: 1, is_active: true });
@@ -341,6 +343,10 @@ test('tickets: getTicket, updateTicket (header-driven), updateTicketStatus cance
   assert.strictEqual(ticket(id).status, 'Rejected');
   const bad = rt.post({ action: 'updateTicketStatus', id, status: 'Completed' });
   assert.strictEqual(bad.success, false);
+  // From v9.1 only an admin reopens (review R-05): give 'admin' a global admin role (v9.0 ignores it)
+  rt.sheets.get('roles').appendRow(rt.ctx.rowFromRecord(rt.ctx.__TABLE_SCHEMAS.roles,
+    { id: 'r_admin', name: 'System Admin', company_id: '', is_active: true }));
+  assert.strictEqual(rt.ctx.createUserRoleAssignment({ user_id: 'admin', role_id: 'r_admin', company_id: 'co_1' }).status, 'success');
   const reopened = rt.post({ action: 'updateTicketStatus', id, status: 'Reopened', user_id: 'admin' });
   assert.strictEqual(reopened.success, true, reopened.error);
   same([ticket(id).status, ticket(id).current_step_id], ['Pending Finance', 'ws_2']);

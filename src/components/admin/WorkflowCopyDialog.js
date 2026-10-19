@@ -1,31 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useCompanies, useTicketTypes } from '../../hooks/useAPI';
 import { API } from '../../api/googleSheet';
-import { useToast } from '../shared/Toast';
 import Icons from '../shared/Icons';
 
 /**
  * WorkflowCopyDialog Component
  *
- * Provides a dialog interface for copying workflows, SLAs, and approvers
- * from one company to another for a specific ticket type.
+ * Copies one company's workflow for a ticket type to another company (spec 3.0.1: copy-based setup).
+ * AppScript v9.1 copyWorkflowSteps copies the steps with their approver roles, SLAs and conditions in one
+ * call, and refuses when the target company already has steps for the ticket type - it never overwrites.
+ *
+ * Props:
+ * - isOpen / onClose
+ * - onSuccess(message, result): called after a copy, with the counts the backend reports
+ * - initialTicketTypeId / initialTargetCompanyId: preset from the workflow builder's selection
  */
-const WorkflowCopyDialog = ({ isOpen, onClose, onSuccess }) => {
+const WorkflowCopyDialog = ({ isOpen, onClose, onSuccess, initialTicketTypeId = '', initialTargetCompanyId = '' }) => {
   const { data: companies } = useCompanies();
   const { data: ticketTypes } = useTicketTypes();
-  const { success, error: showError } = useToast();
 
   const [formData, setFormData] = useState({
-    ticketTypeId: '',
+    ticketTypeId: initialTicketTypeId,
     sourceCompanyId: '',
-    targetCompanyId: '',
-    copyWorkflows: true,
-    copySLAs: true,
-    copyApprovers: true
+    targetCompanyId: initialTargetCompanyId
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+
+  // Take the builder's current selection each time the dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({ ticketTypeId: initialTicketTypeId, sourceCompanyId: '', targetCompanyId: initialTargetCompanyId });
+      setFormError('');
+    }
+  }, [isOpen, initialTicketTypeId, initialTargetCompanyId]);
 
   const validateForm = () => {
     if (!formData.ticketTypeId) {
@@ -44,10 +53,6 @@ const WorkflowCopyDialog = ({ isOpen, onClose, onSuccess }) => {
       setFormError('Source and target companies must be different');
       return false;
     }
-    if (!formData.copyWorkflows && !formData.copySLAs && !formData.copyApprovers) {
-      setFormError('Please select at least one item to copy');
-      return false;
-    }
 
     setFormError('');
     return true;
@@ -60,59 +65,34 @@ const WorkflowCopyDialog = ({ isOpen, onClose, onSuccess }) => {
 
     setIsSubmitting(true);
     try {
-      // Copy workflows if selected
-      if (formData.copyWorkflows) {
-        await API.WorkflowSteps.copyFromCompany(
-          formData.ticketTypeId,
-          formData.sourceCompanyId,
-          formData.targetCompanyId
-        );
-      }
-
-      // Note: In a real implementation, you would also copy SLAs and approvers
-      // For now, we'll simulate success for all selected items
-
-      const sourceCompany = companies?.find(c => c.id === formData.sourceCompanyId);
-      const targetCompany = companies?.find(c => c.id === formData.targetCompanyId);
-      const ticketType = ticketTypes?.find(tt => tt.id === formData.ticketTypeId);
-
-      const copiedItems = [];
-      if (formData.copyWorkflows) copiedItems.push('workflows');
-      if (formData.copySLAs) copiedItems.push('SLAs');
-      if (formData.copyApprovers) copiedItems.push('approvers');
-
-      success(
-        `Successfully copied ${copiedItems.join(', ')} for "${ticketType?.name}" ` +
-        `from ${sourceCompany?.name} to ${targetCompany?.name}`
+      const result = await API.WorkflowSteps.copyFromCompany(
+        formData.ticketTypeId,
+        formData.sourceCompanyId,
+        formData.targetCompanyId
       );
 
-      // Reset form
-      setFormData({
-        ticketTypeId: '',
-        sourceCompanyId: '',
-        targetCompanyId: '',
-        copyWorkflows: true,
-        copySLAs: true,
-        copyApprovers: true
-      });
+      const sourceCompany = companies?.find(c => String(c.id) === String(formData.sourceCompanyId));
+      const targetCompany = companies?.find(c => String(c.id) === String(formData.targetCompanyId));
+      const ticketType = ticketTypes?.find(tt => String(tt.id) === String(formData.ticketTypeId));
 
-      onSuccess?.();
+      const message =
+        `Copied ${result?.copied_steps ?? 0} step(s), ${result?.approvers ?? 0} approver role(s), ` +
+        `${result?.slas ?? 0} SLA(s) and ${result?.conditions ?? 0} condition(s) for "${ticketType?.name}" ` +
+        `from ${sourceCompany?.name} to ${targetCompany?.name}`;
+
+      onSuccess?.(message, result);
       onClose();
     } catch (err) {
       console.error('Workflow copy failed:', err);
       setFormError(err.message || 'Failed to copy workflow configuration');
-      showError(err.message || 'Failed to copy workflow configuration');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }));
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
 
     // Clear error when user makes changes
     if (formError) {
@@ -149,7 +129,7 @@ const WorkflowCopyDialog = ({ isOpen, onClose, onSuccess }) => {
                       Copy Workflow Configuration
                     </h3>
                     <p className="text-sm text-gray-500">
-                      Copy workflows, SLAs, and approvers between companies
+                      Steps, approver roles, SLAs and conditions are copied together
                     </p>
                   </div>
                 </div>
@@ -237,55 +217,7 @@ const WorkflowCopyDialog = ({ isOpen, onClose, onSuccess }) => {
                   </select>
                 </div>
 
-                {/* What to copy */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Items to Copy
-                  </label>
-                  <div className="space-y-2">
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name="copyWorkflows"
-                        checked={formData.copyWorkflows}
-                        onChange={handleInputChange}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        disabled={isSubmitting}
-                      />
-                      <label className="ml-2 block text-sm text-gray-900">
-                        Workflow Steps
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name="copySLAs"
-                        checked={formData.copySLAs}
-                        onChange={handleInputChange}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        disabled={isSubmitting}
-                      />
-                      <label className="ml-2 block text-sm text-gray-900">
-                        SLA Settings
-                      </label>
-                    </div>
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        name="copyApprovers"
-                        checked={formData.copyApprovers}
-                        onChange={handleInputChange}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                        disabled={isSubmitting}
-                      />
-                      <label className="ml-2 block text-sm text-gray-900">
-                        Approver Assignments
-                      </label>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Warning note */}
+                {/* Note */}
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                   <div className="flex">
                     <div className="flex-shrink-0">
@@ -293,8 +225,8 @@ const WorkflowCopyDialog = ({ isOpen, onClose, onSuccess }) => {
                     </div>
                     <div className="ml-3">
                       <p className="text-sm text-yellow-700">
-                        <strong>Important:</strong> This will overwrite any existing workflow configuration
-                        for the selected ticket type in the target company.
+                        The target company must not have workflow steps for this ticket type yet - nothing is
+                        overwritten. After copying, the target company owns its copy and can edit it independently.
                       </p>
                     </div>
                   </div>

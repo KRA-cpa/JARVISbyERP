@@ -423,7 +423,7 @@ const CompanySLAManager = () => {
                             onClick={() => handleDeleteSLARule(rule.id)}
                             className="text-red-500 hover:text-red-700"
                           >
-                            <Icons.Trash size={16} />
+                            <Icons.Delete size={16} />
                           </button>
                         </div>
                         <div className="text-sm text-gray-600">

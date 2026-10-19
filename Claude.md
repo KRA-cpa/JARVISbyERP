@@ -5,7 +5,7 @@ B. Consult `docs/planning/SUPERTHINK_TODO_ANALYSIS_2025-09-27.md` on current/com
 C. Log every session in `REF_SessionLog.md` (see 🗓️ SESSION LOG below).
 D. New docs go in the matching `docs/` folder (see 📁 REPO LAYOUT below) — never the repo root.
 
-**Version:** 3.7 **Date:** October 19, 2026 - 🔌 **API CONTRACT CHECK** (AppScript v9.0 routes all approval-path actions; `npm run check:api-contract`; v3.6 = code review compliance, v3.5 = repo reorg into `docs/`)
+**Version:** 3.8 **Date:** October 19, 2026 - 🎫 **CORE TICKET LOOP** (AppScript v9.1 + `/tickets`: create → approve from the UI; Admin → Workflows; contract check also catches missing client methods, unmounted components, missing icons; v3.7 = API contract check, v3.6 = code review compliance, v3.5 = repo reorg into `docs/`)
 
 ### **📁 REPO LAYOUT**
 
@@ -67,10 +67,11 @@ Reorg record: `docs/planning/PLAN_RepoReorg_20261017.md` + `docs/planning/REORG_
    - Schema migration and update tracking
 
 7. **`APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt`** - ⚠️ **MANDATORY REFERENCE**
-   - **Latest File**: `./appscript_files/APPSCRIPT_v9.0_20261019_0501.txt` (v9.0 — routes for the approval path: user roles/profile, step approvers, get/update/approve ticket, canUserApprove, getStepApprovals, getUserGeneralRole; date-aware role assignments; approver_logic 'all'; createTicket starts the workflow; loud errors; roles + role_type_id/is_active. Deploy the frontend with it: the approve request sends `decision`)
+   - **Latest File**: `./appscript_files/APPSCRIPT_v9.1_20261019_1400.txt` (v9.1 — core ticket loop + workflow admin: ticket number peek/reserve, workflow step create/update/delete/copy/default with SLAs, custom field get/update/delete (in use → hidden), ticket links by number with cycle check, company code lock/unlock/status (locks on the first ticket; `repairCompanyLocks()` in the editor), comment requirements saved + enforced, getTicketHistory, getTicketsForApproval inbox; review fixes R-03–R-10. Rebuild apply needed: ticket_links + 3 columns. Deploy the frontend from the same commit)
+   - **Previous**: `APPSCRIPT_v9.0_20261019_0501.txt` (approval path routes, date-aware roles, approver_logic 'all', loud errors; the approve request sends `decision`)
    - ⚠️ **Never apply the rebuild with v8.2** (data-corruption bugs; see `docs/planning/TODO_CodeReview_20261017.md`). Redeploy before applying if the app may be in use.
-   - **Offline tests** (fake Sheets runtime in `appscript_files/tools/lib/fakeSheetsRuntime.js`): `node appscript_files/tools/ROUTES_AND_APPROVALS_TEST_v9.0.js <latest APPSCRIPT file>` (21 tests) and `node appscript_files/tools/CODE_REVIEW_FIXES_TEST_v8.3.js <latest APPSCRIPT file>` (11 tests)
-   - **Contract check**: `npm run check:api-contract` — every `makeRequest` action has a route in the newest file; `scripts/api-contract-known-gaps.txt` lists the 31 actions still to route in v9.1/v9.2 and may only shrink
+   - **Offline tests** (fake Sheets runtime in `appscript_files/tools/lib/fakeSheetsRuntime.js`), all on the latest file: `node appscript_files/tools/ROUTES_TEST_v9.1.js <file>` (18 tests), `ROUTES_AND_APPROVALS_TEST_v9.0.js` (21) and `CODE_REVIEW_FIXES_TEST_v8.3.js` (11)
+   - **Contract check**: `npm run check:api-contract` — every `makeRequest` action has a route in the newest file, every `API.Group.method()` call exists, every component is mounted from `src/index.js`, every `Icons.X` exists; `scripts/api-contract-known-gaps.txt` (13 actions for v9.2 + the unmounted / missing-icon baseline) may only shrink
    - **Header rule (v8.3)**: write rows by header name (`rowFromRecord`), create tabs with `ensureTableSheet()`, and take `withScriptLock()` for writes. No positional rows, no hard-coded header lists.
    - **Naming Rule**: every AppScript update is a NEW file `APPSCRIPT_v<ver>_<YYYYMMDD>_<HHMM>.txt` (UTC+8); never overwrite older versions. The newest timestamp is the latest.
    - **Deploy description (from v8.4)**: the file header has a `Deploy description:` line (`v<ver> <YYYYMMDD_HHMM> - <summary>`) to paste into New version → Description on redeploy. From v9.0, `ping` also reports the file's `API_VERSION` (keep it equal to the header `Version:`; through v8.3 it always said `8.0.0`).
@@ -118,7 +119,7 @@ Reorg record: `docs/planning/PLAN_RepoReorg_20261017.md` + `docs/planning/REORG_
 - **PREVENT REACT ERROR #130** by following `docs/reference/REACT_ERROR_130_PREVENTION_GUIDE.md`
 - **VERIFY ROUTES** exist in App.js before implementing navigation
 - **TEST COMPILATION** with `npm run build:ci` before committing changes: it builds like Vercel (`CI=true`), where any ESLint warning fails the deploy (compliance P6)
-- **🔌 API CONTRACT** - a new frontend API action ships with its AppScript route in the same batch; `npm run check:api-contract` must pass (compliance A12). A phase is done when its endpoints are reachable, not when its functions are written (P5)
+- **🔌 API CONTRACT** - a new frontend API action ships with its AppScript route in the same batch, and a new component is mounted in the batch that adds it; `npm run check:api-contract` must pass (compliance A12). A phase is done when a screen reaches its endpoints, not when its functions or components are written (P5)
 - **🚀 NEW: UNIVERSAL ENTITY RULES** - All entity types (tickets, users, roles) must use unified custom field patterns
 - **🚀 NEW: USER/ROLE INTEGRATION** - Follow `docs/reference/USER_MANAGEMENT_FEATURE_PLAN.md` for all user/role implementations
 - **🚨 MANDATORY: UNIVERSAL ENTITY ARCHITECTURE** - Must consult `docs/reference/UNIVERSAL_ENTITY_ARCHITECTURE.md` before any entity-related work

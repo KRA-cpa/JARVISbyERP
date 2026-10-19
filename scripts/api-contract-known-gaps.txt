@@ -1,36 +1,53 @@
 # Known frontend->backend contract gaps - checked by scripts/check-api-contract.js
 # Format: <kind> <action>. This list may only shrink: fix a gap, then remove its line
 # (node scripts/check-api-contract.js --update). Never add a line to silence a new gap.
-# Last updated against APPSCRIPT_v9.0_20261019_0501.txt
+# Last updated against APPSCRIPT_v9.1_20261019_1400.txt
+# 19 Oct 2026: unmounted-component and missing-icon are new check kinds; their entries below are the
+# baseline found when the check was added (gaps that already existed), not new gaps.
 
 missing assignDropdownGlobally
 missing assignDropdownToCompany
-missing checkCompanyLockStatus
-missing copyWorkflowSteps
 missing createCompanySLARule
 missing createConfigurationBackup
-missing createDefaultWorkflow
-missing createTicketLink
-missing createWorkflowStep
 missing deleteCompanySLARule
-missing deleteCustomField
-missing deleteTicketLink
-missing deleteWorkflowStep
 missing exportConfiguration
-missing generateTicketNumber
 missing getCompanySLARules
-missing getCustomField
 missing getDropdownCompanyAssignments
-missing getNextTicketNumber
-missing getTicketLinks
-missing getTicketType
 missing importConfiguration
-missing lockCompany
 missing removeDropdownCompanyAssignment
 missing runCompleteAPITest
-missing unlockCompany
 missing updateCompanySLARule
-missing updateCustomField
 missing updateDropdownCompanyAssignments
-missing updateWorkflowStep
-missing validateTicketDependencies
+missing-icon Icons.Alert
+missing-icon Icons.AlertTriangle
+missing-icon Icons.BarChart
+missing-icon Icons.Building
+missing-icon Icons.Database
+missing-icon Icons.FileText
+missing-icon Icons.Lightbulb
+missing-icon Icons.Minus
+missing-icon Icons.Share
+missing-icon Icons.Tag
+missing-icon Icons.Upload
+missing-icon Icons.UserMinus
+missing-icon Icons.UserPlus
+unmounted-component src/components/admin/AdminCustomFieldManager.js
+unmounted-component src/components/admin/AdminSLAEscalationManager.js
+unmounted-component src/components/admin/AdminTicketTypeManager.js
+unmounted-component src/components/admin/BulkOperationsManager.js
+unmounted-component src/components/admin/BulkRoleAssignmentDialog.js
+unmounted-component src/components/admin/BulkWorkflowDialog.js
+unmounted-component src/components/admin/CompanySLAManager.js
+unmounted-component src/components/admin/ConditionalWorkflowBuilder.js
+unmounted-component src/components/admin/ConfigurationExportImportDialog.js
+unmounted-component src/components/admin/RBACSettings.js
+unmounted-component src/components/shared/APITestPanel.js
+unmounted-component src/components/shared/ActionCommentModal.js
+unmounted-component src/components/shared/InfiniteLoopMonitor.js
+unmounted-component src/components/shared/SLANotificationSystem.js
+unmounted-component src/components/shared/SLAWidgets.js
+unmounted-component src/components/shared/TagInput.js
+unmounted-component src/components/shared/TagSearchFilter.js
+unmounted-component src/components/shared/UserPreferencesPanel.js
+unmounted-component src/components/tickets/TicketCollaborationManager.js
+unmounted-component src/components/tickets/TicketTagManager.js

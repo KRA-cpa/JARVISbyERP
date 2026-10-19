@@ -164,7 +164,15 @@
 
 ---
 
-### ✅ Phase 6: Ticket Management & Dashboard (COMPLETED)
+### ✅ Phase 6: Ticket Management & Dashboard (COMPLETED - wired Oct 19, 2026)
+
+> **Correction (Oct 19, 2026, AppScript v9.1 batch):** "completed" below meant *written*. Until v9.1 no page imported
+> TicketDashboard / TicketForm / TicketDetail / WorkflowStep: TicketForm "saved" with a `setTimeout`, the dashboard's
+> Create / View buttons opened "will be implemented" modals, bulk approve was simulated and TicketDetail's history was
+> hardcoded. They are now mounted at `/tickets` (`src/pages/TicketsPage.js`) and call the real API: create
+> (`createTicket` starts the workflow), approver inbox (`getTicketsForApproval`), history (`getTicketHistory`),
+> cancel / reopen / resubmit. `npm run check:api-contract` now flags components no screen reaches (compliance A12, P5).
+
 - [x] **DashboardPage.js** - ✅ Main user interface with real-time ticket statistics and filtering
 - [x] **TicketDashboard.js** - ✅ Advanced ticket management with filtering, sorting, bulk operations, and pagination
 - [x] **TicketForm.js** - ✅ Dynamic ticket creation/editing with custom fields and comprehensive validation
@@ -380,6 +388,7 @@ action: recordLogin      - payload: {userId, email, ipAddress}
 **Phase 4**: ✅ COMPLETED - API integration layer with Google Sheets backend
 **Backend API**: ✅ **PRODUCTION-READY** - Complete MVP implementation available
 **Oct 19, 2026**: ✅ Phase 2 Role Maintenance + Phase 3 approval eligibility (AppScript v9.0 routes the approval path; `npm run check:api-contract` guards the frontend↔backend contract; 31 actions left for v9.1/v9.2)
+**Oct 19, 2026 (v9.1)**: ✅ Core ticket loop usable from the UI - `/tickets` (create, list, inbox, detail, approve), Admin → Workflows (`AdminWorkflowBuilder` per company, copy / default), Admin → Ticket Links; company code lock; comment requirements; 13 actions left for v9.2
 **Current Status**: Phase 11.0 Design Complete - **Ticket Tags & Collaboration System** - All 4 React components coded, 25+ AppScript functions designed, 8 database tables documented, awaiting backend integration and database creation
 
 ## Phase 3 Authentication Documentation
@@ -621,7 +630,7 @@ src/
 ├── hooks/ (2 files)
 │   ├── useAPI.js                      # React hooks for API data fetching
 │   └── useWorkflowRouter.js           # Workflow routing operations hooks
-├── pages/ (9 files)
+├── pages/ (10 files)
 │   ├── AdminPage.js                   # ✅ Updated: Admin panel with reordered navigation (Overview > Companies > Ticket Types > Custom Fields > Dropdown Lists > Users > Roles); opens the tab or sub-tab named in ?tab= (Oct 18, 2026)
 │   ├── AdminTicketTypeCreatePage.js   # Dedicated ticket type creation and editing page
 │   ├── AdminCustomFieldCreatePage.js  # Dedicated custom field creation and editing page
@@ -630,6 +639,7 @@ src/
 │   ├── DashboardPage.js               # Main user dashboard with statistics
 │   ├── LoginPage.js                   # Google Sign-In authentication page
 │   ├── ProfilePage.js                 # ✅ NEW: User profile settings with tabbed interface (Profile, Preferences, Notifications, Security)
+│   ├── TicketsPage.js                 # ✅ v9.1 (Oct 19, 2026): /tickets - TicketDashboard (create, inbox, detail, approve)
 │   └── UnauthorizedPage.js            # Access denied page
 ├── utils/ (7 files)
 │   ├── approvalRouter.js              # Intelligent workflow progression logic

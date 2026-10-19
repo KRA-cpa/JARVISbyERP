@@ -110,7 +110,36 @@ let mockData = {
       step_type: 'approval', approver_logic: 'any', sort_order: 1, is_active: true
     }
   ],
-  stepApprovers: [{ step_id: 'ws_1', role_id: 'role_2' }]
+  stepApprovers: [{ step_id: 'ws_1', role_id: 'role_2' }],
+  // v9.1 core loop (in memory): created tickets, their history, links, comment rules, number counters
+  tickets: [],
+  ticketHistory: [],
+  ticketLinks: [],
+  commentRequirements: [],
+  counters: {}
+};
+
+// --- v9.1 mock ticket flow: one approver (the dev user) can act on every open ticket ------------------
+const TERMINAL = ['Completed', 'Rejected', 'Cancelled'];
+const stepsFor = (ticket) => mockData.workflowSteps
+  .filter(s => s.ticket_type_id === ticket.ticket_type_id && s.company_id === ticket.company_id && s.is_active !== false)
+  .sort((a, b) => a.sort_order - b.sort_order);
+const nextNumber = (companyId, ticketTypeId, reserve) => {
+  const company = mockData.companies.find(c => c.id === companyId) || { code: 'UNK' };
+  const type = mockData.ticketTypes.find(t => t.id === ticketTypeId) || { code: 'TKT' };
+  const key = `${company.code}-${type.code}`;
+  const next = (mockData.counters[key] || 0) + 1;
+  if (reserve) mockData.counters[key] = next;
+  return `${key}-${new Date().getFullYear()}-${String(next).padStart(8, '0')}`;
+};
+const addHistory = (ticket, userId, action, comment, fromStep, toStep, fromStatus) => {
+  mockData.ticketHistory.push({ id: generateId('th'), ticket_id: ticket.id, user_id: userId, action, comment,
+    timestamp: new Date().toISOString(), from_status: fromStatus, to_status: ticket.status, from_step_id: fromStep || '', to_step_id: toStep || '' });
+};
+const moveTicket = (ticket, step) => {
+  ticket.current_step_id = step ? step.id : '';
+  ticket.step_due_date = step ? new Date(Date.now() + 24 * 3600 * 1000).toISOString() : '';
+  ticket.updated_at = new Date().toISOString();
 };
 
 // Utility functions
@@ -205,6 +234,56 @@ app.get('/exec', (req, res) => {
         res.json(createResponse(true, customFields));
         break;
 
+      // v9.1 reads
+      case 'getTickets':
+        res.json(createResponse(true, mockData.tickets));
+        break;
+
+      case 'getNextTicketNumber':
+        res.json(createResponse(true, { ticket_number: nextNumber(req.query.company_id, req.query.ticket_type_id, false) }));
+        break;
+
+      case 'getTicketType':
+        res.json(createResponse(true, mockData.ticketTypes.find(t => t.id === req.query.ticket_type_id) || null));
+        break;
+
+      case 'getCustomField':
+        res.json(createResponse(true, mockData.customFields.find(f => f.id === req.query.field_id) || null));
+        break;
+
+      case 'getTicketLinks':
+        res.json(createResponse(true, mockData.ticketLinks));
+        break;
+
+      case 'validateTicketDependencies':
+        res.json(createResponse(true, { total_links: mockData.ticketLinks.length, circular_dependencies: [], orphaned_tickets: [], validation_passed: true }));
+        break;
+
+      case 'checkCompanyLockStatus': {
+        const company = mockData.companies.find(c => c.id === req.query.id) || {};
+        const count = mockData.tickets.filter(t => t.company_id === req.query.id).length;
+        res.json(createResponse(true, { company_id: req.query.id, code: company.code, code_locked: count > 0, ticket_count: count }));
+        break;
+      }
+
+      case 'getCommentRequirements': {
+        const rule = mockData.commentRequirements.find(r => r.ticket_type_id === req.query.ticket_type_id) || {};
+        res.json(createResponse(true, { ticket_type_id: req.query.ticket_type_id, source: rule.ticket_type_id ? 'global' : 'none',
+          require_on_approve: !!rule.require_on_approve, require_on_return: !!rule.require_on_return,
+          require_on_reject: !!rule.require_on_reject, require_on_cancel: !!rule.require_on_cancel }));
+        break;
+      }
+
+      case 'getTicketHistory':
+        res.json(createResponse(true, mockData.ticketHistory.filter(h => String(h.ticket_id) === String(req.query.ticket_id)).reverse()));
+        break;
+
+      case 'getTicketsForApproval':
+        res.json(createResponse(true, mockData.tickets
+          .filter(t => t.current_step_id && !TERMINAL.includes(t.status))
+          .map(t => ({ ...t, current_step_name: (mockData.workflowSteps.find(s => s.id === t.current_step_id) || {}).name, approver_logic: 'any', eligible_role_ids: ['role_2'] }))));
+        break;
+
       default:
         res.json(createResponse(false, null, `Unknown action: ${action}`));
     }
@@ -268,9 +347,123 @@ app.post('/exec', (req, res) => {
 
       case 'canUserApprove':
         res.json(createResponse(true, {
-          can_approve: true, already_approved: false, approver_logic: 'any',
+          can_approve: true, can_act: true, already_approved: false, approver_logic: 'any',
           eligible_role_ids: ['role_2'], required_role_ids: ['role_2'], approved_role_ids: []
         }));
+        break;
+
+      // v9.1 mock ticket flow
+      case 'createTicket': {
+        if (!payload.title || !payload.ticket_type_id || !payload.company_id || !payload.requester_id) {
+          return res.json(createResponse(false, null, 'title, ticket_type_id, company_id and requester_id are required'));
+        }
+        const now = new Date().toISOString();
+        const ticket = { id: mockData.tickets.length + 1, ticket_number: nextNumber(payload.company_id, payload.ticket_type_id, true),
+          title: payload.title, description: payload.description || '', priority: payload.priority || 'medium',
+          ticket_type_id: payload.ticket_type_id, company_id: payload.company_id, requester_id: payload.requester_id,
+          status: 'New', current_step_id: '', step_due_date: '', created_at: now, updated_at: now, is_active: true };
+        mockData.tickets.push(ticket);
+        addHistory(ticket, payload.requester_id, 'Created', 'Ticket submitted by user.', '', '', '');
+        const first = stepsFor(ticket)[0];
+        if (first) {
+          ticket.status = first.status_on_reach || 'Pending';
+          moveTicket(ticket, first);
+          addHistory(ticket, payload.requester_id, 'WORKFLOW_STARTED', `Workflow started at step: ${first.name}`, '', first.id, 'New');
+        }
+        res.json(createResponse(true, { id: ticket.id, ticketId: ticket.id, ticket_number: ticket.ticket_number, ticketNumber: ticket.ticket_number,
+          workflow: { started: !!first, step_id: first ? first.id : null }, customFieldErrors: [] }));
+        break;
+      }
+
+      case 'getTicket':
+        res.json(createResponse(true, mockData.tickets.find(t => String(t.id) === String(payload.ticketId || payload.id)) || null));
+        break;
+
+      case 'submitStepApproval': {
+        const ticket = mockData.tickets.find(t => String(t.id) === String(payload.ticket_id));
+        if (!ticket || !ticket.current_step_id) return res.json(createResponse(false, null, 'Ticket has no current workflow step'));
+        const steps = stepsFor(ticket);
+        const index = steps.findIndex(s => s.id === ticket.current_step_id);
+        const fromStep = ticket.current_step_id;
+        const fromStatus = ticket.status;
+        const decision = String(payload.decision || '').toLowerCase();
+        if (decision === 'approve') {
+          const next = steps[index + 1];
+          ticket.status = next ? (next.status_on_reach || 'Pending') : 'Completed';
+          moveTicket(ticket, next);
+          addHistory(ticket, payload.user_id, 'APPROVED', payload.comment, fromStep, next ? next.id : '', fromStatus);
+        } else if (decision === 'reject') {
+          ticket.status = 'Rejected';
+          addHistory(ticket, payload.user_id, 'REJECTED', payload.comment, fromStep, '', fromStatus);
+        } else if (decision === 'return') {
+          const previous = steps[index - 1];
+          ticket.status = previous ? (previous.status_on_reach || 'Pending') : 'Returned to Requester';
+          moveTicket(ticket, previous);
+          addHistory(ticket, payload.user_id, 'RETURNED', payload.comment, fromStep, previous ? previous.id : '', fromStatus);
+        } else {
+          return res.json(createResponse(false, null, `Invalid action: ${payload.decision}`));
+        }
+        res.json(createResponse(true, { ticket_id: ticket.id, action_performed: decision, new_status: ticket.status, partial: false }));
+        break;
+      }
+
+      case 'updateTicketStatus': {
+        const ticket = mockData.tickets.find(t => String(t.id) === String(payload.id));
+        if (!ticket) return res.json(createResponse(false, null, 'Ticket not found'));
+        if (!payload.user_id) return res.json(createResponse(false, null, 'user_id is required'));
+        const status = String(payload.status || '').toLowerCase();
+        const fromStatus = ticket.status;
+        if (status === 'cancelled') {
+          ticket.status = 'Cancelled';
+          addHistory(ticket, payload.user_id, 'CANCELLED', payload.comment || 'Cancelled', ticket.current_step_id, '', fromStatus);
+        } else if (status === 'reopened') {
+          const first = stepsFor(ticket)[0];
+          ticket.status = first ? (first.status_on_reach || 'Pending') : 'New';
+          moveTicket(ticket, first);
+          addHistory(ticket, payload.user_id, 'REOPENED', 'Ticket reopened', '', first ? first.id : '', fromStatus);
+        } else {
+          return res.json(createResponse(false, null, `Status '${payload.status}' can't be set directly`));
+        }
+        res.json(createResponse(true, ticket));
+        break;
+      }
+
+      case 'createWorkflowStep': {
+        if (!payload.company_id) return res.json(createResponse(false, null, 'Missing required field: company_id'));
+        const step = { id: generateId('ws'), ticket_type_id: payload.ticket_type_id, company_id: payload.company_id, name: payload.name,
+          status_on_reach: payload.status_on_reach, step_type: payload.step_type, approver_logic: payload.approver_logic || 'any',
+          sort_order: Number(payload.sort_order) || 1, sla_duration: payload.sla_duration || '', sla_unit: payload.sla_unit || '', is_active: true };
+        mockData.workflowSteps.push(step);
+        res.json(createResponse(true, step));
+        break;
+      }
+
+      case 'updateWorkflowStep': {
+        const step = mockData.workflowSteps.find(s => s.id === payload.step_id);
+        if (!step) return res.json(createResponse(false, null, 'Workflow step not found'));
+        ['name', 'status_on_reach', 'step_type', 'approver_logic', 'sort_order', 'sla_duration', 'sla_unit'].forEach(k => {
+          if (payload[k] !== undefined) step[k] = payload[k];
+        });
+        res.json(createResponse(true, step));
+        break;
+      }
+
+      case 'deleteWorkflowStep': {
+        const step = mockData.workflowSteps.find(s => s.id === payload.step_id);
+        if (step) step.is_active = false;
+        res.json(createResponse(true, { id: payload.step_id, deactivated: !!step }));
+        break;
+      }
+
+      case 'setStepApprovers':
+        mockData.stepApprovers = mockData.stepApprovers.filter(a => a.step_id !== payload.step_id)
+          .concat((payload.role_ids || []).map(role_id => ({ step_id: payload.step_id, role_id })));
+        res.json(createResponse(true, { step_id: payload.step_id, role_ids: payload.role_ids || [] }));
+        break;
+
+      case 'saveCommentRequirements':
+        mockData.commentRequirements = mockData.commentRequirements.filter(r => r.ticket_type_id !== payload.ticket_type_id).concat([payload]);
+        res.json(createResponse(true, payload));
         break;
 
       case 'getStepApprovals':

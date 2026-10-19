@@ -235,7 +235,7 @@ export const generatePreviewSeries = (company, ticketType, count = 5, startSeque
 };
 
 // Export default object with all functions
-export default {
+const ticketNumberUtils = {
   generateTicketNumber,
   parseTicketNumber,
   generateSequenceKey,
@@ -248,3 +248,5 @@ export default {
   generatePreviewSeries,
   TICKET_NUMBER_RULES
 };
+
+export default ticketNumberUtils;

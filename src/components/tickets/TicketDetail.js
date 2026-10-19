@@ -1,75 +1,68 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useUser } from '../../contexts/UserContext';
-import { useCompanies, useTicketTypes, useUsers, useSLAStatus, useWorkflowStepSLA } from '../../hooks/useAPI';
+import { useCompanies, useTicketTypes, useUsers, useTicketHistory, useTicketMutations, useCommentRequirements } from '../../hooks/useAPI';
+import { getSLAStatus } from '../../utils/slaCalculator';
 import { useToast } from '../shared/Toast';
 import WorkflowStep from './WorkflowStep';
 import Icons from '../shared/Icons';
 
-const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
-  const { user, hasPermission } = useUser();
+// Ticket statuses that end the workflow (AppScript TERMINAL_TICKET_STATUSES)
+const TERMINAL_STATUSES = ['Completed', 'Rejected', 'Cancelled'];
+
+// ticket_history.action -> label
+const HISTORY_LABELS = {
+  Created: 'Created',
+  WORKFLOW_STARTED: 'Workflow started',
+  APPROVED: 'Approved',
+  PARTIAL_APPROVAL: 'Approved (waiting for other approver roles)',
+  REJECTED: 'Rejected',
+  RETURNED: 'Returned',
+  COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
+  REOPENED: 'Reopened',
+  UPDATED: 'Updated'
+};
+
+/**
+ * TicketDetail - one ticket in a modal: details, workflow (WorkflowStep approves / rejects / returns), its
+ * real history (AppScript v9.1 getTicketHistory), and the requester / admin actions:
+ * cancel (requester or admin), reopen a rejected / cancelled ticket (admin), resubmit a returned one
+ * (requester or admin) - the backend checks the same rules (review R-05).
+ *
+ * Props: ticket, onClose, onStatusChange() - called after any change so the list refetches.
+ */
+const TicketDetail = ({ ticket, onClose, onStatusChange }) => {
+  const { user, isAdmin } = useUser();
+  const currentUserId = user?.uid || user?.id;
   const { data: companies } = useCompanies();
   const { data: ticketTypes } = useTicketTypes();
   const { data: users } = useUsers();
+  const { data: history, loading: historyLoading, refetch: refetchHistory } = useTicketHistory(ticket?.id);
+  const { data: commentRules } = useCommentRequirements(ticket?.ticket_type_id, ticket?.company_id);
+  const { updateTicketStatus, loading: isPerformingAction } = useTicketMutations();
   const { ToastContainer, success, error: showError } = useToast();
 
-  // SLA data hooks
-  const { data: slaStatus } = useSLAStatus(ticket?.id);
-  const { data: stepSLA } = useWorkflowStepSLA(ticket?.current_step_id);
-
   const [activeTab, setActiveTab] = useState('details');
-  const [newComment, setNewComment] = useState('');
-  const [isAddingComment, setIsAddingComment] = useState(false);
-  const [workflowAction, setWorkflowAction] = useState('');
   const [actionComment, setActionComment] = useState('');
-  const [isPerformingAction, setIsPerformingAction] = useState(false);
-
-  // Mock data - in real app, this would come from API
-  const [comments] = useState([
-    {
-      id: 1,
-      user_email: 'john.doe@company.com',
-      comment: 'Initial ticket creation',
-      created_date: '2025-01-15T10:00:00Z',
-      type: 'comment'
-    },
-    {
-      id: 2,
-      user_email: 'manager@company.com',
-      comment: 'Ticket assigned to technical team',
-      created_date: '2025-01-15T11:30:00Z',
-      type: 'status_change',
-      old_status: 'open',
-      new_status: 'in_progress'
-    }
-  ]);
-
-  const [history] = useState([
-    {
-      id: 1,
-      action: 'created',
-      user_email: 'john.doe@company.com',
-      timestamp: '2025-01-15T10:00:00Z',
-      details: 'Ticket created'
-    },
-    {
-      id: 2,
-      action: 'status_change',
-      user_email: 'manager@company.com',
-      timestamp: '2025-01-15T11:30:00Z',
-      details: 'Status changed from Open to In Progress'
-    }
-  ]);
 
   if (!ticket) return null;
 
-  const company = companies?.find(c => c.id === ticket.company_id);
-  const ticketType = ticketTypes?.find(t => t.id === ticket.ticket_type_id);
-  const creator = users?.find(u => u.email === ticket.creator_email);
-  const assignee = users?.find(u => u.email === ticket.assignee_email);
+  const company = companies?.find(c => String(c.id) === String(ticket.company_id));
+  const ticketType = ticketTypes?.find(t => String(t.id) === String(ticket.ticket_type_id));
+  const nameOf = (userId) => users?.find(u => String(u.id || u.user_id) === String(userId))?.name || userId || 'Unknown';
+  const sla = ticket.step_due_date && !TERMINAL_STATUSES.includes(ticket.status) ? getSLAStatus(ticket.step_due_date) : null;
 
-  const canEdit = hasPermission('canApproveTickets') || ticket.creator_email === user?.email;
-  const canApprove = hasPermission('canApproveTickets') && ticket.status === 'pending';
-  const canAssign = hasPermission('canApproveTickets');
+  const isRequester = String(ticket.requester_id) === String(currentUserId);
+  const isClosed = TERMINAL_STATUSES.includes(ticket.status);
+  const isReturned = ticket.status === 'Returned to Requester';
+  const canCancel = !isClosed && (isRequester || isAdmin);
+  const canReopen = (['Rejected', 'Cancelled'].includes(ticket.status) && isAdmin) || (isReturned && (isRequester || isAdmin));
+  const cancelNeedsComment = Boolean(commentRules?.require_on_cancel);
+
+  const refreshAfterChange = () => {
+    refetchHistory();
+    onStatusChange?.();
+  };
 
   const getPriorityColor = (priority) => {
     switch (priority?.toLowerCase()) {
@@ -81,201 +74,75 @@ const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
     }
   };
 
+  // Statuses come from each workflow step's status_on_reach, so match on words, not fixed values
   const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'open': return 'text-blue-600 bg-blue-50 border-blue-200';
-      case 'in_progress': return 'text-purple-600 bg-purple-50 border-purple-200';
-      case 'pending': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
-      case 'completed': return 'text-green-600 bg-green-50 border-green-200';
-      case 'closed': return 'text-gray-600 bg-gray-50 border-gray-200';
-      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+    const s = String(status || '').toLowerCase();
+    if (s === 'completed') return 'text-green-600 bg-green-50 border-green-200';
+    if (s === 'rejected') return 'text-red-600 bg-red-50 border-red-200';
+    if (s === 'cancelled') return 'text-gray-600 bg-gray-100 border-gray-300';
+    if (s.includes('return')) return 'text-orange-600 bg-orange-50 border-orange-200';
+    if (s.includes('pending') || s.includes('approval')) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    return 'text-blue-600 bg-blue-50 border-blue-200';
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Not set';
+    const date = new Date(dateString);
+    return isNaN(date.getTime()) ? String(dateString) : date.toLocaleString();
+  };
+
+  // 'Cancelled' | 'Reopened' - the only direct status changes (approve / reject / return are in Workflow)
+  const handleStatusAction = async (status) => {
+    if (status === 'Cancelled' && cancelNeedsComment && !actionComment.trim()) {
+      showError('A comment is required to cancel this ticket');
+      return;
+    }
+    try {
+      await updateTicketStatus(ticket.id, status, actionComment, currentUserId);
+      success(status === 'Cancelled' ? 'Ticket cancelled' : isReturned ? 'Ticket resubmitted' : 'Ticket reopened');
+      setActionComment('');
+      refreshAfterChange();
+    } catch (err) {
+      showError(err.message || 'Failed to update the ticket');
     }
   };
 
-  // SLA Status Display Component
   const SLAStatusDisplay = () => {
-    if (!slaStatus && !stepSLA) {
-      return (
-        <div className="border border-gray-200 rounded-lg p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">SLA Status</span>
-            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-              <Icons.Clock size={12} className="mr-1" />
-              No SLA
-            </span>
-          </div>
-        </div>
-      );
-    }
-
-    if (!slaStatus) {
-      return (
-        <div className="border border-gray-200 rounded-lg p-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">SLA Status</span>
-            <div className="animate-pulse bg-gray-200 h-6 w-20 rounded"></div>
-          </div>
-        </div>
-      );
-    }
-
     const colorMap = {
       gray: 'bg-gray-100 text-gray-800 border-gray-200',
       green: 'bg-green-100 text-green-800 border-green-200',
       yellow: 'bg-yellow-100 text-yellow-800 border-yellow-200',
       red: 'bg-red-100 text-red-800 border-red-200'
     };
-
     const iconMap = {
       no_sla: Icons.Clock,
       on_time: Icons.Success,
       due_today: Icons.Urgent,
       overdue: Icons.Warning
     };
-
-    const StatusIcon = iconMap[slaStatus.type] || Icons.Clock;
+    const StatusIcon = (sla && iconMap[sla.type]) || Icons.Clock;
 
     return (
       <div className="border border-gray-200 rounded-lg p-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium text-gray-700">SLA Status</span>
-          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${colorMap[slaStatus.color]}`}>
+          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${sla ? colorMap[sla.color] : colorMap.gray}`}>
             <StatusIcon size={12} className="mr-1" />
-            {slaStatus.label}
+            {sla ? sla.label : 'No SLA'}
           </span>
         </div>
-
-        {ticket.step_due_date && (
-          <div className="text-xs text-gray-500">
-            <div className="flex justify-between">
-              <span>Due:</span>
-              <span>
-                {(() => {
-                  // Format due date in Philippine timezone
-                  try {
-                    import('../../utils/slaCalculator').then(({ formatDatePhilippine }) => {
-                      return formatDatePhilippine(ticket.step_due_date);
-                    });
-                    return new Date(ticket.step_due_date).toLocaleString();
-                  } catch (e) {
-                    return new Date(ticket.step_due_date).toLocaleString();
-                  }
-                })()}
-              </span>
-            </div>
-          </div>
-        )}
-
-        {stepSLA && (
-          <div className="text-xs text-gray-500 mt-1 pt-1 border-t border-gray-100">
-            <div className="flex justify-between">
-              <span>Step SLA:</span>
-              <span>
-                {stepSLA.duration} {stepSLA.unit}
-                {stepSLA.excludeWeekends && ' (business days)'}
-              </span>
-            </div>
+        {sla && (
+          <div className="text-xs text-gray-500 flex justify-between">
+            <span>Step due:</span>
+            <span>{formatDate(ticket.step_due_date)}</span>
           </div>
         )}
       </div>
     );
   };
 
-  const getAvailableActions = () => {
-    const actions = [];
-
-    switch (ticket.status?.toLowerCase()) {
-      case 'open':
-        if (canAssign) {
-          actions.push({ value: 'start', label: 'Start Work', color: 'blue' });
-          actions.push({ value: 'assign', label: 'Assign', color: 'purple' });
-        }
-        break;
-      case 'in_progress':
-        actions.push({ value: 'complete', label: 'Mark Complete', color: 'green' });
-        if (canAssign) {
-          actions.push({ value: 'pause', label: 'Pause', color: 'yellow' });
-        }
-        break;
-      case 'pending':
-        if (canApprove) {
-          actions.push({ value: 'approve', label: 'Approve', color: 'green' });
-          actions.push({ value: 'reject', label: 'Reject', color: 'red' });
-        }
-        break;
-      case 'completed':
-        if (canApprove) {
-          actions.push({ value: 'close', label: 'Close Ticket', color: 'gray' });
-          actions.push({ value: 'reopen', label: 'Reopen', color: 'blue' });
-        }
-        break;
-    }
-
-    if (canAssign && !['closed'].includes(ticket.status?.toLowerCase())) {
-      actions.push({ value: 'reassign', label: 'Reassign', color: 'purple' });
-    }
-
-    return actions;
-  };
-
-  const handleAddComment = async (e) => {
-    e.preventDefault();
-    if (!newComment.trim()) return;
-
-    setIsAddingComment(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      success('Comment added successfully');
-      setNewComment('');
-      // In real app, would refresh comments from API
-    } catch (error) {
-      showError('Failed to add comment');
-    } finally {
-      setIsAddingComment(false);
-    }
-  };
-
-  const handleWorkflowAction = async (e) => {
-    e.preventDefault();
-    if (!workflowAction) return;
-
-    setIsPerformingAction(true);
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const actionLabels = {
-        approve: 'approved',
-        reject: 'rejected',
-        start: 'started',
-        complete: 'completed',
-        pause: 'paused',
-        close: 'closed',
-        reopen: 'reopened',
-        assign: 'assigned',
-        reassign: 'reassigned'
-      };
-
-      success(`Ticket ${actionLabels[workflowAction]} successfully`);
-      setWorkflowAction('');
-      setActionComment('');
-      onStatusChange?.(workflowAction);
-    } catch (error) {
-      showError('Failed to perform action');
-    } finally {
-      setIsPerformingAction(false);
-    }
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleString();
-  };
-
   const renderDetailsTab = () => (
     <div className="space-y-6">
-      {/* Ticket Info */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-4">
           <div>
@@ -285,7 +152,7 @@ const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
 
           <div>
             <label className="text-sm font-medium text-gray-700">Description</label>
-            <p className="text-gray-900 whitespace-pre-wrap">{ticket.description}</p>
+            <p className="text-gray-900 whitespace-pre-wrap">{ticket.description || 'No description'}</p>
           </div>
 
           <div>
@@ -300,144 +167,62 @@ const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
         </div>
 
         <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-gray-700">Priority</label>
+          <div className="flex items-center space-x-3">
+            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(ticket.status)}`}>
+              {ticket.status || 'New'}
+            </span>
             <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(ticket.priority)}`}>
               {ticket.priority || 'Normal'}
             </span>
           </div>
 
-          {/* SLA Status Section */}
           <SLAStatusDisplay />
 
           <div>
-            <label className="text-sm font-medium text-gray-700">Status</label>
-            <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(ticket.status)}`}>
-              {ticket.status || 'Open'}
-            </span>
+            <label className="text-sm font-medium text-gray-700">Requested By</label>
+            <p className="text-gray-900">{isRequester ? 'You' : nameOf(ticket.requester_id)}</p>
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700">Created By</label>
-            <p className="text-gray-900">{creator?.name || ticket.creator_email || 'Unknown'}</p>
+            <label className="text-sm font-medium text-gray-700">Created</label>
+            <p className="text-gray-900">{formatDate(ticket.created_at)}</p>
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700">Assigned To</label>
-            <p className="text-gray-900">{assignee?.name || ticket.assignee_email || 'Unassigned'}</p>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-700">Created Date</label>
-            <p className="text-gray-900">{formatDate(ticket.created_date)}</p>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-700">Due Date</label>
-            <p className={`${ticket.due_date && new Date(ticket.due_date) < new Date() ? 'text-red-600' : 'text-gray-900'}`}>
-              {formatDate(ticket.due_date)}
-            </p>
+            <label className="text-sm font-medium text-gray-700">Last Updated</label>
+            <p className="text-gray-900">{formatDate(ticket.updated_at)}</p>
           </div>
         </div>
-      </div>
-
-      {/* Custom Fields */}
-      {ticket.custom_fields && Object.keys(ticket.custom_fields).length > 0 && (
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Additional Information</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(ticket.custom_fields).map(([key, value]) => (
-              <div key={key}>
-                <label className="text-sm font-medium text-gray-700">{key}</label>
-                <p className="text-gray-900">{value || 'Not provided'}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  const renderCommentsTab = () => (
-    <div className="space-y-6">
-      {/* Add Comment */}
-      <form onSubmit={handleAddComment} className="bg-gray-50 rounded-lg p-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">Add Comment</label>
-        <textarea
-          value={newComment}
-          onChange={(e) => setNewComment(e.target.value)}
-          rows={3}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          placeholder="Enter your comment..."
-          disabled={isAddingComment}
-        />
-        <div className="mt-2 flex justify-end">
-          <button
-            type="submit"
-            disabled={isAddingComment || !newComment.trim()}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-          >
-            {isAddingComment && (
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            )}
-            <span>Add Comment</span>
-          </button>
-        </div>
-      </form>
-
-      {/* Comments List */}
-      <div className="space-y-4">
-        {comments.map((comment) => (
-          <div key={comment.id} className="bg-white border border-gray-200 rounded-lg p-4">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center space-x-2">
-                <Icons.User size={16} className="text-gray-400" />
-                <span className="text-sm font-medium text-gray-900">{comment.user_email}</span>
-                {comment.type === 'status_change' && (
-                  <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">Status Change</span>
-                )}
-              </div>
-              <span className="text-sm text-gray-500">{formatDate(comment.created_date)}</span>
-            </div>
-            <div className="mt-2">
-              <p className="text-gray-900">{comment.comment}</p>
-              {comment.type === 'status_change' && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Status changed from <span className="font-medium">{comment.old_status}</span> to <span className="font-medium">{comment.new_status}</span>
-                </p>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {comments.length === 0 && (
-          <div className="text-center py-8">
-            <Icons.User size={32} className="mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500">No comments yet</p>
-          </div>
-        )}
       </div>
     </div>
   );
 
   const renderHistoryTab = () => (
     <div className="space-y-4">
-      {history.map((item) => (
-        <div key={item.id} className="flex items-start space-x-3">
+      {historyLoading && <p className="text-sm text-gray-500">Loading history...</p>}
+
+      {(history || []).map((item, index) => (
+        <div key={item.id || index} className="flex items-start space-x-3">
           <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
             <Icons.History size={16} className="text-blue-600" />
           </div>
           <div className="flex-1">
             <div className="flex items-center justify-between">
-              <p className="text-sm font-medium text-gray-900">{item.user_email}</p>
+              <p className="text-sm font-medium text-gray-900">
+                {HISTORY_LABELS[item.action] || item.action}
+                <span className="font-normal text-gray-500"> by {String(item.user_id) === String(currentUserId) ? 'you' : nameOf(item.user_id)}</span>
+              </p>
               <span className="text-sm text-gray-500">{formatDate(item.timestamp)}</span>
             </div>
-            <p className="text-sm text-gray-600">{item.details}</p>
+            {item.comment && <p className="text-sm text-gray-600">{item.comment}</p>}
+            {item.from_status && item.to_status && item.from_status !== item.to_status && (
+              <p className="text-xs text-gray-500 mt-1">{item.from_status} → {item.to_status}</p>
+            )}
           </div>
         </div>
       ))}
 
-      {history.length === 0 && (
+      {!historyLoading && (history || []).length === 0 && (
         <div className="text-center py-8">
           <Icons.History size={32} className="mx-auto text-gray-400 mb-4" />
           <p className="text-gray-500">No history available</p>
@@ -446,71 +231,63 @@ const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
     </div>
   );
 
-  const renderActionsTab = () => {
-    const availableActions = getAvailableActions();
-
-    return (
-      <div className="space-y-6">
-        {availableActions.length > 0 ? (
-          <form onSubmit={handleWorkflowAction} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Select Action</label>
-              <select
-                value={workflowAction}
-                onChange={(e) => setWorkflowAction(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={isPerformingAction}
-              >
-                <option value="">Choose an action</option>
-                {availableActions.map((action) => (
-                  <option key={action.value} value={action.value}>
-                    {action.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Comment</label>
-              <textarea
-                value={actionComment}
-                onChange={(e) => setActionComment(e.target.value)}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Optional comment about this action..."
-                disabled={isPerformingAction}
-              />
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                type="submit"
-                disabled={isPerformingAction || !workflowAction}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-              >
-                {isPerformingAction && (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                )}
-                <span>Perform Action</span>
-              </button>
-            </div>
-          </form>
-        ) : (
-          <div className="text-center py-8">
-            <Icons.Close size={32} className="mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500">No actions available for this ticket</p>
+  const renderActionsTab = () => (
+    <div className="space-y-6">
+      {canCancel || canReopen ? (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Comment {canCancel && cancelNeedsComment && <span className="text-red-500">* (required to cancel)</span>}
+            </label>
+            <textarea
+              value={actionComment}
+              onChange={(e) => setActionComment(e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Reason for this action..."
+              disabled={isPerformingAction}
+            />
           </div>
-        )}
-      </div>
-    );
-  };
+
+          <div className="flex flex-wrap justify-end gap-2">
+            {canReopen && (
+              <button
+                onClick={() => handleStatusAction('Reopened')}
+                disabled={isPerformingAction}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+              >
+                {isReturned ? 'Resubmit' : 'Reopen'}
+              </button>
+            )}
+            {canCancel && (
+              <button
+                onClick={() => handleStatusAction('Cancelled')}
+                disabled={isPerformingAction}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50"
+              >
+                Cancel Ticket
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-gray-500">
+            Approve, reject and return are on the Workflow tab, for the ticket's current approvers.
+          </p>
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <Icons.Close size={32} className="mx-auto text-gray-400 mb-4" />
+          <p className="text-gray-500">No actions available for this ticket</p>
+        </div>
+      )}
+    </div>
+  );
 
   const renderWorkflowTab = () => (
     <div className="space-y-6">
       <WorkflowStep
         ticket={ticket}
         onTicketUpdate={() => {
-          onUpdate?.(ticket);
+          refreshAfterChange();
           success('Ticket updated');
         }}
       />
@@ -520,8 +297,7 @@ const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
   const tabs = [
     { id: 'details', name: 'Details', icon: Icons.Info },
     { id: 'workflow', name: 'Workflow', icon: Icons.Workflow },
-    { id: 'comments', name: 'Comments', icon: Icons.User, count: comments.length },
-    { id: 'history', name: 'History', icon: Icons.History, count: history.length },
+    { id: 'history', name: 'History', icon: Icons.History, count: (history || []).length },
     { id: 'actions', name: 'Actions', icon: Icons.Create }
   ];
 
@@ -541,29 +317,19 @@ const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
                 <p className="text-sm text-gray-500">{ticket.title}</p>
               </div>
 
-              <div className="flex items-center space-x-2">
-                {canEdit && (
-                  <button
-                    onClick={() => onUpdate?.(ticket)}
-                    className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors duration-200"
-                    title="Edit Ticket"
-                  >
-                    <Icons.Edit size={20} />
-                  </button>
-                )}
-                <button
-                  onClick={onClose}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded transition-colors duration-200"
-                >
-                  <Icons.Close size={20} />
-                </button>
-              </div>
+              <button
+                onClick={onClose}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded transition-colors duration-200"
+                title="Close"
+              >
+                <Icons.Close size={20} />
+              </button>
             </div>
           </div>
 
           {/* Tabs */}
           <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6" aria-label="Tabs">
+            <nav className="flex space-x-8 px-6 overflow-x-auto" aria-label="Tabs">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -591,7 +357,6 @@ const TicketDetail = ({ ticket, onClose, onUpdate, onStatusChange }) => {
           {/* Content */}
           <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
             {activeTab === 'details' && renderDetailsTab()}
-            {activeTab === 'comments' && renderCommentsTab()}
             {activeTab === 'history' && renderHistoryTab()}
             {activeTab === 'actions' && renderActionsTab()}
             {activeTab === 'workflow' && renderWorkflowTab()}

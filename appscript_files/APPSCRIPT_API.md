@@ -1815,7 +1815,7 @@ After deployment, you can test the API using these functions in the Apps Script 
 
 ## 📊 Available Endpoints
 
-> **Updated October 19, 2026 (AppScript v9.0).** The authoritative list is the `case` labels of `doGet` and
+> **Updated October 19, 2026 (AppScript v9.1).** The authoritative list is the `case` labels of `doGet` and
 > `routePostAction` in the newest `appscript_files/APPSCRIPT_v*.txt`; `npm run check:api-contract` compares them with
 > what `src/api/googleSheet.js` sends. This section used to list endpoints that were never routed
 > (`getDropdownAssignments`, `assignDropdownToCompany`, `removeDropdownFromCompany`, `setDropdownGlobal`) - the
@@ -1828,7 +1828,45 @@ After deployment, you can test the API using these functions in the Apps Script 
 **GET (doGet):** ping (reports `API_VERSION`), getCompanies, getCompany, getRoles (`include_inactive`), getDropdownLists,
 getDropdownOptions, getTicketTypes, getTickets, getUserPreferences, getSLAPerformanceByCompany, getSLAPerformanceByTicketType,
 getGlobalSLAPerformance, getUserProfileTypes / getRoleTypes (`include_inactive`), getUserProfiles, getCustomFields,
-**getWorkflowSteps**, **getSystemHealth** (v9.0)
+**getWorkflowSteps** (v9.1: each step carries sla_duration / sla_unit / exclude_weekends), **getSystemHealth** (v9.0)
+
+**GET - new in v9.1:**
+
+| Action | Query | Returns (`data`) |
+|---|---|---|
+| getNextTicketNumber | company_id, ticket_type_id | { ticket_number } - a peek; nothing is reserved |
+| getTicketType | ticket_type_id | ticket type |
+| getCustomField | field_id | custom field |
+| getCustomFields | ticket_type_id (or entityTypeId / entity_type_id), entityCategory | fields array (v9.1: unwrapped, ids as strings) |
+| getTicketLinks | ticket_number, company_id, ticket_type_id, status, include_linked | links + parent/child ticket_number, title, status, company |
+| validateTicketDependencies | - | { total_links, circular_dependencies: [[ticket numbers]], orphaned_tickets, validation_passed } |
+| checkCompanyLockStatus | id | { code_locked, code_locked_at, code_locked_reason, ticket_count } |
+| getCommentRequirements | ticket_type_id, company_id | { source: company / global / none, require_on_approve / return / reject / cancel } |
+| getTicketHistory | ticket_id | ticket_history rows, newest first |
+| getTicketsForApproval | user_id | open tickets whose current step the user can approve now (+ current_step_name, approver_logic, eligible_role_ids) |
+
+**POST - new in v9.1:**
+
+| Action | Request fields | Returns (`data`) |
+|---|---|---|
+| generateTicketNumber | company_id, ticket_type_id | { ticket_number } (reserves it) |
+| createWorkflowStep | ticket_type_id, **company_id**, name, status_on_reach, step_type, approver_logic, sort_order, sla_duration, sla_unit, exclude_weekends | step |
+| updateWorkflowStep | step_id + fields; sla_duration '' removes the SLA | step |
+| deleteWorkflowStep | step_id | soft delete; refused while an open ticket is at the step |
+| copyWorkflowSteps | ticket_type_id, source_company_id, target_company_id | { copied_steps, approvers, slas, conditions, step_id_map }; refused if the target has steps |
+| createDefaultWorkflow | ticket_type_id, company_id | one step "For Approval of Approver (1)" |
+| updateCustomField / deleteCustomField | field_id (+ fields) | field / { hidden \| deleted } - a field in use is hidden, not deleted |
+| createTicketLink | parent_ticket_number, child_ticket_number, link_type (blocks, depends_on, related_to, duplicates), description, enforce_blocking_rules, sync_status, notify_on_update | link; refuses self links, duplicates, blocking cycles |
+| deleteTicketLink | link_id | soft delete |
+| lockCompany / unlockCompany | id, reason (required to unlock), user_id | company |
+| saveCommentRequirements | ticket_type_id, company_id ('' = global), require_on_approve / return / reject / cancel | saved row |
+
+**Changed in v9.1:**
+- `updateCompany` refuses a code change while the code is locked.
+- `createTicket` keeps description, priority and `customData`, counts the ticket and locks the company code on the first one.
+- `updateTicketStatus` needs `user_id`: cancel = requester or admin, reopen = admin, resubmit after a return = requester or admin.
+- `canUserApprove` adds `can_act` (reject / return allowed).
+- Comment requirements are enforced on approve, return, reject and cancel.
 
 **POST - new in v9.0 (approval path):**
 
@@ -1852,7 +1890,7 @@ getGlobalSLAPerformance, getUserProfileTypes / getRoleTypes (`include_inactive`)
 
 **POST - existing:** company, role, dropdown list, ticket type CRUD; createTicket (v9.0: starts the workflow); getTickets;
 recordLogin; user preferences; Phase 10.0 type/profile CRUD; createCustomField / setCustomFieldValue; tags & sharing;
-setup routines. Still unrouted (v9.1/v9.2): see `scripts/api-contract-known-gaps.txt`.
+setup routines. Still unrouted (v9.2: dropdown company assignments, company SLA rules, configuration export/import/backup, runCompleteAPITest): see `scripts/api-contract-known-gaps.txt`.
 
 **📋 NEW: Two-Step Dropdown Process**
 1. **Create**: `createDropdownList(name, description, options)` - Creates draft dropdown

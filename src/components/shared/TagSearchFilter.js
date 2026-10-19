@@ -405,7 +405,7 @@ const TagSearchFilter = ({
                   onClick={() => handleDeleteSearch(search.id)}
                   className="text-red-500 hover:text-red-700 p-1"
                 >
-                  <Icons.Trash size={14} />
+                  <Icons.Delete size={14} />
                 </button>
               </div>
             ))}

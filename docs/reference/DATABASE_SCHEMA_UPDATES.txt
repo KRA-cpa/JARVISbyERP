@@ -28,11 +28,23 @@
 
 ---
 
-## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v9.0)
+## ✅ AUTHORITATIVE COLUMN LIST (October 17, 2026 — AppScript v8.1+, latest v9.1)
 
-`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v9.0_20261019_0501.txt` is now the single source of truth
+`TABLE_SCHEMAS` in the latest `appscript_files/APPSCRIPT_v9.1_20261019_1400.txt` is now the single source of truth
 for the headers of all 33 tables (25 in SHEETS + 8 in TAG_SHEETS). Where this document and the code
 disagree, the code wins.
+
+**v9.1 (October 19, 2026) — ticket_links: 14 → 17 columns.** Appended: `enforce_blocking_rules, sync_status,
+notify_on_update` (COLUMN_DEFAULTS: FALSE for existing rows). Links are created by ticket number; a blocks /
+depends_on link that would close a cycle is refused; delete deactivates.
+companies (unchanged columns) now uses its lock columns: the first ticket sets code_locked = TRUE,
+code_locked_at, code_locked_reason = 'first_ticket_created' and every ticket increments ticket_count; a locked code
+can't change until unlockCompany (reason required, logged). updateCompany writes by header - before v9.1 it wrote
+created_at / updated_at into code_locked / code_locked_at; repairCompanyLocks() (editor, dry run first) fixes those rows.
+comment_requirements (unchanged columns, no id): one row per (ticket_type_id, company_id); a blank company_id is the
+global row; require_on_approve / return / reject / cancel are enforced by the workflow.
+step_slas: workflow steps keep one active SLA (created / updated with the step; removing it writes deleted_*).
+custom_fields: update / delete are header-driven; a field with saved values is hidden (is_hidden = TRUE), not deleted.
 
 **v9.0 (October 19, 2026) — roles: 5 → 12 columns.** Appended after the 5 original columns:
 `role_type_id, is_active, created_by, updated_by, deactivated_at, deactivated_by, deactivation_reason`.

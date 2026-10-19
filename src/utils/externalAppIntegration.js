@@ -1,5 +1,3 @@
-import { WORKFLOW_CONSTANTS } from './workflowEngine';
-
 /**
  * External App Integration - Manual Task-based Workflow Pausing
  * Handles integration points where workflows pause for external system interactions
@@ -514,7 +512,7 @@ export const createSampleExternalAppConfig = () => {
   };
 };
 
-export default {
+const externalAppIntegration = {
   processExternalAppIntegration,
   verifyTaskCompletion,
   createSampleExternalAppConfig,
@@ -522,3 +520,5 @@ export default {
   INTEGRATION_ACTIONS,
   VERIFICATION_METHODS
 };
+
+export default externalAppIntegration;
